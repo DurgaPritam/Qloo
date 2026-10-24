@@ -32,7 +32,8 @@ describe("health", () => {
   afterAll(() => vi.unstubAllEnvs());
 
   it("reports status and limits without secrets", async () => {
-    const h = await getHealth({ TAKEOVER_MOCK: "1", QLOO_API_KEY: SECRET, ANTHROPIC_API_KEY: "sk-ant-not-a-real-key-000000000000" });
+    const ANTHROPIC = "anthropic-test-value-not-a-key";
+    const h = await getHealth({ TAKEOVER_MOCK: "1", QLOO_API_KEY: SECRET, ANTHROPIC_API_KEY: ANTHROPIC });
     expect(h).toMatchObject({
       mock: true,
       qloo: { reachable: null },
@@ -42,7 +43,7 @@ describe("health", () => {
     });
     const json = JSON.stringify(h);
     expect(json).not.toContain(SECRET);
-    expect(json).not.toContain("sk-ant");
+    expect(json).not.toContain(ANTHROPIC);
   });
 
   it("flags an unconfigured Qloo key outside mock mode", async () => {
