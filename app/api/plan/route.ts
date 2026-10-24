@@ -1,5 +1,5 @@
 import { runAgent } from "@/lib/agent/loop";
-import { createPlanner } from "@/lib/agent/planner";
+import { createPlanner, plannerStatus } from "@/lib/agent/planner";
 import type { AgentEvent, Overrides } from "@/lib/agent/types";
 import { getQlooSource } from "@/lib/qloo/source";
 import { savePlan } from "@/lib/server/plan-store";
@@ -37,6 +37,20 @@ export async function POST(req: Request): Promise<Response> {
   if (recording) {
     const stream = sseStream((send) => replay(recording, send, { signal: req.signal }));
     return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": recording.plan.runId } });
+  }
+
+  // In production a missing model key is a configuration error, never a scripted plan.
+  const planner = plannerStatus();
+  if (!planner.ok) {
+    console.error(`[api/plan] not configured: ${planner.reason}`);
+    return Response.json(
+      {
+        error: "Takeover isn't fully configured yet: the planning model is unavailable, so nothing was planned. Try a cached example.",
+        code: "planner_unconfigured",
+        mock,
+      },
+      { status: 503 },
+    );
   }
 
   const runId = crypto.randomUUID();

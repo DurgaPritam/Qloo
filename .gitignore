@@ -47,3 +47,7 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# Personal planning notes: keep local, never commit
+/docs/Takeover build playbook for Claude Code and Claude Design.md
+/docs/playbook.md

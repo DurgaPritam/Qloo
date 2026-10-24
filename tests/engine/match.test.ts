@@ -61,7 +61,7 @@ describe("classifyMatches", () => {
     if (res.kind === "did_you_mean") expect(res.options[0].entity.id).toBe("k");
   });
 
-  it("asks about the playbook's misspellings instead of guessing", () => {
+  it("asks about common misspellings instead of guessing", () => {
     for (const [typed, real] of [["Kevn Hart", "Kevin Hart"], ["Billie Elish", "Billie Eilish"]]) {
       expect(classifyMatches(typed, [entity("e", real, "person")]).kind).toBe("did_you_mean");
     }

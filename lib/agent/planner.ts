@@ -98,6 +98,28 @@ export class ScriptedPlanner implements Planner {
   }
 }
 
+export type PlannerStatus =
+  | { ok: true; kind: "claude" | "scripted" }
+  | { ok: false; kind: "unavailable"; reason: string };
+
+/**
+ * Claude when a key is set. Without one, the scripted planner runs locally and in previews, but
+ * never in production: there a missing key is a configuration error, not a quieter plan.
+ */
+export function plannerStatus(env: Record<string, string | undefined> = process.env): PlannerStatus {
+  if (env.ANTHROPIC_API_KEY) return { ok: true, kind: "claude" };
+  if (env.VERCEL_ENV === "production") {
+    return { ok: false, kind: "unavailable", reason: "ANTHROPIC_API_KEY is not set in production." };
+  }
+  return { ok: true, kind: "scripted" };
+}
+
+export class PlannerConfigError extends Error {
+  readonly name = "PlannerConfigError";
+}
+
 export function createPlanner(env: Record<string, string | undefined> = process.env): Planner {
-  return env.ANTHROPIC_API_KEY ? new ClaudePlanner() : new ScriptedPlanner();
+  const status = plannerStatus(env);
+  if (!status.ok) throw new PlannerConfigError(status.reason);
+  return status.kind === "claude" ? new ClaudePlanner() : new ScriptedPlanner();
 }

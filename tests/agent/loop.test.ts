@@ -193,7 +193,7 @@ describe("ClaudePlanner", () => {
     [{ name: "draft_outreach", input: { partnerSubject: "{fanbase} × {partner}", partnerBody: "Hi {partner}." } }],
   ];
 
-  it("calls the playbook model with tools, auto tool choice and server-side fallbacks", async () => {
+  it("calls claude-sonnet-5-5 with tools, auto tool choice and server-side fallbacks", async () => {
     const { client, create } = fakeClient(SEVEN);
     await run("John Mulaney", { planner: new ClaudePlanner(client) });
 

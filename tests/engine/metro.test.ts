@@ -46,7 +46,7 @@ describe("nearestCities", () => {
 });
 
 describe("FORMAT_BY_CATEGORY", () => {
-  it("maps fanbase types to the playbook formats", () => {
+  it("maps fanbase types to the four formats", () => {
     expect(FORMAT_BY_CATEGORY.artist.format).toBe("tour_stop");
     expect(FORMAT_BY_CATEGORY.person.format).toBe("tour_stop");
     expect(FORMAT_BY_CATEGORY.movie.format).toBe("screening_tour");

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { plannerStatus } from "@/lib/agent/planner";
 import { isMockMode } from "@/lib/mock-mode";
 import { MemoryCache } from "@/lib/qloo/cache";
 import { createQlooClient } from "@/lib/qloo/client";
@@ -14,7 +15,8 @@ export interface Health {
   checkedAt: string;
   qloo: { configured: boolean; reachable: boolean | null; ms: number | null; note: string };
   redis: { configured: boolean; ok: boolean | null; ms: number | null };
-  anthropic: { configured: boolean; planner: "claude" | "scripted" };
+  /** ok is false in production without a key: the scripted planner is never used there. */
+  anthropic: { configured: boolean; ok: boolean; planner: "claude" | "scripted" | "unavailable"; note: string };
   limits: {
     runsPerVisitorPerHour: number;
     replansPerVisitorPerHour: number;
@@ -65,13 +67,17 @@ async function checkRedis(): Promise<Health["redis"]> {
 /** Status only: no keys, tokens, URLs or visitor data. */
 export async function getHealth(env: Record<string, string | undefined> = process.env): Promise<Health> {
   const [qloo, redis, daily] = await Promise.all([checkQloo(env), checkRedis(), getLimiters().daily.peek(DAILY_ID)]);
+  const planner = plannerStatus(env);
+  let plannerNote = "Claude plans each run.";
+  if (!planner.ok) plannerNote = planner.reason;
+  else if (planner.kind === "scripted") plannerNote = "No model key: scripted planner with template wording (not allowed in production).";
   return {
-    ok: qloo.reachable !== false && redis.ok !== false && daily.remaining > 0,
+    ok: qloo.reachable !== false && redis.ok !== false && daily.remaining > 0 && planner.ok,
     mock: isMockMode(env),
     checkedAt: new Date().toISOString(),
     qloo,
     redis,
-    anthropic: { configured: Boolean(env.ANTHROPIC_API_KEY), planner: env.ANTHROPIC_API_KEY ? "claude" : "scripted" },
+    anthropic: { configured: Boolean(env.ANTHROPIC_API_KEY), ok: planner.ok, planner: planner.kind, note: plannerNote },
     limits: {
       runsPerVisitorPerHour: LIMITS.runsPerHour,
       replansPerVisitorPerHour: LIMITS.replansPerHour,

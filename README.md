@@ -4,6 +4,17 @@
 
 A Next.js (App Router) app that combines the Qloo Taste AI API with a Claude-driven agent to build plans, alongside an LLM-only route for comparison.
 
+## Screens
+
+Design screens from the Claude Design hand-off in [`design/`](design/design_handoff_takeover/). They show
+placeholder sample data (names and figures are illustrative), not Qloo results.
+
+| Landing | Run |
+| --- | --- |
+| ![Landing: the one-line pitch, the fanbase input and four one-click examples](design/design_handoff_takeover/screens/landing-default-1280-dark.png) | ![Run: the agent log of seven steps beside the results canvas](design/design_handoff_takeover/screens/run-complete-1280-dark.png) |
+
+![Results: city map with Qloo rank versus population rank, room and sponsors, the printable brief and outreach drafts](design/design_handoff_takeover/screens/results-default-1280-dark.png)
+
 ## Stack
 
 - Next.js (App Router) + TypeScript

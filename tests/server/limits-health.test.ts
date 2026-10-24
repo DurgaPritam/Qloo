@@ -37,7 +37,7 @@ describe("health", () => {
       mock: true,
       qloo: { reachable: null },
       redis: { configured: false },
-      anthropic: { configured: true, planner: "claude" },
+      anthropic: { configured: true, planner: "claude", ok: true },
       limits: { runsPerVisitorPerHour: LIMITS.runsPerHour, dailyRuns: LIMITS.dailyRuns },
     });
     const json = JSON.stringify(h);
