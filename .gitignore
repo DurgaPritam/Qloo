@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# design hand-off archives (the unpacked folder is committed)
+/design/*.zip
+
+# playwright
+/test-results/
+/playwright-report/

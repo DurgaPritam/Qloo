@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Anton&family=Big+Shoulders+Display:wght@900&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#161826;--surf:#232532;--line:#3f424d;--ink:#e9e9ed;--mute:#9397ab;--track:#292b31;--acc:#d4ff3a;--on-acc:#161826;--acc-text:#d4ff3a;--acc-soft:#2c3313;--acc-line:#d4ff3a;--display:'Anton',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--d-tt:uppercase;--d-ls:0.005em;--d-w:400;--d-size:44px}
+html,body{margin:0;background:var(--bg)}
+a{color:var(--acc-text)}a:hover{color:var(--ink)}
+input::placeholder{color:var(--mute);opacity:1}
+</style>
+</helmet>
+<div style="{{ rootStyle }}">
+<div style="min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased">
+<div style="max-width:880px;margin:0 auto;padding:22px;box-sizing:border-box;display:flex;flex-direction:column">
+
+<header style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px;border-bottom:var(--bw,1px) solid var(--line)">
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:22px;line-height:1;text-transform:uppercase;letter-spacing:var(--d-ls)">Takeover</div>
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">Powered by Qloo</div>
+</header>
+
+<section style="display:flex;flex-direction:column;gap:22px;padding:min(14vh,112px) 0 56px">
+<h1 style="margin:0;font-family:var(--display);font-weight:var(--d-w);font-size:var(--d-size);line-height:0.92;text-transform:var(--d-tt);letter-spacing:var(--d-ls);text-wrap:balance;max-width:16ch">Pick a talent. Find the city where their audience overlaps. Get the plan.</h1>
+<form onSubmit="{{ submit }}" style="display:flex;align-items:center;gap:8px;background:var(--surf);border:var(--bw,1px) solid var(--line);border-radius:8px;padding:8px 8px 8px 18px;box-shadow:var(--shadow,none)">
+<input value="{{ query }}" onChange="{{ onInput }}" placeholder="Plan a takeover for…" aria-label="Plan a takeover for" style="flex:1;min-width:0;background:transparent;border:0;outline:none;color:var(--ink);font-family:var(--body);font-size:clamp(15px,4.2cqw,20px);line-height:1.3;padding:12px 0">
+<button type="submit" style="flex:none;background:var(--acc);color:var(--on-acc);border:var(--card-b,0);border-radius:6px;font-family:var(--body);font-weight:500;font-size:14px;padding:14px 20px;cursor:pointer" style-hover="filter:brightness(1.08)">Plan takeover</button>
+</form>
+<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+<sc-for list="{{ examples }}" as="ex" hint-placeholder-count="4">
+<button type="button" onClick="{{ ex.pick }}" style="display:flex;gap:6px;align-items:baseline;background:transparent;border:var(--bw,1px) solid var(--line);border-radius:99px;color:var(--mute);font-family:var(--body);font-size:12px;line-height:1.5;padding:5px 12px;cursor:pointer" style-hover="background:var(--acc-soft);color:var(--ink);border-color:var(--acc-soft)">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase">{{ ex.kind }}</span>
+<span>{{ ex.name }}</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:18px;padding:18px 0 22px;border-top:var(--bw,1px) solid var(--line)">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">How it works</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:8px">
+<sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+<div style="background:var(--surf);border:var(--card-b,0);border-radius:8px;padding:22px;box-shadow:var(--shadow,none);display:flex;flex-direction:column;gap:6px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--acc-text)">Step {{ s.n }}</div>
+<div style="font-size:14px;font-weight:500;color:var(--ink)">{{ s.title }}</div>
+<div style="font-size:12px;color:var(--mute);text-wrap:pretty">{{ s.body }}</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:4px">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal</span>
+<p style="margin:0;font-size:14px;color:var(--ink);text-wrap:pretty">Every pick is backed by Qloo taste data. Nothing Qloo doesn't know is invented.</p>
+</div>
+</section>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+const NEUT = {
+  dark: { bg:'#161826', surf:'#232532', line:'#3f424d', ink:'#e9e9ed', mute:'#9397ab', track:'#292b31' },
+  light:{ bg:'#f3f5fe', surf:'#fbfbff', line:'#cfd3e5', ink:'#161826', mute:'#595d6c', track:'#e4e7f5' }
+};
+const ACC = {
+  '1b': { dark:['#d4ff3a','#161826','#d4ff3a','#2c3313'], light:['#c6f02a','#161826','#4d6300','#eef8c8'],
+          display:"'Anton',sans-serif", body:"'Inter',sans-serif", mono:"'JetBrains Mono',monospace", tt:'uppercase', ls:'0.005em', w:400, size:52 }
+};
+class Component extends DCLogic {
+  state = { query: '' };
+  renderVals() {
+    const mode = this.props.mode ?? 'dark';
+    const set = '1b', a = ACC[set], gz = mode === 'genz';
+    const n = NEUT[mode], [acc, onAcc, accText, accSoft] = a[mode];
+    const vars = { containerType:'inline-size', '--bg':n.bg,'--surf':n.surf,'--line':n.line,'--ink':n.ink,'--mute':n.mute,'--track':n.track,
+      '--acc':acc,'--on-acc':onAcc,'--acc-text':accText,'--acc-line':mode==='light'?'#6b8a00':acc,'--acc-soft':accSoft,
+      '--display':a.display,'--body':a.body,'--mono':a.mono,'--d-tt':a.tt,'--d-ls':a.ls,'--d-w':a.w,'--d-size':`clamp(34px, 7cqw, ${a.size}px)`,
+      '--bw': gz ? '2px' : '1px', '--card-b': gz ? `2px solid ${n.ink}` : '0', '--shadow': gz ? `4px 4px 0 ${n.ink}` : 'none' };
+    const ex = [['Comedian','Ali Wong'],['Music artist','Fred again..'],['Film','Dune: Part Two'],['Sports team','Golden State Warriors']];
+    return {
+      rootStyle: vars,
+      query: this.state.query,
+      onInput: e => this.setState({ query: e.target.value }),
+      submit: e => e.preventDefault(),
+      examples: ex.map(([kind, name]) => ({ kind, name, pick: () => this.setState({ query: name }) })),
+      steps: [
+        { n:'01', title:'Crossover', body:'Find the artists, brands and venues their audience also rates highly.' },
+        { n:'02', title:'City', body:'Rank cities by how strongly that overlap shows up in each one.' },
+        { n:'03', title:'Plan & brief', body:'Get a takeover plan and a partner brief ready to send.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

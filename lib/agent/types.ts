@@ -43,6 +43,8 @@ export interface AgentEvent {
   data?: unknown;
   /** True when the step changed course (widened, asked, swapped city). */
   branch?: boolean;
+  /** On a fallback: one sentence on what happened and what was done instead. */
+  fallback?: string;
   /** The agent's own one-line remark before the call, sanitised. */
   note?: string;
   /** Sample data: the UI must show the banner. */

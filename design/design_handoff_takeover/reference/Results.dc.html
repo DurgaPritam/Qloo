@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Anton&family=Big+Shoulders+Display:wght@900&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#161826;--surf:#232532;--line:#3f424d;--ink:#e9e9ed;--mute:#9397ab;--track:#292b31;--warn:#e8b04a;--acc:#d4ff3a;--on-acc:#161826;--acc-text:#d4ff3a;--acc-soft:#2c3313;--acc-line:#d4ff3a;--display:'Anton',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--d-tt:uppercase;--d-ls:0.005em;--d-w:400}
+html,body{margin:0;background:var(--bg)}
+a{color:var(--acc-text)}a:hover{color:var(--ink)}
+@media print{html,body{background:#fbfbff!important}[data-print-hide]{display:none!important}[data-print-bg]{background:#fbfbff!important;padding:0!important}[data-print-page]{box-shadow:none!important;border:0!important;max-width:none!important;aspect-ratio:auto!important;padding:0!important}}
+</style>
+</helmet>
+<div style="{{ rootStyle }}">
+<div data-print-bg="" style="min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased">
+<div style="max-width:1040px;margin:0 auto;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px">
+
+<header data-print-hide="" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding-bottom:18px;border-bottom:var(--bw,1px) solid var(--line)">
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:22px;line-height:1;text-transform:uppercase;letter-spacing:var(--d-ls)">Takeover</div>
+<div style="font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute)">Ali Wong × Hot Ones · Results</div>
+</header>
+
+<section data-print-hide="" id="map" style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">01 · City</div>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal · urn:entity:locality</span>
+</div>
+<h2 style="margin:0;font-family:var(--display);font-weight:var(--d-w);font-size:clamp(28px,4cqw,40px);line-height:0.92;text-transform:var(--d-tt);letter-spacing:var(--d-ls)">{{ city.name }}</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:18px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="position:relative;aspect-ratio:16/10;background:var(--track);border:var(--card-b,0);border-radius:8px;overflow:hidden">
+<sc-for list="{{ cities }}" as="c">
+<div style="position:absolute;left:{{ c.x }};top:{{ c.y }};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px">
+<div style="width:{{ c.size }};height:{{ c.size }};border-radius:99px;background:{{ c.fill }};box-shadow:{{ c.ring }};transition:background .3s"></div>
+<span style="font-family:var(--mono);font-size:10.5px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums">{{ c.name }} {{ c.score }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute)">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:99px;background:var(--acc-line)"></span>Chosen city</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:99px;background:var(--mute)"></span>Score 75+</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:99px;background:var(--line)"></span>Score 50–74</span>
+</div>
+<p style="margin:0;font-size:12px;color:var(--mute);text-wrap:pretty">Combined score, 0–100: how strongly Ali Wong fans and Hot Ones fans over-index together in a metro compared with the US average. 50 is average. Dot size follows the score.</p>
+</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ cities }}" as="c" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:2em minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+<span style="font-family:var(--mono);font-size:11px;color:var(--mute);font-variant-numeric:tabular-nums">{{ c.rank }}</span>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+<span style="font-weight:500">{{ c.name }}</span>
+<div style="display:flex;align-items:center;gap:8px">
+<div style="flex:1;height:8px;border-radius:99px;background:var(--track);overflow:hidden"><div style="height:100%;border-radius:99px;background:{{ c.bar }};width:{{ c.pct }}"></div></div>
+<span style="font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap">{{ c.score }} / 100</span>
+</div>
+</div>
+<sc-if value="{{ c.chosen }}"><span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--acc-text);padding:0 6px">Chosen</span></sc-if>
+<sc-if value="{{ c.other }}"><button type="button" onClick="{{ c.use }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;font-weight:500;padding:5px 10px;cursor:pointer;white-space:nowrap" style-hover="background:var(--acc);color:var(--on-acc);border-color:var(--acc)">Use this city</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">With Qloo rank vs population rank</div>
+<div style="display:flex;flex-direction:column;font-size:12px;max-width:520px">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 7em 7em;gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute);padding-bottom:6px;border-bottom:1px solid var(--line)"><span>City</span><span style="text-align:right">With Qloo</span><span style="text-align:right">Population</span></div>
+<sc-for list="{{ rankRows }}" as="r" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 7em 7em;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><span>{{ r.name }}</span><span style="text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:{{ r.c }}">#{{ r.qr }}</span><span style="text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--mute)">#{{ r.pr }}</span></div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<sc-if value="{{ replanning }}">
+<div data-print-hide="" style="background:var(--surf);border:1px solid var(--acc-line);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink)">{{ replanText }}</div>
+</sc-if>
+
+<section data-print-hide="" id="room" style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:18px;opacity:{{ dim }};transition:opacity .25s">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">02 · Room &amp; sponsors</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:8px">
+<sc-for list="{{ leads }}" as="e" hint-placeholder-count="2">
+<div style="background:var(--bg);border:var(--bw,1px) solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:6px;min-width:0">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--acc-text)">{{ e.role }}</div>
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:28px;line-height:1;text-transform:var(--d-tt);letter-spacing:var(--d-ls)">{{ e.name }}</div>
+<div style="font-size:12px;color:var(--mute)">{{ e.meta }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:6px">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal</span>
+<sc-for list="{{ e.pills }}" as="p">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;border:1px dashed var(--warn);color:var(--warn);border-radius:12px;padding:2px 8px;line-height:1.4;max-width:100%;box-sizing:border-box;display:inline-block">{{ p }} · to confirm with promoter</span>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:18px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">After-show spots</div>
+<sc-for list="{{ city.spots }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 0;border-bottom:1px solid var(--line)">
+<div style="flex:1;min-width:160px;display:flex;flex-direction:column"><span style="font-weight:500">{{ s.name }}</span><span style="font-size:12px;color:var(--mute)">{{ s.meta }}</span></div>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">Sponsors</div>
+<sc-for list="{{ sponsors }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 0;border-bottom:1px solid var(--line)">
+<div style="flex:1;min-width:160px;display:flex;flex-direction:column"><span style="font-weight:500">{{ s.name }}</span><span style="font-size:12px;color:var(--mute)">{{ s.meta }}</span></div>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal</span>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section id="brief" style="display:flex;flex-direction:column;gap:12px;opacity:{{ dim }};transition:opacity .25s">
+<div data-print-hide="" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute);margin-right:auto">03 · The brief</div>
+<div style="display:flex;gap:2px;background:var(--track);border:var(--card-b,0);border-radius:8px;padding:3px">
+<sc-for list="{{ papers }}" as="p" hint-placeholder-count="2">
+<button type="button" onClick="{{ p.pick }}" style="border:0;border-radius:6px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;padding:6px 10px;cursor:pointer;background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{ print }}" style="background:var(--acc);color:var(--on-acc);border:var(--card-b,0);border-radius:6px;font-family:var(--body);font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer">Download PDF</button>
+<button type="button" onClick="{{ copyBrief }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;padding:6px 12px;cursor:pointer" style-hover="background:var(--acc-soft)">{{ copyBriefLabel }}</button>
+<button type="button" onClick="{{ copyLink }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;padding:6px 12px;cursor:pointer" style-hover="background:var(--acc-soft)">{{ copyLinkLabel }}</button>
+</div>
+<div data-print-page="" style="align-self:center;width:100%;max-width:680px;aspect-ratio:{{ paperRatio }};box-sizing:border-box;background:#fbfbff;color:#161826;border:var(--card-b,0);box-shadow:var(--shadow,0 1px 0 #3f424d);border-radius:4px;padding:clamp(22px,6%,48px);display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#595d6c"><span>Takeover brief</span><span>24 Oct 2026</span></div>
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:clamp(22px,4cqw,34px);line-height:0.95;text-transform:var(--d-tt);letter-spacing:var(--d-ls);text-wrap:balance">Ali Wong × Hot Ones, {{ city.name }}</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ briefRows }}" as="b" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:minmax(0,6.5em) minmax(0,1fr);gap:4px 14px;padding:10px 0;border-top:1px solid #cfd3e5">
+<span style="font-family:var(--mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#595d6c;padding-top:2px">{{ b.k }}</span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<span style="font-size:13px;font-weight:500">{{ b.v }}</span>
+<span style="font-size:11.5px;color:#3f424d;text-wrap:pretty">{{ b.why }}</span>
+<span style="font-family:var(--mono);font-size:10px;color:#595d6c;overflow-wrap:anywhere">◆ {{ b.src }}</span>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="margin-top:auto;padding-top:10px;border-top:1px solid #cfd3e5;font-size:10.5px;color:#595d6c">Capacity, dates and price to confirm with promoter. Every pick is backed by Qloo taste data.</div>
+</div>
+</section>
+
+<section data-print-hide="" id="outreach" style="display:flex;flex-direction:column;gap:12px;opacity:{{ dim }};transition:opacity .25s">
+<div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">04 · Outreach</div>
+<div style="font-size:12px;color:var(--mute)">Drafts only. Takeover never sends email.</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:8px;align-items:start">
+<sc-for list="{{ emails }}" as="m" hint-placeholder-count="2">
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0">
+<div style="display:flex;flex-direction:column;font-family:var(--mono);font-size:11px">
+<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--mute);width:5em;flex:none">To</span><span>{{ m.to }}</span></div>
+<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--mute);width:5em;flex:none">Subject</span><span>{{ m.subject }}</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;font-size:14px;text-wrap:pretty">
+<sc-for list="{{ m.body }}" as="para"><p style="margin:0">{{ para }}</p></sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px">
+<button type="button" onClick="{{ m.copy }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;padding:6px 12px;cursor:pointer" style-hover="background:var(--acc-soft)">{{ m.copyLabel }}</button>
+<a href="{{ m.mailto }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;padding:6px 12px;text-decoration:none" style-hover="background:var(--acc-soft)">Open in mail</a>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+const NEUT = {
+  dark: { bg:'#161826', surf:'#232532', line:'#3f424d', ink:'#e9e9ed', mute:'#9397ab', track:'#292b31', warn:'#e8b04a' },
+  light:{ bg:'#f3f5fe', surf:'#fbfbff', line:'#cfd3e5', ink:'#161826', mute:'#595d6c', track:'#e4e7f5', warn:'#9a6500' }
+};
+const ACC = {
+  '1b': { dark:['#d4ff3a','#161826','#d4ff3a','#2c3313'], light:['#c6f02a','#161826','#4d6300','#eef8c8'],
+          display:"'Anton',sans-serif", body:"'Inter',sans-serif", mono:"'JetBrains Mono',monospace", tt:'uppercase', ls:'0.005em', w:400, size:52 }
+};
+const CITIES = [
+  { name:'Los Angeles', x:14, y:58, score:91, qr:1, pr:2, venue:'The Wiltern', venueMeta:'Theater · Koreatown', opener:'Dana Kim', openerMeta:'Stand-up · hosts a weekly LA showcase',
+    spots:[['Late Seoul','Korean bar · open late · Koreatown'],['Normandie Room','Cocktail bar · 4 min walk'],['Sixth St. Noodle','Noodle bar · late kitchen']] },
+  { name:'Chicago', x:62, y:30, score:79, qr:2, pr:3, venue:'Chicago Theatre', venueMeta:'Theater · The Loop', opener:'Marcus Bell', openerMeta:'Stand-up · Chicago club regular',
+    spots:[['State St. Supper Club','Late dining · The Loop'],['Wacker Room','Cocktail bar · 6 min walk'],['Night Owl Dumplings','Dumplings · late kitchen']] },
+  { name:'New York', x:86, y:16, score:77, qr:3, pr:1, venue:'Beacon Theatre', venueMeta:'Theater · Upper West Side', opener:'Priya Raman', openerMeta:'Stand-up · NYC club regular',
+    spots:[['Broadway Late','Bar · Upper West Side'],['74th St. Kitchen','Late dining · 3 min walk'],['Riverside Ramen','Ramen · late kitchen']] },
+  { name:'Austin', x:47, y:76, score:72, qr:4, pr:26, venue:'ACL Live at the Moody Theater', venueMeta:'Music venue · Downtown', opener:'Jo Alvarez', openerMeta:'Stand-up · Austin showcase host',
+    spots:[['Second St. Social','Bar · Downtown'],['Lamar Late','Taqueria · open late'],['Congress Room','Cocktail bar · 5 min walk']] },
+  { name:'Seattle', x:12, y:16, score:64, qr:5, pr:15, venue:'Paramount Theatre', venueMeta:'Theater · Downtown', opener:'Ken Nakamura', openerMeta:'Stand-up · Seattle club regular',
+    spots:[['Pine St. Pho','Vietnamese · late kitchen'],['Ninth Ave. Bar','Bar · 4 min walk'],['Capitol Room','Cocktail bar · Capitol Hill']] }
+].map(c => ({ ...c, spots: c.spots.map(([name, meta]) => ({ name, meta })) }));
+const SPONSORS = [
+  { name:'Liquid Death', meta:'Beverage · over-indexes 2.1× with the combined audience' },
+  { name:'Uber Eats', meta:'Delivery · over-indexes 1.8× with the combined audience' },
+  { name:'Glossier', meta:'Beauty · over-indexes 1.6× with the combined audience' }
+];
+class Component extends DCLogic {
+  state = { city: 0, replanning: null, paper: 'letter', copied: null };
+  componentWillUnmount() { clearTimeout(this.rt); clearTimeout(this.ct); }
+  useCity(i) { clearTimeout(this.rt); this.setState({ replanning: i }); this.rt = setTimeout(() => this.setState({ city: i, replanning: null }), 1400); }
+  copy(key, text) {
+    try { navigator.clipboard && navigator.clipboard.writeText(text).catch(() => {}); } catch (e) {}
+    this.setState({ copied: key }); clearTimeout(this.ct); this.ct = setTimeout(() => this.setState({ copied: null }), 1500);
+  }
+  renderVals() {
+    const mode = this.props.mode ?? 'dark', set = '1b';
+    const a = ACC[set], n = NEUT[mode], gz = mode === 'genz', [acc, onAcc, accText, accSoft] = a[mode];
+    const rootStyle = { containerType:'inline-size', '--bg':n.bg,'--surf':n.surf,'--line':n.line,'--ink':n.ink,'--mute':n.mute,'--track':n.track,'--warn':n.warn,
+      '--acc':acc,'--on-acc':onAcc,'--acc-text':accText,'--acc-line':mode==='light'?'#6b8a00':acc,'--acc-soft':accSoft,'--display':a.display,'--body':a.body,'--mono':a.mono,
+      '--d-tt':a.tt,'--d-ls':a.ls,'--d-w':a.w,'--bw':gz?'2px':'1px','--card-b':gz?`2px solid ${n.ink}`:'0','--shadow':gz?`4px 4px 0 ${n.ink}`:'none' };
+    const { city: ci, replanning, paper, copied } = this.state, c = CITIES[ci];
+    const cities = CITIES.map((x, i) => ({
+      name:x.name, score:x.score, rank:String(i + 1).padStart(2, '0'), x:(12 + x.x * 0.76) + '%', y:x.y + '%', pct:x.score + '%',
+      size: Math.round(10 + (x.score - 50) * 0.55) + 'px', chosen: i === ci, other: i !== ci,
+      fill: i === ci ? 'var(--acc-line)' : x.score >= 75 ? 'var(--mute)' : 'var(--line)', bar: i === ci ? 'var(--acc-line)' : 'var(--mute)',
+      ring: i === ci ? '0 0 0 4px var(--acc-soft)' : 'none', use: () => this.useCity(i)
+    }));
+    const rankRows = CITIES.map(x => ({ name:x.name, qr:x.qr, pr:x.pr, c: x.qr === 1 ? 'var(--acc-text)' : 'var(--ink)' }));
+    const whyCity = ci === 0 ? `Combined score ${c.score} / 100, the highest of the five metros checked.` : `Chosen by you. Combined score ${c.score} / 100, rank ${c.qr} of 5.`;
+    const briefRows = [
+      { k:'City', v:c.name, why:whyCity, src:'Qloo /v2/insights · filter.type=urn:entity:locality' },
+      { k:'Partner', v:'Hot Ones', why:'38% audience overlap with Ali Wong fans, affinity 82 / 100.', src:'Qloo /v2/insights · filter.type=urn:entity:tv_show' },
+      { k:'Format', v:'Tour stop · live Hot Ones taping before the set', why:'Fans over-index 2.4× on live comedy over watch parties.', src:'Qloo /v2/insights · filter.type=urn:tag' },
+      { k:'Venue', v:c.venue, why:`Highest venue affinity in ${c.name} for the combined audience. Capacity, dates and price to confirm with promoter.`, src:'Qloo /v2/insights · filter.type=urn:entity:place' },
+      { k:'Sponsors', v:SPONSORS.map(s => s.name).join(', '), why:'Top three brand affinities for the combined audience.', src:'Qloo /v2/insights · filter.type=urn:entity:brand' }
+    ];
+    const briefText = `Takeover brief · Ali Wong × Hot Ones, ${c.name}\n\n` + briefRows.map(b => `${b.k}: ${b.v}\n${b.why}\nSource: ${b.src}`).join('\n\n');
+    const emails = [
+      { key:'partner', to:'Hot Ones partnerships team', subject:`Ali Wong × Hot Ones · live taping, ${c.name}`,
+        body:[ 'Hi team, 38% of Ali Wong\u2019s audience also follows Hot Ones, the highest overlap we found for her.',
+               `We\u2019d like to open an Ali Wong night at ${c.venue} in ${c.name} with a live Hot Ones taping. Dates are still open.`,
+               'Could we get 20 minutes next week to walk through the brief?' ] },
+      { key:'venue', to:`${c.venue} booking team`, subject:`Hold request · Ali Wong with Hot Ones, ${c.name}`,
+        body:[ `Hi, we\u2019re planning a one-night Ali Wong show with a live Hot Ones taping and would like ${c.venue} to host it.`,
+               'Could you share open dates over the next six months, seated capacity for a taping setup, and rental terms?',
+               'Happy to send the full brief.' ] }
+    ].map(m => {
+      const text = `To: ${m.to}\nSubject: ${m.subject}\n\n${m.body.join('\n\n')}`;
+      return { ...m, copyLabel: copied === m.key ? 'Copied' : 'Copy', copy: () => this.copy(m.key, text),
+        mailto: `mailto:?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(m.body.join('\n\n'))}` };
+    });
+    return {
+      rootStyle, city: c, cities, rankRows, sponsors: SPONSORS, briefRows, emails,
+      leads: [
+        { role:'Venue', name:c.venue, meta:`${c.name} · ${c.venueMeta}`, pills:['Capacity','Dates','Price'] },
+        { role:'Local opener', name:c.opener, meta:c.openerMeta, pills:['Dates'] }
+      ],
+      replanning: replanning !== null, replanText: replanning !== null ? `Replanning room, brief and outreach for ${CITIES[replanning].name}…` : '',
+      dim: replanning !== null ? 0.45 : 1,
+      papers: [['letter','Letter'],['a4','A4']].map(([k, label]) => ({ label, pick: () => this.setState({ paper: k }),
+        bg: paper === k ? 'var(--surf)' : 'transparent', fg: paper === k ? 'var(--ink)' : 'var(--mute)' })),
+      paperRatio: paper === 'a4' ? '210 / 297' : '8.5 / 11',
+      print: () => window.print(),
+      copyBrief: () => this.copy('brief', briefText), copyBriefLabel: copied === 'brief' ? 'Copied' : 'Copy as text',
+      copyLink: () => this.copy('link', location.href.split('#')[0] + '#brief'), copyLinkLabel: copied === 'link' ? 'Copied' : 'Copy link'
+    };
+  }
+}
+</script>
+</body>
+</html>

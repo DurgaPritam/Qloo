@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Anton&family=Big+Shoulders+Display:wght@900&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#161826;--surf:#232532;--line:#3f424d;--ink:#e9e9ed;--mute:#9397ab;--track:#292b31;--warn:#e8b04a;--err:#f2706a;--acc:#d4ff3a;--on-acc:#161826;--acc-text:#d4ff3a;--acc-soft:#2c3313;--acc-line:#d4ff3a;--display:'Anton',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--d-tt:uppercase;--d-ls:0.005em;--d-w:400}
+html,body{margin:0;background:var(--bg)}
+a{color:var(--acc-text)}a:hover{color:var(--ink)}
+@keyframes tk-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+@keyframes tk-skel{0%,100%{opacity:1}50%{opacity:.45}}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="{{ rootStyle }}">
+<div style="min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased">
+<div style="max-width:1280px;margin:0 auto;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+
+<header style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding-bottom:18px;border-bottom:var(--bw,1px) solid var(--line)">
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:22px;line-height:1;text-transform:uppercase;letter-spacing:var(--d-ls)">Takeover</div>
+<div style="font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute)">Run · Ali Wong</div>
+<div style="flex:1"></div>
+<div style="font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute);font-variant-numeric:tabular-nums">{{ statusText }}</div>
+<button type="button" onClick="{{ replay }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;padding:6px 12px;cursor:pointer" style-hover="background:var(--acc-soft)">Replay</button>
+</header>
+
+<sc-if value="{{ narrow }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:baseline;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--acc-text);font-variant-numeric:tabular-nums">{{ progressCount }}</div>
+<div style="flex:1;min-width:0;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ currentTitle }}</div>
+<button type="button" onClick="{{ toggleLog }}" style="background:transparent;border:0;color:var(--mute);font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;padding:4px 0">{{ logToggleLabel }}</button>
+</div>
+<div style="height:8px;border-radius:99px;background:var(--track);overflow:hidden">
+<div style="height:100%;border-radius:99px;background:var(--acc-line);transition:width .4s ease;width:{{ progressPct }}"></div>
+</div>
+</div>
+</sc-if>
+
+<div style="display:grid;grid-template-columns:{{ cols }};gap:22px;align-items:start">
+
+<sc-if value="{{ showLogList }}" hint-placeholder-val="{{ true }}">
+<section style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute);padding-bottom:4px">
+<span>Agent log</span><span style="font-variant-numeric:tabular-nums">{{ progressCount }}</span>
+</div>
+<sc-for list="{{ steps }}" as="s" hint-placeholder-count="7">
+<div style="background:var(--surf);border:var(--bw,1px) solid {{ s.bc }};border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;opacity:{{ s.op }};box-shadow:var(--shadow,none);transition:opacity .3s,border-color .3s">
+<div style="display:flex;align-items:center;gap:10px">
+{{ s.indicator }}
+<span style="font-family:var(--mono);font-size:10.5px;color:var(--mute);font-variant-numeric:tabular-nums">{{ s.n }}</span>
+<span style="flex:1;min-width:0;font-size:14px;font-weight:500">{{ s.title }}</span>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:{{ s.lc }};font-variant-numeric:tabular-nums;white-space:nowrap">{{ s.label }}</span>
+</div>
+<sc-if value="{{ s.isRunning }}">
+<div style="font-family:var(--mono);font-size:11px;color:var(--mute)">{{ s.liveText }}</div>
+</sc-if>
+<sc-if value="{{ s.showBranch }}">
+<div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;background:var(--acc-soft);border-radius:6px;padding:8px 10px">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--acc-text)">↳ Branch</span>
+<span style="font-size:12px;color:var(--ink)">{{ s.branch }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ s.isFallback }}">
+<div style="display:flex;flex-direction:column;gap:4px;border:1px dashed var(--warn);border-radius:6px;padding:8px 10px">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--warn)">Fallback used</span>
+<span style="font-size:12px;color:var(--ink);text-wrap:pretty">{{ s.fallbackText }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ s.isError }}">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px">
+<span style="flex:1;min-width:160px;font-size:12px;color:var(--ink)">{{ s.errorText }}</span>
+<button type="button" onClick="{{ retry }}" style="background:var(--acc);color:var(--on-acc);border:var(--card-b,0);border-radius:6px;font-family:var(--body);font-size:12px;font-weight:500;padding:6px 12px;cursor:pointer">Retry step</button>
+</div>
+</sc-if>
+<sc-if value="{{ s.isComplete }}">
+<div style="font-size:14px;color:var(--ink);text-wrap:pretty">{{ s.decision }}</div>
+<button type="button" onClick="{{ s.toggle }}" style="display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:0;border-top:1px solid var(--line);padding:8px 0 0;cursor:pointer;color:var(--mute);text-align:left">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--acc-text);white-space:nowrap">◆ Qloo call</span>
+<span style="flex:1;min-width:0;font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.endpoint }}</span>
+<span style="font-family:var(--mono);font-size:12px">{{ s.chev }}</span>
+</button>
+<sc-if value="{{ s.open }}">
+<div style="background:var(--bg);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:11px;line-height:1.5">
+<sc-for list="{{ s.params }}" as="p">
+<div style="display:grid;grid-template-columns:minmax(0,11em) minmax(0,1fr);gap:10px">
+<span style="color:var(--mute);overflow-wrap:anywhere">{{ p.k }}</span>
+<span style="color:var(--ink);overflow-wrap:anywhere">{{ p.v }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-if>
+</div>
+</sc-for>
+</section>
+</sc-if>
+
+<section style="display:flex;flex-direction:column;gap:18px;min-width:0">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">Results</div>
+<h1 style="margin:0;font-family:var(--display);font-weight:var(--d-w);font-size:clamp(30px,4.5cqw,44px);line-height:0.92;text-transform:var(--d-tt);letter-spacing:var(--d-ls);text-wrap:balance">Ali Wong takeover</h1>
+<div style="display:flex;flex-wrap:wrap;gap:8px;min-height:22px;align-items:center">
+<sc-if value="{{ r.fanbase }}"><span style="font-size:12px;border:var(--bw,1px) solid var(--line);border-radius:99px;padding:2px 10px;color:var(--mute)">Fans 25–34 · stand-up + food media</span></sc-if>
+<sc-if value="{{ r.format }}"><span style="font-size:12px;border:var(--bw,1px) solid var(--line);border-radius:99px;padding:2px 10px;color:var(--mute)">Format · live taping</span></sc-if>
+<sc-if value="{{ r.headWait }}">{{ sk.chip }}</sc-if>
+</div>
+</div>
+
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">01 · Crossover partner</div>
+<sc-if value="{{ r.crossoverWait }}"><div style="display:flex;flex-direction:column;gap:10px">{{ sk.title }}{{ sk.line }}{{ sk.bar }}</div></sc-if>
+<sc-if value="{{ r.crossover }}">
+<sc-if value="{{ r.showFallbackBanner }}">
+<div style="background:var(--surf);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink)">Widened search: no music partner cleared 0.70 affinity. Showing TV and podcast partners at 0.60.</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:28px;line-height:1;text-transform:var(--d-tt);letter-spacing:var(--d-ls)">Hot Ones</div>
+<div style="font-size:12px;color:var(--mute)">YouTube series · Los Angeles · 38% audience overlap</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:4px">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal</span>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;border:1px dashed var(--warn);color:var(--warn);border-radius:99px;padding:1px 8px">To confirm · availability</span>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:12px">
+<div style="flex:1;height:8px;border-radius:99px;background:var(--track);overflow:hidden"><div style="width:82%;height:100%;border-radius:99px;background:var(--acc-line)"></div></div>
+<span style="font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums">82 / 100</span>
+</div>
+<div style="display:flex;flex-direction:column;font-size:12px">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 5em;gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute);padding-bottom:6px;border-bottom:1px solid var(--line)"><span>Partner</span><span>Type</span><span style="text-align:right">Affinity</span></div>
+<sc-for list="{{ partners }}" as="p">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 5em;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><span>{{ p.name }}</span><span style="color:var(--mute)">{{ p.type }}</span><span style="text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:{{ p.c }}">{{ p.score }}</span></div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">02 · City</div>
+<sc-if value="{{ r.mapWait }}">{{ sk.map }}</sc-if>
+<sc-if value="{{ r.map }}">
+<div style="position:relative;aspect-ratio:16/9;background:var(--track);border-radius:8px;overflow:hidden">
+<sc-for list="{{ cities }}" as="c">
+<div style="position:absolute;left:{{ c.x }};top:{{ c.y }};transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px">
+<div style="width:{{ c.size }};height:{{ c.size }};border-radius:99px;background:{{ c.fill }}"></div>
+<span style="font-family:var(--mono);font-size:10.5px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums">{{ c.name }} {{ c.score }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute)">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:99px;background:var(--acc-line)"></span>Affinity 90+</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:99px;background:var(--mute)"></span>70–89</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:99px;background:var(--line)"></span>Below 70</span>
+</div>
+<div style="font-size:14px">Los Angeles, 91 / 100. Twelve points above Chicago.</div>
+</sc-if>
+</div>
+
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">03 · Room &amp; sponsors</div>
+<sc-if value="{{ r.roomError }}">
+<div style="background:var(--surf);border:1px solid var(--err);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink)">Venue search timed out. Retry the step from the log to continue.</div>
+</sc-if>
+<sc-if value="{{ r.roomWait }}"><div style="display:flex;flex-direction:column;gap:10px">{{ sk.title }}{{ sk.line }}{{ sk.block }}</div></sc-if>
+<sc-if value="{{ r.room }}">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:18px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:28px;line-height:1;text-transform:var(--d-tt);letter-spacing:var(--d-ls)">The Wiltern</div>
+<div style="font-size:12px;color:var(--mute)">Los Angeles · Theater · Koreatown</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:4px">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;background:var(--acc-soft);color:var(--acc-text);border-radius:4px;padding:2px 6px">◆ Qloo signal</span>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;border:1px dashed var(--warn);color:var(--warn);border-radius:12px;padding:2px 8px;line-height:1.4;max-width:100%;box-sizing:border-box;display:inline-block">Capacity · to confirm with promoter</span>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;border:1px dashed var(--warn);color:var(--warn);border-radius:12px;padding:2px 8px;line-height:1.4;max-width:100%;box-sizing:border-box;display:inline-block">Dates · to confirm with promoter</span>
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;border:1px dashed var(--warn);color:var(--warn);border-radius:12px;padding:2px 8px;line-height:1.4;max-width:100%;box-sizing:border-box;display:inline-block">Price · to confirm with promoter</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;font-size:12px">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 5em;gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute);padding-bottom:6px;border-bottom:1px solid var(--line)"><span>Sponsor</span><span>Category</span><span style="text-align:right">Affinity</span></div>
+<sc-for list="{{ sponsors }}" as="p">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 5em;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><span>{{ p.name }}</span><span style="color:var(--mute)">{{ p.type }}</span><span style="text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;color:{{ p.c }}">{{ p.score }}</span></div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">04 · Brief</div>
+<sc-if value="{{ r.briefWait }}"><div style="display:flex;flex-direction:column;gap:10px">{{ sk.title }}{{ sk.line }}{{ sk.line }}{{ sk.lineShort }}</div></sc-if>
+<sc-if value="{{ r.brief }}">
+<div style="font-family:var(--display);font-weight:var(--d-w);font-size:24px;line-height:1;text-transform:var(--d-tt);letter-spacing:var(--d-ls);text-wrap:balance">Ali Wong × Hot Ones: Late Set at The Wiltern</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ brief }}" as="b">
+<div style="display:grid;grid-template-columns:minmax(0,7em) minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--line)">
+<span style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--mute);padding-top:2px">{{ b.k }}</span>
+<span style="text-wrap:pretty">{{ b.v }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<div style="background:var(--surf);border:var(--card-b,0);box-shadow:var(--shadow,none);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mute)">05 · Outreach</div>
+<sc-if value="{{ r.outreach }}"><button type="button" onClick="{{ copy }}" style="background:transparent;color:var(--ink);border:var(--bw,1px) solid var(--line);border-radius:6px;font-family:var(--body);font-size:12px;padding:5px 12px;cursor:pointer" style-hover="background:var(--acc-soft)">{{ copyLabel }}</button></sc-if>
+</div>
+<sc-if value="{{ r.outreachWait }}"><div style="display:flex;flex-direction:column;gap:10px">{{ sk.lineShort }}{{ sk.lineShort }}{{ sk.block }}</div></sc-if>
+<sc-if value="{{ r.outreach }}">
+<div style="display:flex;flex-direction:column;font-family:var(--mono);font-size:11px">
+<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--mute);width:5em;flex:none">To</span><span>Hot Ones partnerships team</span></div>
+<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span style="color:var(--mute);width:5em;flex:none">Subject</span><span>{{ email.subject }}</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;font-size:14px;text-wrap:pretty">
+<sc-for list="{{ email.body }}" as="para"><p style="margin:0">{{ para }}</p></sc-for>
+</div>
+</sc-if>
+</div>
+</section>
+
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;scenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;fallback&quot;,&quot;clean&quot;,&quot;error&quot;],&quot;default&quot;:&quot;fallback&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Run&quot;},&quot;speed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0.5,&quot;max&quot;:4,&quot;step&quot;:0.5,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Run&quot;}}">
+const NEUT = {
+  dark: { bg:'#161826', surf:'#232532', line:'#3f424d', ink:'#e9e9ed', mute:'#9397ab', track:'#292b31', warn:'#e8b04a', err:'#f2706a' },
+  light:{ bg:'#f3f5fe', surf:'#fbfbff', line:'#cfd3e5', ink:'#161826', mute:'#595d6c', track:'#e4e7f5', warn:'#9a6500', err:'#b3261e' }
+};
+const ACC = {
+  '1b': { dark:['#d4ff3a','#161826','#d4ff3a','#2c3313'], light:['#c6f02a','#161826','#4d6300','#eef8c8'],
+          display:"'Anton',sans-serif", body:"'Inter',sans-serif", mono:"'JetBrains Mono',monospace", tt:'uppercase', ls:'0.005em', w:400, size:52 }
+};
+const STEPS = [
+  { title:'Identify fanbase', dur:1400, live:'Querying audience demographics…', endpoint:'GET /v2/insights',
+    params:[['filter.type','urn:demographics'],['signal.interests.entities','ALI_WONG · e7c1…4f2a']],
+    decision:'Core fans are 25–34 and over-index on stand-up specials and food media.' },
+  { title:'Choose format', dur:1200, live:'Scoring live, stream and pop-up formats…', endpoint:'GET /v2/insights',
+    params:[['filter.type','urn:tag'],['filter.tag.types','urn:tag:genre:media'],['signal.interests.entities','ALI_WONG']],
+    decision:'Picked a live taping because fans over-index 2.4× on live comedy versus watch parties.' },
+  { title:'Find crossover partners', dur:2800, branchAt:1200, live:'Searching music brands at affinity ≥ 0.70…', live2:'Retrying with TV and podcasts at ≥ 0.60…',
+    endpoint:'GET /v2/insights',
+    params:[['filter.type','urn:entity:tv_show, urn:entity:podcast'],['signal.interests.entities','ALI_WONG'],['filter.affinity.min','0.60  (was 0.70)'],['take','10']],
+    cleanParams:[['filter.type','urn:entity:tv_show, urn:entity:podcast'],['signal.interests.entities','ALI_WONG'],['filter.affinity.min','0.70'],['take','10']],
+    branch:'No partner above the threshold, widening the search',
+    fallback:'No music partner cleared the 0.70 affinity threshold, so the agent widened to TV shows and podcasts at 0.60.',
+    decision:'Picked Hot Ones because its 82 / 100 affinity is 18 points above the next option.' },
+  { title:'Pick the city', dur:1400, live:'Ranking metros by audience affinity…', endpoint:'GET /v2/insights',
+    params:[['filter.type','urn:entity:locality'],['signal.interests.entities','ALI_WONG, HOT_ONES'],['filter.location.country','US']],
+    decision:'Picked Los Angeles because its affinity is 91, twelve points above Chicago.' },
+  { title:'Pick room & sponsors', dur:1600, live:'Searching venues and brands in Los Angeles…', endpoint:'GET /v2/insights',
+    params:[['filter.type','urn:entity:place, urn:entity:brand'],['filter.location.query','Los Angeles'],['filter.tags','urn:tag:category:theater'],['signal.interests.entities','ALI_WONG, HOT_ONES']],
+    error:'Venue search timed out after 3 retries. Nothing was picked.',
+    decision:'Picked The Wiltern because it has the highest venue affinity in LA for the combined audience.' },
+  { title:'Write the brief', dur:1800, live:'Comparing shared taste signals…', endpoint:'GET /v2/insights/compare',
+    params:[['a.signal.interests.entities','ALI_WONG'],['b.signal.interests.entities','HOT_ONES'],['filter.type','urn:tag']],
+    decision:'Led with the food-and-comedy angle, the strongest shared tag.' },
+  { title:'Draft outreach', dur:1400, live:'Drafting partner email…', endpoint:'GET /v2/insights',
+    params:[['filter.type','urn:tag'],['signal.interests.entities','HOT_ONES'],['take','5']],
+    decision:'Addressed partnerships with the 38% overlap stat in the first line.' }
+];
+const START = []; let acc0 = 0; STEPS.forEach((s, i) => { START[i] = acc0; acc0 += s.dur; });
+const TOTAL = acc0, END = STEPS.map((s, i) => START[i] + s.dur);
+const EMAIL = {
+  subject:'Ali Wong × Hot Ones · live taping, Los Angeles',
+  body:[
+    'Hi team, 38% of Ali Wong\u2019s audience also follows Hot Ones, the highest overlap we found for her.',
+    'We\u2019re proposing a live Hot Ones taping as the opening set of an Ali Wong night at The Wiltern, with a food partner on site. Dates are still open.',
+    'Could we get 20 minutes next week to walk through the brief?'
+  ]
+};
+class Component extends DCLogic {
+  state = { t: 0, errored: false, retried: false, open: {}, narrow: false, showLog: false, copied: false };
+  rootRef = React.createRef();
+  ensureClock() {
+    if (window.__tkRunTimer) clearInterval(window.__tkRunTimer);
+    window.__tkRunOwner = this;
+    window.__tkRunTimer = this.timer = setInterval(() => { const o = window.__tkRunOwner; o && o.tick(); }, 100);
+  }
+  componentDidMount() {
+    this.ensureClock();
+    if (this.rootRef.current && window.ResizeObserver && !this.ro) {
+      this.ro = new ResizeObserver(([e]) => { const n = e.contentRect.width < 760; if (n !== this.state.narrow) this.setState({ narrow: n }); });
+      this.ro.observe(this.rootRef.current);
+    }
+  }
+  componentWillUnmount() { if (window.__tkRunOwner === this) { clearInterval(window.__tkRunTimer); window.__tkRunOwner = null; window.__tkRunTimer = null; } this.ro && this.ro.disconnect(); }
+  tick() {
+    const s = this.state;
+    if (s.t >= TOTAL || s.errored) return;
+    let t = s.t + 100 * (this.props.speed ?? 1);
+    if ((this.props.scenario ?? 'fallback') === 'error' && !s.retried && t >= END[4]) { this.setState({ t: END[4], errored: true }); return; }
+    this.setState({ t: Math.min(t, TOTAL) });
+  }
+  status(i) {
+    const { t, errored } = this.state;
+    if (errored && i === 4) return 'error';
+    if (errored && i > 4) return 'waiting';
+    if (t < START[i]) return 'waiting';
+    if (t < END[i]) return 'running';
+    return STEPS[i].fallback && (this.props.scenario ?? 'fallback') !== 'clean' ? 'fallback' : 'done';
+  }
+  renderVals() {
+    if (window.__tkRunOwner !== this || !window.__tkRunTimer) setTimeout(() => this.ensureClock(), 0);
+    const mode = this.props.mode ?? 'dark', set = '1b', scenario = this.props.scenario ?? 'fallback';
+    const a = ACC[set], n = NEUT[mode], gz = mode === 'genz', [acc, onAcc, accText, accSoft] = a[mode];
+    const rootStyle = { containerType:'inline-size', '--bg':n.bg,'--surf':n.surf,'--line':n.line,'--ink':n.ink,'--mute':n.mute,'--track':n.track,'--warn':n.warn,'--err':n.err,
+      '--acc':acc,'--on-acc':onAcc,'--acc-text':accText,'--acc-line':mode==='light'?'#6b8a00':acc,'--acc-soft':accSoft,'--display':a.display,'--body':a.body,'--mono':a.mono,
+      '--d-tt':a.tt,'--d-ls':a.ls,'--d-w':a.w,'--bw':gz?'2px':'1px','--card-b':gz?`2px solid ${n.ink}`:'0','--shadow':gz?`4px 4px 0 ${n.ink}`:'none' };
+    const { t, open, narrow, showLog, errored } = this.state;
+    const dot = (bg, ring, anim) => React.createElement('span', { style: { flex:'none', width:10, height:10, borderRadius:99, boxSizing:'border-box',
+      background: bg, border: ring ? `1.5px solid ${ring}` : 'none', animation: anim ? 'tk-pulse 1s ease-in-out infinite' : 'none' } });
+    const IND = { waiting: dot('transparent','var(--line)'), running: dot('var(--acc-line)', null, true), done: dot('var(--acc-line)'), fallback: dot('var(--warn)'), error: dot('var(--err)') };
+    const BC = { waiting:'var(--line)', running:'var(--acc-line)', done:'var(--line)', fallback:'var(--warn)', error:'var(--err)' };
+    const LC = { waiting:'var(--mute)', running:'var(--acc-text)', done:'var(--acc-text)', fallback:'var(--warn)', error:'var(--err)' };
+    const stats = STEPS.map((_, i) => this.status(i));
+    const complete = i => stats[i] === 'done' || stats[i] === 'fallback';
+    const steps = STEPS.map((s, i) => {
+      const st = stats[i], into = t - START[i], secs = (s.dur / 1000).toFixed(1) + 's';
+      const branching = s.branch && scenario !== 'clean';
+      return {
+        n: String(i + 1).padStart(2, '0'), title: s.title, indicator: IND[st], bc: BC[st], lc: LC[st], op: st === 'waiting' ? 0.55 : 1,
+        label: { waiting:'Waiting', running:'Running', done:'Done · ' + secs, fallback:'Fallback · ' + secs, error:'Error' }[st],
+        isRunning: st === 'running', liveText: branching && into >= s.branchAt ? s.live2 : s.live,
+        showBranch: !!branching && ((st === 'running' && into >= s.branchAt) || st === 'fallback'), branch: s.branch,
+        isFallback: st === 'fallback', fallbackText: s.fallback, isError: st === 'error', errorText: s.error,
+        isComplete: complete(i), decision: s.decision, endpoint: s.endpoint, open: !!open[i], chev: open[i] ? '–' : '+',
+        params: ((scenario === 'clean' && s.cleanParams) || s.params).map(([k, v]) => ({ k, v })),
+        toggle: () => this.setState(p => ({ open: { ...p.open, [i]: !p.open[i] } }))
+      };
+    });
+    const doneCount = stats.filter((s, i) => complete(i)).length;
+    const cur = stats.findIndex(s => s === 'running' || s === 'error');
+    const statusText = errored ? 'Stopped at step 5' : doneCount === 7 ? 'Complete · 7 / 7' : `Step ${cur + 1} of 7`;
+    const sk = (w, h, r) => React.createElement('div', { style: { width: w, height: h, borderRadius: r, background:'var(--track)', animation:'tk-skel 1.8s ease-in-out infinite' } });
+    const score = (v, top) => ({ score: v, c: top ? 'var(--acc-text)' : 'var(--ink)' });
+    const cityFill = v => v >= 90 ? 'var(--acc-line)' : v >= 70 ? 'var(--mute)' : 'var(--line)';
+    const cities = [['Seattle',10,18,64],['Los Angeles',14,60,91],['Austin',47,76,72],['Chicago',63,30,79],['Atlanta',74,66,58],['New York',87,28,77]]
+      .map(([name, x, y, v]) => ({ name, score: v, x: (12 + x * 0.76) + '%', y: y + '%', size: Math.round(8 + (v - 50) * 0.5) + 'px', fill: cityFill(v) }));
+    return {
+      rootRef: this.rootRef, rootStyle, steps, statusText, narrow,
+      cols: narrow ? 'minmax(0,1fr)' : 'minmax(0,2fr) minmax(0,3fr)',
+      showLogList: !narrow || showLog, toggleLog: () => this.setState(p => ({ showLog: !p.showLog })), logToggleLabel: showLog ? 'Hide log' : 'Show log',
+      progressCount: `${doneCount} / 7`, progressPct: (doneCount / 7 * 100) + '%',
+      currentTitle: errored ? 'Error · ' + STEPS[4].title : doneCount === 7 ? 'Run complete' : STEPS[Math.max(cur, 0)].title,
+      replay: () => this.setState({ t: 0, errored: false, retried: false, open: {} }),
+      retry: () => this.setState({ errored: false, retried: true, t: START[4] }),
+      r: {
+        fanbase: complete(0), format: complete(1), headWait: !complete(1),
+        crossover: complete(2), crossoverWait: !complete(2), showFallbackBanner: scenario !== 'clean',
+        map: complete(3), mapWait: !complete(3),
+        room: complete(4), roomWait: !complete(4) && !errored, roomError: errored,
+        brief: complete(5), briefWait: !complete(5), outreach: complete(6), outreachWait: !complete(6)
+      },
+      sk: { chip: sk('160px','22px','99px'), title: sk('45%','28px','6px'), line: sk('100%','12px','4px'), lineShort: sk('60%','12px','4px'),
+            bar: sk('100%','8px','99px'), block: sk('100%','96px','8px'), map: React.createElement('div', { style: { aspectRatio:'16/9', borderRadius:8, background:'var(--track)', animation:'tk-skel 1.8s ease-in-out infinite' } }) },
+      partners: [{ name:'Hot Ones', type:'YouTube series', ...score(82, true) }, { name:'Bon Appétit', type:'Food media', ...score(64) }, { name:'SmartLess', type:'Podcast', ...score(61) }],
+      sponsors: [{ name:'Liquid Death', type:'Beverage', ...score(84, true) }, { name:'Uber Eats', type:'Delivery', ...score(79) }, { name:'Glossier', type:'Beauty', ...score(73) }],
+      cities,
+      brief: [
+        { k:'Concept', v:'A live Hot Ones taping opens an Ali Wong night: hot-sauce interview first, then a 60-minute set.' },
+        { k:'Audience', v:'25–34, Los Angeles metro. Heavy overlap on stand-up specials and food media.' },
+        { k:'Format', v:'One night at The Wiltern with a food sponsor activation in the lobby. Capacity, dates and price to confirm with promoter.' },
+        { k:'Ask', v:'Hot Ones to co-produce the taping and co-promote to their channel.' }
+      ],
+      email: EMAIL,
+      copyLabel: this.state.copied ? 'Copied' : 'Copy email',
+      copy: () => {
+        const txt = `To: Hot Ones partnerships team\nSubject: ${EMAIL.subject}\n\n${EMAIL.body.join('\n\n')}`;
+        navigator.clipboard && navigator.clipboard.writeText(txt).catch(() => {});
+        this.setState({ copied: true }); clearTimeout(this.ct); this.ct = setTimeout(() => this.setState({ copied: false }), 1500);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

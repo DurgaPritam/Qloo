@@ -74,6 +74,7 @@ fixture named in each row.
 | M2 | For a misspelling, the intended entity is among the results, so "did you mean" can offer it. | `classifyMatches` | `search/misspelled.json` |
 | M3 | Comedians resolve as `person`, teams as `brand` (or a type we add to `Category`). | `FORMAT_BY_CATEGORY` | S8 |
 | M4 | Place tags can be matched by readable names ("music venue", "comedy club", "movie theater", "sports bar"). The real source maps these to Qloo tag ids. | `FORMAT_BY_CATEGORY.*.venueTags/spotTags`, `rankPlaces` | `tags/*.json`, P2/P3 |
+| M6 | Search results carry a short descriptive field (year, genre, team league) to show as the picker's "disambiguating detail". Until then the picker shows popularity. | `toChoice` in `lib/agent/tools.ts` | `search/*.json` |
 | M5 | `candidates` can be scoped to a city to find a local opener or host. | `QlooSource.candidates(…, location)` | add a probe call |
 
 ## Agent calls

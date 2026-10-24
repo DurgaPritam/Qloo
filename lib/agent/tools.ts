@@ -40,6 +40,8 @@ export interface ToolOutcome {
   data?: unknown;
   calls: SourceMeta[];
   branch?: boolean;
+  /** On a fallback: what happened, separate from the decision in `summary`. */
+  fallbackNote?: string;
   /** What the model sees instead of `data`, when `data` is large. */
   forModel?: unknown;
 }
@@ -170,7 +172,8 @@ function toChoice(entity: Entity): Choice {
     name: entity.name,
     category: entity.category,
     imageUrl: entity.imageUrl,
-    detail: label(entity.category),
+    // Qloo's descriptive fields are unknown until the probe runs (docs/after-key.md M6).
+    detail: `popularity ${two(entity.popularity)}`,
   };
 }
 
@@ -297,7 +300,8 @@ const findPartners: ToolDef = {
     if (!chosen) {
       return {
         status: "fallback",
-        summary: `No crossover partner found. ${result.reason}`,
+        summary: "No crossover partner found.",
+        fallbackNote: result.reason,
         data: state.partners,
         calls,
         forModel,
@@ -309,7 +313,8 @@ const findPartners: ToolDef = {
       `${two(e.popularity)}, score ${two(chosen.score)}.`;
     return {
       status: result.fallback ? "fallback" : "done",
-      summary: result.fallback ? `${summary} ${result.reason}` : summary,
+      summary,
+      fallbackNote: result.fallback ? result.reason : undefined,
       data: state.partners,
       calls,
       forModel,
@@ -406,7 +411,14 @@ const pickCity: ToolDef = {
       };
     }
     if (!chosen) {
-      return { status: "fallback", summary: "No city has heat for both audiences.", data: state.city, calls, forModel };
+      return {
+        status: "fallback",
+        summary: "No city picked.",
+        fallbackNote: "No city has heat for both audiences.",
+        data: state.city,
+        calls,
+        forModel,
+      };
     }
     const c = chosen;
     const summary =
@@ -414,7 +426,8 @@ const pickCity: ToolDef = {
       `${two(c.sB)} for ${partner.name}); #${c.populationRank} by population.`;
     return {
       status: thin ? "fallback" : "done",
-      summary: thin ? `${summary} Based on regional overlap.` : summary,
+      summary,
+      fallbackNote: thin ? "City-level data was thin, so this is based on regional overlap." : undefined,
       data: state.city,
       calls,
       forModel,
@@ -498,16 +511,17 @@ const planRoom: ToolDef = {
     };
     state.room = result;
 
-    let summary = venue
+    const summary = venue
       ? `Picked ${venue.place.name} with ${count(spots.picks.length, "spot")} and ${count(sponsors.picks.length, "sponsor")}.`
       : "No venue found; spots and sponsors listed where available.";
-    if (fallback) summary = `${summary} ${result.reason}`;
-    if (movedFrom) {
-      summary = `No tagged venues in ${movedFrom.cityName}, so I used ${city.name}, ${movedFrom.distanceKm} km away. ${summary}`;
-    }
+    const notes = movedFrom
+      ? [`No tagged venues in ${movedFrom.cityName}, so I used ${city.name}, ${movedFrom.distanceKm} km away.`]
+      : [];
+    if (fallback) notes.push(result.reason);
     return {
       status: fallback || movedFrom ? "fallback" : "done",
       summary,
+      fallbackNote: notes.length ? notes.join(" ") : undefined,
       data: result,
       calls,
       branch: Boolean(movedFrom),

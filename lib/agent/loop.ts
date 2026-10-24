@@ -142,7 +142,7 @@ async function runCall(call: ToolCall, ctx: Ctx, note?: string): Promise<Anthrop
   } catch (err) {
     out = { status: "error", summary: describeError(err, ctx.state), calls: [] };
   }
-  if (out.status === "fallback" || out.status === "error") ctx.state.notes.push(out.summary);
+  if (out.status === "fallback" || out.status === "error") ctx.state.notes.push(out.fallbackNote ?? out.summary);
 
   const calls = out.calls.map(view);
   await ctx.emit({
@@ -153,9 +153,13 @@ async function runCall(call: ToolCall, ctx: Ctx, note?: string): Promise<Anthrop
     qlooCalls: calls,
     data: out.data,
     branch: out.branch,
+    fallback: out.fallbackNote,
     mock,
   });
-  return reply({ status: out.status, summary: out.summary, data: out.forModel ?? out.data }, out.status === "error");
+  return reply(
+    { status: out.status, summary: out.summary, fallback: out.fallbackNote, data: out.forModel ?? out.data },
+    out.status === "error",
+  );
 }
 
 function describeError(err: unknown, state: RunState): string {

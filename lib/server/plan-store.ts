@@ -9,7 +9,10 @@ const TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_MEMORY_PLANS = 200;
 const key = (runId: string) => `takeover:plan:v1:${runId}`;
 
-const memory = new Map<string, Plan>();
+// On globalThis: route handlers and pages are separate bundles, so a module-level map would not
+// be shared between the /api/plan route that saves and the /plan page that reads.
+const store = globalThis as typeof globalThis & { __takeoverPlans?: Map<string, Plan> };
+const memory = (store.__takeoverPlans ??= new Map<string, Plan>());
 
 function remember(plan: Plan) {
   memory.delete(plan.runId);
