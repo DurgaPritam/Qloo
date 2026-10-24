@@ -1,6 +1,6 @@
 import type { Category, Pick } from "./types";
 
-const CATEGORY_LABEL: Record<Category, string> = {
+export const CATEGORY_LABEL: Record<Category, string> = {
   artist: "artist",
   movie: "film",
   tv_show: "TV show",

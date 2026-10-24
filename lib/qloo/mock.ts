@@ -11,6 +11,7 @@ import {
   MOCK_EMPTY_QUERY,
   MOCK_HEAT_CENTRES,
   MOCK_PLACES,
+  MOCK_SEARCH,
   MOCK_SEED,
 } from "./mock-data";
 import type { QlooSource, SourceResult } from "./source";
@@ -28,18 +29,21 @@ export class MockQlooSource implements QlooSource {
     categories: readonly Category[] | undefined,
   ): Promise<SourceResult<Entity[]>> {
     const trimmed = query.trim();
-    const data: Entity[] =
-      !trimmed || MOCK_EMPTY_QUERY.test(trimmed)
-        ? []
-        : [{ id: `mock:seed:${slug(trimmed)}`, name: trimmed, ...MOCK_SEED }];
+    const known = MOCK_SEARCH[trimmed.toLowerCase()];
+    let data: Entity[];
+    if (!trimmed || MOCK_EMPTY_QUERY.test(trimmed)) data = [];
+    else if (known) {
+      data = known.map((r) => ({ id: `mock:seed:${slug(r.name)}:${r.category}`, ...r }));
+    } else data = [{ id: `mock:seed:${slug(trimmed)}`, name: trimmed, ...MOCK_SEED }];
     return result(data, "/search", { query, types: categories?.map((c) => `urn:entity:${c}`) });
   }
 
   async candidates(
     entityIds: readonly string[],
     category: Category,
+    location: string | undefined,
   ): Promise<SourceResult<Candidate[]>> {
-    const seed = entityIds.join(",");
+    const seed = `${entityIds.join(",")}|${location ?? ""}`;
     const data = (MOCK_CANDIDATES[category] ?? []).map((item, i) => ({
       id: `mock:${category}:${i}`,
       name: item.name,
@@ -50,6 +54,7 @@ export class MockQlooSource implements QlooSource {
     return result(data, "/v2/insights", {
       "filter.type": `urn:entity:${category}`,
       "signal.interests.entities": entityIds,
+      "signal.location.query": location,
     });
   }
 
@@ -78,13 +83,15 @@ export class MockQlooSource implements QlooSource {
     tags: readonly string[] | undefined,
   ): Promise<SourceResult<Place[]>> {
     const seed = `${entityIds.join(",")}|${cityQuery}`;
+    // Like filter.tags: any requested tag matches.
+    const wanted = new Set(tags ?? []);
     const data = MOCK_PLACES.map((item, i) => ({
       id: `mock:place:${i}`,
       name: item.name,
       affinity: jitter(item.affinity, `${seed}|${i}`),
       popularity: item.popularity,
       tags: item.tags ?? [],
-    }));
+    })).filter((p) => wanted.size === 0 || p.tags.some((t) => wanted.has(t)));
     return result(data, "/v2/insights", {
       "filter.type": "urn:entity:place",
       "signal.interests.entities": entityIds,

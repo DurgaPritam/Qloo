@@ -76,6 +76,15 @@ fixture named in each row.
 | M4 | Place tags can be matched by readable names ("music venue", "comedy club", "movie theater", "sports bar"). The real source maps these to Qloo tag ids. | `FORMAT_BY_CATEGORY.*.venueTags/spotTags`, `rankPlaces` | `tags/*.json`, P2/P3 |
 | M5 | `candidates` can be scoped to a city to find a local opener or host. | `QlooSource.candidates(…, location)` | add a probe call |
 
+## Agent calls
+
+| # | Assumption | Used in | Check in |
+|---|---|---|---|
+| A1 | A heatmap works for an entity of any category (the partner may be a podcast or TV show). | `pick_city` | add a probe heatmap call for a podcast id |
+| A2 | `signal.interests.entities` accepts two ids (fanbase + partner) for places, brands and local talent. | `plan_room` | add a probe call with two ids |
+| A3 | When both audiences have some heat in most large cities, "population rank among overlapping cities" is still a fair "without Qloo" baseline. | `pick_city` second pass | `populationPick` on real runs |
+| A4 | Uncached runs fit in about 11–15 Qloo calls (search 1, partners 4–6, heatmaps 2, room 4–5), well under the 25 cap. | budget | `plan.qlooCalls` on real runs |
+
 ## Not from Qloo
 
 | # | Assumption | Used in |

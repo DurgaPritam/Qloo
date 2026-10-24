@@ -17,6 +17,27 @@ export const MOCK_EMPTY_QUERY = /^[^aeiouy]*$/i;
 
 export const MOCK_SEED = { category: "artist" as Category, popularity: 0.55 };
 
+/**
+ * Queries with scripted search results, to exercise each branch of the identify step. The
+ * landing examples get a category so each format shows; the rest default to MOCK_SEED.
+ */
+export const MOCK_SEARCH: Record<string, Array<{ name: string; category: Category; popularity: number }>> = {
+  "john mulaney": [{ name: "John Mulaney", category: "person", popularity: 0.7 }],
+  "phoebe bridgers": [{ name: "Phoebe Bridgers", category: "artist", popularity: 0.65 }],
+  "everything everywhere all at once": [
+    { name: "Everything Everywhere All at Once", category: "movie", popularity: 0.75 },
+  ],
+  "golden state warriors": [{ name: "Golden State Warriors", category: "brand", popularity: 0.8 }],
+  // Same name, two categories, similar reach: the picker.
+  mercury: [
+    { name: "Mercury", category: "artist", popularity: 0.6 },
+    { name: "Mercury", category: "movie", popularity: 0.55 },
+  ],
+  // Misspellings: "did you mean".
+  "kevn hart": [{ name: "Kevin Hart", category: "person", popularity: 0.85 }],
+  "billie elish": [{ name: "Billie Eilish", category: "artist", popularity: 0.9 }],
+};
+
 export const MOCK_CANDIDATES: Partial<Record<Category, MockItem[]>> = {
   artist: [
     { name: "Velvet Static (sample)", affinity: 0.88, popularity: 0.41 },
@@ -64,11 +85,14 @@ export const MOCK_CELL_OFFSETS = [
 ] as const;
 
 export const MOCK_PLACES: MockItem[] = [
-  { name: "The Lamplight Room (sample)", affinity: 0.84, popularity: 0.4, tags: ["music venue"] },
-  { name: "Foundry Hall (sample)", affinity: 0.71, popularity: 0.62, tags: ["music venue", "bar"] },
-  { name: "Copper Tap (sample)", affinity: 0.66, popularity: 0.3, tags: ["bar"] },
-  { name: "Riverside Pavilion (sample)", affinity: 0.48, popularity: 0.75, tags: ["music venue"] },
-  { name: "Late Shift Diner (sample)", affinity: 0.15, popularity: 0.2, tags: ["restaurant"] },
+  { name: "The Lamplight Room (sample)", affinity: 0.84, popularity: 0.4, tags: ["music venue", "comedy club"] },
+  { name: "Foundry Hall (sample)", affinity: 0.71, popularity: 0.62, tags: ["concert hall", "theater"] },
+  { name: "Palisade Cinema (sample)", affinity: 0.69, popularity: 0.5, tags: ["movie theater", "cinema"] },
+  { name: "Northside Arena (sample)", affinity: 0.63, popularity: 0.8, tags: ["arena", "stadium"] },
+  { name: "Copper Tap (sample)", affinity: 0.66, popularity: 0.3, tags: ["bar", "pub", "sports bar"] },
+  { name: "Night Owl Cafe (sample)", affinity: 0.58, popularity: 0.25, tags: ["cafe", "bookstore"] },
+  { name: "Riverside Pavilion (sample)", affinity: 0.48, popularity: 0.75, tags: ["music venue", "arena"] },
+  { name: "Late Shift Diner (sample)", affinity: 0.15, popularity: 0.2, tags: ["restaurant", "bar"] },
 ];
 
 export const MOCK_BRANDS: MockItem[] = [

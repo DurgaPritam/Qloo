@@ -10,7 +10,8 @@ interface Heat {
 
 /**
  * Scores cities for two fanbases at once. Each side's heat is the mean affinity of its cells
- * within `radiusKm` of the city centre, normalised 0–1 against the hottest scored city.
+ * within `radiusKm` of the city centre (config default; wider for regional overlap),
+ * normalised 0–1 against the hottest scored city.
  * combined = sqrt(sA * sB), so a city only wins if it is warm for both sides, and the result
  * is symmetric in A and B. Sorted best first.
  */
@@ -19,7 +20,9 @@ export function scoreCities(
   heatB: readonly HeatCell[],
   cities: readonly City[],
   minPopulation: number,
+  opts: { radiusKm?: number } = {},
 ): CityScore[] {
+  const radiusKm = opts.radiusKm ?? ENGINE_CONFIG.cities.radiusKm;
   const eligible = cities.filter(
     (c) => c.population >= minPopulation && isLatLon(c.lat, c.lon),
   );
@@ -28,8 +31,8 @@ export function scoreCities(
 
   const raw = eligible.map((city) => ({
     city,
-    a: heatNear(cellsA, city),
-    b: heatNear(cellsB, city),
+    a: heatNear(cellsA, city, radiusKm),
+    b: heatNear(cellsB, city, radiusKm),
   }));
   const maxA = Math.max(0, ...raw.map((r) => r.a.mean));
   const maxB = Math.max(0, ...raw.map((r) => r.b.mean));
@@ -71,11 +74,11 @@ function validCell(cell: HeatCell): boolean {
   return isUnit(cell.affinity) && isLatLon(cell.lat, cell.lon);
 }
 
-function heatNear(cells: readonly HeatCell[], city: City): Heat {
+function heatNear(cells: readonly HeatCell[], city: City, radiusKm: number): Heat {
   let sum = 0;
   let count = 0;
   for (const cell of cells) {
-    if (distanceKm(city.lat, city.lon, cell.lat, cell.lon) <= ENGINE_CONFIG.cities.radiusKm) {
+    if (distanceKm(city.lat, city.lon, cell.lat, cell.lon) <= radiusKm) {
       sum += cell.affinity;
       count++;
     }

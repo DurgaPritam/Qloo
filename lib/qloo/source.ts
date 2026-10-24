@@ -25,10 +25,11 @@ export interface QlooSource {
     categories: readonly Category[] | undefined,
     opts: QlooCallOptions,
   ): Promise<SourceResult<Entity[]>>;
-  /** Entities of one category that fans of `entityIds` over-index on. */
+  /** Entities of one category that fans of `entityIds` over-index on, optionally near a place. */
   candidates(
     entityIds: readonly string[],
     category: Category,
+    location: string | undefined,
     opts: QlooCallOptions,
   ): Promise<SourceResult<Candidate[]>>;
   heatmap(

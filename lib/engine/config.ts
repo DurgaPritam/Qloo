@@ -17,10 +17,15 @@ export const ENGINE_CONFIG = {
   cities: {
     /** Heat cells within this distance of a city centre count towards it. */
     radiusKm: 40,
+    /** Used instead when city-level data is thin ("regional overlap"). */
+    regionalRadiusKm: 150,
     /** Fewer cells than this on either side lowers confidence. */
     minCellsForHigh: 3,
-    /** A city within this distance of a larger one is folded into it (boroughs, suburbs). */
-    metroMergeKm: 25,
+    /**
+     * A city within this distance of a larger one is folded into it (boroughs, suburbs). Equal to
+     * radiusKm, since closer cities would share the same heat cells.
+     */
+    metroMergeKm: 40,
     /** Rows in the "with Qloo vs population" table. */
     tableSize: 5,
   },
