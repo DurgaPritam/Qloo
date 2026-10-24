@@ -2,13 +2,54 @@ import { TO_CONFIRM } from "./types";
 
 export const TO_CONFIRM_SENTENCE = `Capacity, dates and prices are ${TO_CONFIRM}.`;
 
+const words = (list: string[]) => new RegExp(`\\b(${list.join("|")})\\b`, "i");
+
 // Anything Qloo does not know. A sentence mentioning one is replaced, not edited.
-const UNKNOWN_FACTS =
-  /\b(capacit(y|ies)|seats?|seating|attendance|dates?|dated|schedul\w*|prices?|pricing|priced|costs?|fees?|budget|tickets?|availab\w*|sold[- ]out)\b/i;
+const UNKNOWN_FACTS = words([
+  "capacity",
+  "capacities",
+  "seats?",
+  "seating",
+  "attendance",
+  "dates?",
+  "dated",
+  "schedul\\w*",
+  "prices?",
+  "pricing",
+  "priced",
+  "costs?",
+  "fees?",
+  "budget",
+  "tickets?",
+  "availab\\w*",
+  "sold[- ]out",
+]);
+// Capacity stated without the word: "holds 20,000", "5k fans".
+const HEADCOUNT = /\d[\d,.]*\s*(k|people|fans|attendees|guests|spectators)\b|\b(holds|fits|accommodates)\b.*\d/i;
+const MONEY = /[$£€¥₹]/;
 const NUMBERISH = /[\d$£€¥₹%]/;
 // "May" and "March" are left out: too common as ordinary words.
-const CALENDAR =
-  /\b(january|february|april|june|july|august|september|october|november|december|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tonight|tomorrow)\b/i;
+const CALENDAR = words([
+  "january",
+  "february",
+  "april",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "tonight",
+  "tomorrow",
+]);
 
 const MAX_FIELD_CHARS = 900;
 
@@ -38,6 +79,26 @@ export function sanitizeProse(text: unknown): { text: string; replaced: number }
     if (out.at(-1) !== TO_CONFIRM_SENTENCE) out.push(TO_CONFIRM_SENTENCE);
   }
   return { text: out.join(" "), replaced };
+}
+
+/**
+ * Lighter pass for the LLM-only comparison: keeps the chatbot's own wording and most numbers,
+ * but still replaces sentences about capacity, dates, prices or availability.
+ */
+export function stripUnknownFacts(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      const out: string[] = [];
+      for (const sentence of line.split(/(?<=[.!?])\s+/)) {
+        const unsafe = [UNKNOWN_FACTS, HEADCOUNT, MONEY, CALENDAR].some((re) => re.test(sentence));
+        if (!unsafe) out.push(sentence);
+        else if (out.at(-1) !== TO_CONFIRM_SENTENCE) out.push(TO_CONFIRM_SENTENCE);
+      }
+      return out.join(" ");
+    })
+    .join("\n")
+    .trim();
 }
 
 export type Slots = Record<string, string>;
