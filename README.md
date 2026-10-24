@@ -53,6 +53,7 @@ npm run dev                  # http://localhost:3000
 | `npm test` | Run Vitest once |
 | `npm run test:watch` | Run Vitest in watch mode |
 | `npm run typecheck` | Type-check with `tsc --noEmit` |
+| `npm run test:e2e` | Playwright end-to-end tests; builds and starts the app in mock mode (or set `PLAYWRIGHT_BASE_URL`) |
 | `npm run probe` | Record raw Qloo responses into `tests/fixtures/` (needs a key) |
 | `npm run scan:secrets` | Fail if a key or `.env` file is in the bundles or the repo (run after build) |
 | `npm run warm-cache` | Preload example runs into Redis (stub until the probe runs) |

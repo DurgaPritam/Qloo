@@ -47,3 +47,12 @@ describe("fillSlots / safeProse", () => {
     expect(safeProse("", { city: "Leeds" }, "Welcome to {city}.").text).toBe("Welcome to Leeds.");
   });
 });
+
+describe("paragraphs", () => {
+  it("keeps paragraph breaks through sanitising and slot filling", () => {
+    const body = "Hi {partner} team,\n\nOur fans overlap.  A lot.\n\nTickets are $40.\n\nTalk soon?";
+    expect(safeProse(body, { partner: "Velvet" }, "").text).toBe(
+      `Hi Velvet team,\n\nOur fans overlap. A lot.\n\n${TO_CONFIRM_SENTENCE}\n\nTalk soon?`,
+    );
+  });
+});

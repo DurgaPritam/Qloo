@@ -57,3 +57,16 @@ describe("health", () => {
     expect(await res.json()).toHaveProperty("limits.dailyRemaining");
   });
 });
+
+describe("isE2eRequest", () => {
+  const token = "e2e-token-0123456789abcdef";
+  it("accepts only the exact configured token", async () => {
+    const { isE2eRequest } = await import("@/lib/server/rate-limit");
+    const h = (v?: string) => new Headers(v ? { "x-takeover-e2e": v } : {});
+    expect(isE2eRequest(h(token), { TAKEOVER_E2E_TOKEN: token })).toBe(true);
+    expect(isE2eRequest(h("wrong-token-0123456789abc"), { TAKEOVER_E2E_TOKEN: token })).toBe(false);
+    expect(isE2eRequest(h(token), {})).toBe(false);
+    expect(isE2eRequest(h(), { TAKEOVER_E2E_TOKEN: token })).toBe(false);
+    expect(isE2eRequest(h("short"), { TAKEOVER_E2E_TOKEN: "short" })).toBe(false);
+  });
+});

@@ -136,6 +136,10 @@ function applyEvent(view: RunView, e: AgentEvent, at: number): RunView {
     };
   }
 
+  // During a replan, upstream steps are replayed from cache by the server; keep their cards and
+  // data as they were so only the affected steps visibly rerun.
+  if (view.replanFrom && ORDER.indexOf(e.step) < ORDER.indexOf(view.replanFrom)) return next;
+
   const prev = view.steps[e.step];
   const step: StepView = { ...prev };
   if (e.status === "running") {

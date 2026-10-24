@@ -476,6 +476,8 @@ export function StepCard({
   }[s.status];
   return (
     <div
+      data-step={s.n}
+      data-status={s.status}
       className={cx(
         "flex flex-col gap-2 rounded-md border bg-surf px-4 py-3.5 transition-[opacity,border-color] duration-300",
         stepBorder[s.status],

@@ -3,7 +3,7 @@ import { createPlanner, plannerStatus } from "@/lib/agent/planner";
 import type { AgentEvent, Overrides } from "@/lib/agent/types";
 import { getQlooSource } from "@/lib/qloo/source";
 import { savePlan } from "@/lib/server/plan-store";
-import { DAILY_ID, getLimiters, LIMITS, visitorId, type LimitResult } from "@/lib/server/rate-limit";
+import { DAILY_ID, getLimiters, isE2eRequest, LIMITS, visitorId, type LimitResult } from "@/lib/server/rate-limit";
 import { loadRecording, replay } from "@/lib/server/replay";
 import { SSE_HEADERS, sseStream } from "@/lib/server/sse";
 
@@ -55,7 +55,9 @@ export async function POST(req: Request): Promise<Response> {
 
   const runId = crypto.randomUUID();
   const limiters = getLimiters();
-  const visitor = await (replan ? limiters.replans : limiters.runs).check(visitorId(req.headers));
+  const visitor = isE2eRequest(req.headers)
+    ? { ok: true, limit: 0, remaining: 0, resetAt: 0 }
+    : await (replan ? limiters.replans : limiters.runs).check(visitorId(req.headers));
   const daily = visitor.ok ? await limiters.daily.check(DAILY_ID) : null;
   let limited: { summary: string; retryAfterSec: number } | null = null;
   if (!visitor.ok) limited = limitedMessage(visitor, replan);

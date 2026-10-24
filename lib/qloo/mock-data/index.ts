@@ -33,6 +33,8 @@ export const MOCK_SEARCH: Record<string, Array<{ name: string; category: Categor
     { name: "Mercury", category: "artist", popularity: 0.6 },
     { name: "Mercury", category: "movie", popularity: 0.55 },
   ],
+  // Nonsense: nothing found.
+  asdfgh: [],
   // Misspellings: "did you mean".
   "kevn hart": [{ name: "Kevin Hart", category: "person", popularity: 0.85 }],
   "billie elish": [{ name: "Billie Eilish", category: "artist", popularity: 0.9 }],

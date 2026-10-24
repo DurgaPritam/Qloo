@@ -1,6 +1,6 @@
 import { isMockMode } from "@/lib/mock-mode";
 import { llmOnlyAnswer } from "@/lib/server/llm-only";
-import { getLimiters, visitorId } from "@/lib/server/rate-limit";
+import { getLimiters, isE2eRequest, visitorId } from "@/lib/server/rate-limit";
 
 export const maxDuration = 30;
 
@@ -16,7 +16,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const mock = isMockMode();
-  const limit = await getLimiters().replans.check(visitorId(req.headers));
+  const limit = isE2eRequest(req.headers) ? { ok: true } : await getLimiters().replans.check(visitorId(req.headers));
   if (!limit.ok) {
     return Response.json({ error: "Too many comparisons this hour. Try again later.", mock }, { status: 429 });
   }

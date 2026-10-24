@@ -60,25 +60,27 @@ const MAX_FIELD_CHARS = 900;
  */
 export function sanitizeProse(text: unknown): { text: string; replaced: number } {
   if (typeof text !== "string") return { text: "", replaced: 0 };
-  const sentences = text
-    .slice(0, MAX_FIELD_CHARS)
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(/(?<=[.!?])\s+/)
-    .filter(Boolean);
-
   let replaced = 0;
-  const out: string[] = [];
-  for (const sentence of sentences) {
-    const unsafe = NUMBERISH.test(sentence) || CALENDAR.test(sentence) || UNKNOWN_FACTS.test(sentence);
-    if (!unsafe) {
-      out.push(sentence);
-      continue;
-    }
-    replaced++;
-    if (out.at(-1) !== TO_CONFIRM_SENTENCE) out.push(TO_CONFIRM_SENTENCE);
-  }
-  return { text: out.join(" "), replaced };
+  // Paragraphs are kept (emails need them); within one, whitespace is collapsed.
+  const paragraphs = text
+    .slice(0, MAX_FIELD_CHARS)
+    .split(/\n\s*\n/)
+    .map((para) => {
+      const out: string[] = [];
+      const sentences = para.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+      for (const sentence of sentences) {
+        const unsafe = NUMBERISH.test(sentence) || CALENDAR.test(sentence) || UNKNOWN_FACTS.test(sentence);
+        if (!unsafe) {
+          out.push(sentence);
+          continue;
+        }
+        replaced++;
+        if (out.at(-1) !== TO_CONFIRM_SENTENCE) out.push(TO_CONFIRM_SENTENCE);
+      }
+      return out.join(" ");
+    })
+    .filter(Boolean);
+  return { text: paragraphs.join("\n\n"), replaced };
 }
 
 /**
@@ -107,7 +109,8 @@ export type Slots = Record<string, string>;
 export function fillSlots(text: string, slots: Slots): string {
   return text
     .replace(/\{(\w+)\}/g, (_, key: string) => slots[key] ?? "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +\n/g, "\n")
     .trim();
 }
 

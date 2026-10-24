@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import { Ratelimit } from "@upstash/ratelimit";
 
@@ -134,4 +134,17 @@ export function visitorId(headers: Headers): string {
   const ip =
     headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip") || "unknown";
   return createHash("sha256").update(ip).digest("hex").slice(0, 24);
+}
+
+/**
+ * End-to-end tests send x-takeover-e2e with TAKEOVER_E2E_TOKEN to skip the per-visitor limits
+ * (the daily ceiling still applies). Off unless the token is set on the deployment.
+ */
+export function isE2eRequest(headers: Headers, env: Record<string, string | undefined> = process.env): boolean {
+  const token = env.TAKEOVER_E2E_TOKEN;
+  const sent = headers.get("x-takeover-e2e");
+  if (!token || token.length < 16 || !sent) return false;
+  const a = Buffer.from(sent);
+  const b = Buffer.from(token);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

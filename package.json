@@ -12,7 +12,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "probe": "tsx --conditions=react-server scripts/probe.ts",
     "warm-cache": "tsx --conditions=react-server scripts/warm-cache.ts",
-    "scan:secrets": "tsx scripts/scan-secrets.ts"
+    "scan:secrets": "tsx scripts/scan-secrets.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
