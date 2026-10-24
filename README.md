@@ -47,6 +47,13 @@ npm run dev                  # http://localhost:3000
 
 See `.env.example`: `QLOO_API_KEY`, `QLOO_BASE_URL`, `ANTHROPIC_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
 
+## Data credits
+
+City names, regions, coordinates and populations come from [GeoNames](https://www.geonames.org/)
+(`cities15000`), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). We keep
+cities with population of 100,000 or more in `lib/engine/data/cities.json`; regenerate it with
+`npx tsx scripts/build-cities.ts`.
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Third-party data keeps its own licence (see Data credits).

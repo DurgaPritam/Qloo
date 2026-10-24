@@ -66,8 +66,19 @@ fixture named in each row.
 | P5 | Brands use `filter.type=urn:entity:brand` with the city as `signal.location.query` (a signal, not a filter). | `QlooSource.brands` | `places/*/brands.json` |
 | P6 | Brands carry `query.affinity` and `popularity` 0–1, so the same bias guard applies. | `rankBrands` | `places/*/brands.json` |
 
+## Matching and formats
+
+| # | Assumption | Used in | Check in |
+|---|---|---|---|
+| M1 | Qloo search can return the same name in several categories (artist and film). Popularity tells the famous one apart (ratio 0.8). | `classifyMatches`, `ENGINE_CONFIG.match` | `search/*.json` |
+| M2 | For a misspelling, the intended entity is among the results, so "did you mean" can offer it. | `classifyMatches` | `search/misspelled.json` |
+| M3 | Comedians resolve as `person`, teams as `brand` (or a type we add to `Category`). | `FORMAT_BY_CATEGORY` | S8 |
+| M4 | Place tags can be matched by readable names ("music venue", "comedy club", "movie theater", "sports bar"). The real source maps these to Qloo tag ids. | `FORMAT_BY_CATEGORY.*.venueTags/spotTags`, `rankPlaces` | `tags/*.json`, P2/P3 |
+| M5 | `candidates` can be scoped to a city to find a local opener or host. | `QlooSource.candidates(…, location)` | add a probe call |
+
 ## Not from Qloo
 
 | # | Assumption | Used in |
 |---|---|---|
-| N1 | City list with centre coordinates and population comes from a static dataset we add, not Qloo. | `scoreCities` input, populationRank |
+| N1 | City list is GeoNames cities15000, population ≥ 100k (`lib/engine/data/cities.json`), folded into metros within 25 km. | `scoreCities` input, `metroCities`, populationRank |
+| N2 | `filter.location.query` accepts a plain "City, Region, CC" string built from that list. | places, brands |

@@ -1,45 +1,47 @@
 import { ENGINE_CONFIG } from "./config";
-import { byScoreThenId, confidenceFor, describeDropped, nicheScore, screen } from "./shared";
-import type { Brand, BrandPick, Place, PlacePick, RankResult } from "./types";
+import { byScoreThenId, describeDropped, nicheScore, screen } from "./shared";
+import type { Brand, BrandPick, Confidence, Place, PlacePick, RankResult } from "./types";
 
 /**
- * Ranks venues by affinity, weighted by how many of the requested tags each place carries.
+ * Ranks places by affinity. Requested tags are alternatives ("music venue" or "concert hall"):
+ * a place carrying none of them keeps only `tagBaseWeight` of its score.
  * Places are not popularity-discounted: a well-known venue is a feature, not bias.
  */
 export function rankPlaces(
   results: readonly Place[],
   tags: readonly string[],
+  count: number = ENGINE_CONFIG.places.count,
 ): RankResult<PlacePick, Place> {
   const cfg = ENGINE_CONFIG.places;
   const { kept, dropped } = screen(results, { maxPopularity: 1, minAffinity: cfg.minAffinity });
   const requested = [...new Set(tags.map(normaliseTag))];
 
-  const picks = kept
+  const ranked = kept
     .map((place) => {
       const have = new Set(place.tags.map(normaliseTag));
       const matchedTags = requested.filter((t) => have.has(t));
-      const match = requested.length ? matchedTags.length / requested.length : 1;
-      const score = place.affinity * (cfg.tagBaseWeight + (1 - cfg.tagBaseWeight) * match);
-      return { id: place.id, score, place, matchedTags };
+      const matches = requested.length === 0 || matchedTags.length > 0;
+      const score = place.affinity * (matches ? 1 : cfg.tagBaseWeight);
+      return { id: place.id, score, place, matchedTags, matches };
     })
     .sort(byScoreThenId)
-    .slice(0, cfg.count)
-    .map(
-      ({ score, place, matchedTags }, i): PlacePick => ({
-        kind: "place",
-        rank: i + 1,
-        score,
-        confidence:
-          requested.length && matchedTags.length === 0 ? "low" : confidenceFor(place.affinity),
-        place,
-        evidence: {
-          affinity: place.affinity,
-          popularity: place.popularity,
-          matchedTags,
-          requestedTags: requested,
-        },
-      }),
-    );
+    .slice(0, count);
+
+  const picks = ranked.map(
+    ({ score, place, matchedTags, matches }, i): PlacePick => ({
+      kind: "place",
+      rank: i + 1,
+      score,
+      confidence: matches ? rankConfidence(i, ranked, kept.length) : "low",
+      place,
+      evidence: {
+        affinity: place.affinity,
+        popularity: place.popularity,
+        matchedTags,
+        requestedTags: requested,
+      },
+    }),
+  );
 
   const droppedNote = describeDropped(dropped);
   if (picks.length === 0) {
@@ -48,45 +50,48 @@ export function rankPlaces(
       dropped,
       fallback: true,
       reason: results.length
-        ? `No venue passed the affinity floor; ${droppedNote}.`
-        : "No venues were returned for this city.",
+        ? `No place passed the affinity floor; ${droppedNote}.`
+        : "No places were returned for this city.",
     };
   }
-  const anyMatch = requested.length === 0 || picks.some((p) => p.evidence.matchedTags.length > 0);
-  if (!anyMatch) {
+  if (!ranked.some((r) => r.matches)) {
     return {
       picks,
       dropped,
       fallback: true,
-      reason: `No venue matched the requested tags, so these are ranked by affinity alone; ${droppedNote}.`,
+      reason: `No place matched ${requested.join(" or ")}, so these are ranked by affinity alone; ${droppedNote}.`,
     };
   }
-  return { picks, dropped, fallback: false, reason: `Ranked ${picks.length} venues; ${droppedNote}.` };
+  return { picks, dropped, fallback: false, reason: `Ranked ${picks.length} places; ${droppedNote}.` };
 }
 
 /** Ranks sponsor brands with the same niche score and bias guard as partners. */
-export function rankBrands(results: readonly Brand[]): RankResult<BrandPick, Brand> {
+export function rankBrands(
+  results: readonly Brand[],
+  count: number = ENGINE_CONFIG.brands.count,
+): RankResult<BrandPick, Brand> {
   const cfg = ENGINE_CONFIG.brands;
   const { kept, dropped } = screen(results, cfg);
 
-  const picks = kept
+  const ranked = kept
     .map((brand) => ({
       id: brand.id,
       score: nicheScore(brand.affinity, brand.popularity, cfg.popularityExponent),
       brand,
     }))
     .sort(byScoreThenId)
-    .slice(0, cfg.count)
-    .map(
-      ({ score, brand }, i): BrandPick => ({
-        kind: "brand",
-        rank: i + 1,
-        score,
-        confidence: confidenceFor(brand.affinity),
-        brand,
-        evidence: { affinity: brand.affinity, popularity: brand.popularity },
-      }),
-    );
+    .slice(0, count);
+
+  const picks = ranked.map(
+    ({ score, brand }, i): BrandPick => ({
+      kind: "brand",
+      rank: i + 1,
+      score,
+      confidence: rankConfidence(i, ranked, kept.length),
+      brand,
+      evidence: { affinity: brand.affinity, popularity: brand.popularity },
+    }),
+  );
 
   const droppedNote = describeDropped(dropped);
   if (picks.length === 0) {
@@ -100,6 +105,26 @@ export function rankBrands(results: readonly Brand[]): RankResult<BrandPick, Bra
     };
   }
   return { picks, dropped, fallback: false, reason: `Ranked ${picks.length} brands; ${droppedNote}.` };
+}
+
+/**
+ * More qualifying results means more confidence; a near tie at the top means less confidence
+ * in which one is first.
+ */
+function rankConfidence(
+  index: number,
+  ranked: readonly { score: number }[],
+  qualified: number,
+): Confidence {
+  const cfg = ENGINE_CONFIG.rankConfidence;
+  let level = 0;
+  if (qualified >= cfg.highCount) level = 2;
+  else if (qualified >= cfg.mediumCount) level = 1;
+  if (index === 0 && ranked.length > 1 && ranked[0].score > 0) {
+    const gap = (ranked[0].score - ranked[1].score) / ranked[0].score;
+    if (gap < cfg.minRelativeGap) level = Math.max(0, level - 1);
+  }
+  return (["low", "medium", "high"] as const)[level];
 }
 
 function normaliseTag(tag: string): string {

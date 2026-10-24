@@ -40,11 +40,15 @@ export interface HeatCell {
   geohash?: string;
 }
 
-/** Static reference data, not from Qloo. */
+/** Static reference data from GeoNames (lib/engine/data/cities.json), not from Qloo. */
 export interface City {
+  /** GeoNames id */
   id: string;
   name: string;
+  /** ISO 3166-1 alpha-2 */
   country: string;
+  /** First-level region name, e.g. "Illinois"; empty when GeoNames has none. */
+  admin1: string;
   lat: number;
   lon: number;
   population: number;

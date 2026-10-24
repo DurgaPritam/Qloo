@@ -12,7 +12,7 @@ export function candidate(
 }
 
 export function city(id: string, lat: number, lon: number, population: number): City {
-  return { id, name: id, country: "Testland", lat, lon, population };
+  return { id, name: id, country: "TL", admin1: "", lat, lon, population };
 }
 
 /** `count` cells of equal affinity at a city centre. */

@@ -45,11 +45,38 @@ describe("rankPlaces", () => {
   it("labels a fallback when nothing matches the tags or nothing is returned", () => {
     const noMatch = rankPlaces([place("bar", 0.8, ["bar"])], ["music venue"]);
     expect(noMatch.fallback).toBe(true);
-    expect(noMatch.reason).toMatch(/no venue matched/i);
+    expect(noMatch.reason).toMatch(/no place matched music venue/i);
 
     const empty = rankPlaces([], ["music venue"]);
     expect(empty).toMatchObject({ picks: [], fallback: true });
-    expect(empty.reason).toMatch(/no venues were returned/i);
+    expect(empty.reason).toMatch(/no places were returned/i);
+  });
+});
+
+describe("rank confidence", () => {
+  it("rises with the number of qualifying results", () => {
+    const five = rankPlaces(
+      [0.9, 0.7, 0.6, 0.5, 0.4].map((a, i) => place(`p${i}`, a, ["bar"])),
+      ["bar"],
+    );
+    expect(five.picks.map((p) => p.confidence)).toEqual(["high", "high", "high", "high", "high"]);
+
+    const two = rankPlaces([place("a", 0.9, ["bar"]), place("b", 0.5, ["bar"])], ["bar"]);
+    expect(two.picks.map((p) => p.confidence)).toEqual(["medium", "medium"]);
+
+    const one = rankPlaces([place("a", 0.9, ["bar"])], ["bar"]);
+    expect(one.picks[0].confidence).toBe("low");
+  });
+
+  it("lowers the top pick when first and second are nearly tied", () => {
+    const res = rankBrands([brand("a", 0.6, 0.2), brand("b", 0.59, 0.2), brand("c", 0.3, 0.2)]);
+    expect(res.picks.map((p) => p.confidence)).toEqual(["low", "medium", "medium"]);
+  });
+
+  it("treats requested tags as alternatives", () => {
+    const res = rankPlaces([place("hall", 0.7, ["concert hall"])], ["music venue", "concert hall"]);
+    expect(res.picks[0].score).toBeCloseTo(0.7);
+    expect(res.fallback).toBe(false);
   });
 });
 
