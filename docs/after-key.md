@@ -8,6 +8,11 @@ it or correct the code it points to, then write `docs/qloo-shapes.md` and implem
 How to check: open `tests/fixtures/probe-summary.json` (field paths, failed calls) and the raw
 fixture named in each row.
 
+## TODO after the probe
+
+- [ ] Add real screenshots to the README from live Qloo runs (landing, a completed run, results).
+  The design hand-off screens were removed because they show a real comedian with invented figures.
+
 ## Transport and auth
 
 | # | Assumption | Used in | Check in |
