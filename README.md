@@ -36,16 +36,27 @@ npm run dev                  # http://localhost:3000
 
 | Command | Does |
 | --- | --- |
-| `npm run dev` | Start the dev server |
+| `npm run dev` | Start the dev server (`TAKEOVER_MOCK=1 npm run dev` for sample data) |
 | `npm run build` | Production build |
 | `npm run lint` | Run ESLint |
 | `npm test` | Run Vitest once |
 | `npm run test:watch` | Run Vitest in watch mode |
 | `npm run typecheck` | Type-check with `tsc --noEmit` |
+| `npm run probe` | Record raw Qloo responses into `tests/fixtures/` (needs a key) |
+| `npm run scan:secrets` | Fail if a key or `.env` file is in the bundles or the repo (run after build) |
+| `npm run warm-cache` | Preload example runs into Redis (stub until the probe runs) |
+
+## API
+
+| Route | Does |
+| --- | --- |
+| `POST /api/plan` | `{query, overrides?}` → SSE stream of agent events and a final plan |
+| `POST /api/llm-only` | `{query}` → the same model's answer with no tools or Qloo data |
+| `GET /api/health` | Qloo reachability, Redis status, limits and remaining daily runs; no secrets |
 
 ## Environment
 
-See `.env.example`: `QLOO_API_KEY`, `QLOO_BASE_URL`, `ANTHROPIC_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+See `.env.example`: `QLOO_API_KEY`, `QLOO_BASE_URL`, `ANTHROPIC_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, plus `TAKEOVER_MOCK` and `TAKEOVER_DAILY_RUNS`. Without `ANTHROPIC_API_KEY` the agent runs a scripted planner with template prose; without Upstash, caches and limits fall back to memory.
 
 ## Data credits
 

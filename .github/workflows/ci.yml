@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      # The guard: a mock build for production must fail (it stops in next.config.ts).
+      - name: Mock mode is refused in production
+        run: |
+          if TAKEOVER_MOCK=1 VERCEL_ENV=production npx next build > /dev/null 2>&1; then
+            echo "Build succeeded with TAKEOVER_MOCK=1 in production" && exit 1
+          fi
+      # Real-source build: TAKEOVER_MOCK is unset, as in production.
+      - run: npm run build
+      - name: Secret scan (bundles and repo)
+        run: npm run scan:secrets
+        env:
+          # Lets the scan look for the real values; they are never printed.
+          QLOO_API_KEY: ${{ secrets.QLOO_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}

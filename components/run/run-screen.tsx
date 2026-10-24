@@ -189,6 +189,12 @@ export function RunScreen() {
               {fanbase && <OutlineChip>{categoryLabel(fanbase.category)}</OutlineChip>}
               {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
               {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
+              {view.plan?.cachedRun && (
+                <OutlineChip>
+                  Cached run · recorded{" "}
+                  {new Date(view.plan.cachedRun.recordedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </OutlineChip>
+              )}
             </div>
           </div>
 

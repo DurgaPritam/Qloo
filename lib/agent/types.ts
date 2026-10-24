@@ -49,6 +49,8 @@ export interface AgentEvent {
   note?: string;
   /** Sample data: the UI must show the banner. */
   mock: boolean;
+  /** Replayed from a stored run (warm cache), not computed live. */
+  cachedRun?: boolean;
 }
 
 export interface Overrides {
@@ -166,4 +168,6 @@ export interface Plan {
   notes: string[];
   qlooCalls: number;
   turns: number;
+  /** Set when this plan was replayed from a stored run. */
+  cachedRun?: { recordedAt: string };
 }

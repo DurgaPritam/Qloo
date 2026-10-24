@@ -1,4 +1,6 @@
-import { Redis } from "@upstash/redis";
+import type { Redis } from "@upstash/redis";
+
+import { getRedis } from "@/lib/server/redis";
 
 export type QlooParamValue = string | number | boolean | readonly string[] | null | undefined;
 export type QlooParams = Record<string, QlooParamValue>;
@@ -111,20 +113,7 @@ function describe(err: unknown): string {
 }
 
 /** Redis-backed when Upstash env vars are set, memory-only otherwise. */
-export function createDefaultCache(env: NodeJS.ProcessEnv = process.env): CacheStore {
-  const url = env.UPSTASH_REDIS_REST_URL;
-  const token = env.UPSTASH_REDIS_REST_TOKEN;
-  const shared =
-    url && token
-      ? new RedisCache(
-          new Redis({
-            url,
-            token,
-            retry: false,
-            signal: () => AbortSignal.timeout(1500),
-            enableTelemetry: false,
-          }),
-        )
-      : undefined;
-  return new TieredCache(new MemoryCache(), shared);
+export function createDefaultCache(): CacheStore {
+  const redis = getRedis();
+  return new TieredCache(new MemoryCache(), redis ? new RedisCache(redis) : undefined);
 }

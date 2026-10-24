@@ -3,7 +3,8 @@ import { createPlanner } from "@/lib/agent/planner";
 import type { AgentEvent, Overrides } from "@/lib/agent/types";
 import { getQlooSource } from "@/lib/qloo/source";
 import { savePlan } from "@/lib/server/plan-store";
-import { getLimiters, LIMITS, visitorId } from "@/lib/server/rate-limit";
+import { DAILY_ID, getLimiters, LIMITS, visitorId, type LimitResult } from "@/lib/server/rate-limit";
+import { loadRecording, replay } from "@/lib/server/replay";
 import { SSE_HEADERS, sseStream } from "@/lib/server/sse";
 
 export const maxDuration = 60;
@@ -29,21 +30,31 @@ export async function POST(req: Request): Promise<Response> {
 
   const source = getQlooSource();
   const mock = source.mock;
-  const runId = crypto.randomUUID();
   const replan = Object.keys(overrides).length > 0;
-  const limiter = replan ? getLimiters().replans : getLimiters().runs;
-  const limit = await limiter.check(visitorId(req.headers));
+
+  // Preloaded examples replay a stored run: instant, free, and not counted against any limit.
+  const recording = !mock && !replan ? await loadRecording(query) : null;
+  if (recording) {
+    const stream = sseStream((send) => replay(recording, send, { signal: req.signal }));
+    return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": recording.plan.runId } });
+  }
+
+  const runId = crypto.randomUUID();
+  const limiters = getLimiters();
+  const visitor = await (replan ? limiters.replans : limiters.runs).check(visitorId(req.headers));
+  const daily = visitor.ok ? await limiters.daily.check(DAILY_ID) : null;
+  let limited: { summary: string; retryAfterSec: number } | null = null;
+  if (!visitor.ok) limited = limitedMessage(visitor, replan);
+  else if (daily && !daily.ok) limited = dailyMessage(daily);
 
   const stream = sseStream(async (send) => {
-    if (!limit.ok) {
-      const minutes = Math.max(1, Math.ceil((limit.resetAt - Date.now()) / 60_000));
-      const allowed = replan ? LIMITS.replansPerHour : LIMITS.runsPerHour;
+    if (limited) {
       send({
         step: "final",
         status: "error",
-        summary: `You've used your ${allowed} live ${replan ? "replans" : "runs"} this hour. Try a cached example, or come back in about ${minutes} min.`,
+        summary: limited.summary,
         qlooCall: null,
-        data: { rateLimited: true, retryAfterSec: minutes * 60 },
+        data: { rateLimited: true, retryAfterSec: limited.retryAfterSec },
         mock,
       } satisfies AgentEvent);
       return;
@@ -67,6 +78,26 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": runId } });
+}
+
+function minutesUntil(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 60_000));
+}
+
+function limitedMessage(limit: LimitResult, replan: boolean) {
+  const minutes = minutesUntil(limit.resetAt);
+  const allowed = replan ? LIMITS.replansPerHour : LIMITS.runsPerHour;
+  return {
+    summary: `You've used your ${allowed} live ${replan ? "replans" : "runs"} this hour. Try a cached example, or come back in about ${minutes} min.`,
+    retryAfterSec: minutes * 60,
+  };
+}
+
+function dailyMessage(limit: LimitResult) {
+  return {
+    summary: "Takeover has reached today's limit of live runs. The cached examples still work, and live runs reopen tomorrow.",
+    retryAfterSec: minutesUntil(limit.resetAt) * 60,
+  };
 }
 
 function parseBody(body: unknown): { query: string; overrides: Overrides } {

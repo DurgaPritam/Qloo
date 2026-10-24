@@ -11,9 +11,17 @@ export const LIMITS = {
   runsPerHour: 5,
   /** Resumes and swaps ("Use this partner/city") per visitor per hour; cheap, mostly cached. */
   replansPerHour: 20,
+  /** Live runs per day across all visitors. Size it to the Qloo plan with TAKEOVER_DAILY_RUNS. */
+  dailyRuns: dailyCeiling(process.env.TAKEOVER_DAILY_RUNS),
 } as const;
 
+function dailyCeiling(raw: string | undefined): number {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : 300;
+}
+
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 export interface LimitResult {
   ok: boolean;
@@ -24,7 +32,10 @@ export interface LimitResult {
 }
 
 export interface RateLimiter {
+  /** Counts one use if allowed. */
   check(id: string): Promise<LimitResult>;
+  /** Reads the current state without counting a use. */
+  peek(id: string): Promise<LimitResult>;
 }
 
 /** Sliding window in process memory. Used when Redis is absent or failing. */
@@ -36,6 +47,17 @@ export class MemoryLimiter implements RateLimiter {
     private readonly windowMs: number,
     private readonly now: () => number = Date.now,
   ) {}
+
+  async peek(id: string): Promise<LimitResult> {
+    const now = this.now();
+    const recent = (this.hits.get(id) ?? []).filter((t) => t > now - this.windowMs);
+    return {
+      ok: recent.length < this.limit,
+      limit: this.limit,
+      remaining: Math.max(0, this.limit - recent.length),
+      resetAt: (recent[0] ?? now) + this.windowMs,
+    };
+  }
 
   async check(id: string): Promise<LimitResult> {
     const now = this.now();
@@ -69,30 +91,43 @@ class UpstashLimiter implements RateLimiter {
       return this.fallback.check(id);
     }
   }
+
+  async peek(id: string): Promise<LimitResult> {
+    try {
+      const r = await this.ratelimit.getRemaining(id);
+      return { ok: r.remaining > 0, limit: r.limit, remaining: r.remaining, resetAt: r.reset };
+    } catch {
+      return this.fallback.peek(id);
+    }
+  }
 }
 
-function build(name: string, limit: number): RateLimiter {
-  const memory = new MemoryLimiter(limit, HOUR_MS);
+function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): RateLimiter {
+  const memory = new MemoryLimiter(limit, window === "1 h" ? HOUR_MS : DAY_MS);
   const redis = getRedis();
   if (!redis) return memory;
   const ratelimit = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(limit, "1 h"),
+    limiter: window === "1 h" ? Ratelimit.slidingWindow(limit, window) : Ratelimit.fixedWindow(limit, window),
     prefix: `takeover:rl:${name}`,
     timeout: 1500,
   });
   return new UpstashLimiter(ratelimit, memory);
 }
 
-let limiters: { runs: RateLimiter; replans: RateLimiter } | undefined;
+let limiters: { runs: RateLimiter; replans: RateLimiter; daily: RateLimiter } | undefined;
 
 export function getLimiters() {
   limiters ??= {
     runs: build("runs", LIMITS.runsPerHour),
     replans: build("replans", LIMITS.replansPerHour),
+    daily: build("daily", LIMITS.dailyRuns, "1 d"),
   };
   return limiters;
 }
+
+/** The daily ceiling is one shared bucket for every visitor. */
+export const DAILY_ID = "all-visitors";
 
 /** The caller's IP, hashed so raw addresses never reach Redis or logs. */
 export function visitorId(headers: Headers): string {
