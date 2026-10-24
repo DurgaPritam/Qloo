@@ -27,9 +27,9 @@ A Next.js (App Router) app that combines the Qloo Taste AI API with a Claude-dri
 ## Getting started
 
 ```bash
-npm install
-cp .env.example .env.local   # then fill in the keys
-npm run dev                  # http://localhost:3000
+npm ci                       # installs exactly the lockfile; `npm install` can drop native bindings (npm bug 4828)
+cp .env.example .env.local   # then fill in the keys, or skip and use mock mode:
+TAKEOVER_MOCK=1 npm run dev  # http://localhost:3000, sample data
 ```
 
 ## Scripts

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { EXAMPLES } from "@/lib/examples";
 
@@ -16,12 +16,13 @@ const STEPS = [
 export function Landing() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Busy only while the navigation is in flight. A flag set by hand would survive a Back
+  // navigation (Next keeps the previous page's state) and leave the button disabled.
+  const [busy, startNavigation] = useTransition();
   const plan = (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) return;
-    setBusy(true);
-    router.push(`/run?q=${encodeURIComponent(trimmed)}`);
+    startNavigation(() => router.push(`/run?q=${encodeURIComponent(trimmed)}`));
   };
 
   return (

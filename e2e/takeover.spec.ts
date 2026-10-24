@@ -132,3 +132,16 @@ test("@mobile the log collapses into a progress bar at 380px", async ({ page }) 
   await expect(page.locator('[data-step="01"]')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(380);
 });
+
+test("going Back to the landing page leaves Plan takeover usable", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: new RegExp(EXAMPLES[3].name) }).click();
+  await expect(page).toHaveURL(/\/run\?q=/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  const submit = page.getByRole("button", { name: "Plan takeover" }).filter({ visible: true });
+  await expect(submit).toBeEnabled();
+  await page.getByRole("textbox", { name: "Plan a takeover for…" }).filter({ visible: true }).fill(EXAMPLES[0].name);
+  await submit.click();
+  await expect(page).toHaveURL(new RegExp(`q=${encodeURIComponent(EXAMPLES[0].name).replace(/%20/g, "(\\\\+|%20)")}`));
+});
