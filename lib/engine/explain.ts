@@ -21,8 +21,8 @@ export function explain(pick: Pick): string {
       const { entity, evidence } = pick;
       return (
         `${entity.name} (${CATEGORY_LABEL[entity.category]}) ranks #${pick.rank} with a score of ` +
-        `${n(pick.score)}, from affinity ${n(evidence.affinity)} and popularity ` +
-        `${n(evidence.popularity)}, ${pick.confidence} confidence.`
+        `${n(pick.score)}, from affinity ${n(evidence.affinity)} (${n(evidence.relativeAffinity)} ` +
+        `relative to its category) and popularity ${n(evidence.popularity)}, ${pick.confidence} confidence.`
       );
     }
     case "city":
@@ -44,8 +44,8 @@ export function explain(pick: Pick): string {
     case "brand":
       return (
         `${pick.brand.name} ranks #${pick.rank} with a score of ${n(pick.score)}, from affinity ` +
-        `${n(pick.evidence.affinity)} and popularity ${n(pick.evidence.popularity)}, ` +
-        `${pick.confidence} confidence.`
+        `${n(pick.evidence.affinity)} (${n(pick.evidence.relativeAffinity)} relative to the list) and ` +
+        `popularity ${n(pick.evidence.popularity)}, ${pick.confidence} confidence.`
       );
   }
 }

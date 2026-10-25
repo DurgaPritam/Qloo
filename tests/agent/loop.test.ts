@@ -86,11 +86,13 @@ describe("runAgent", () => {
   });
 
   it("emits a fallback branch event and widens when no partner clears the threshold", async () => {
+    // First-pass categories return only mega-stars, so nothing passes the popularity band.
+    const firstPass = new Set(["artist", "podcast", "tv_show", "movie"]);
     const weak = new MockQlooSource();
     const candidates = weak.candidates.bind(weak);
     weak.candidates = async (...args) => {
       const res = await candidates(...args);
-      return { ...res, data: res.data.map((c) => ({ ...c, affinity: 0.1 })) };
+      return firstPass.has(args[1]) ? { ...res, data: res.data.map((c) => ({ ...c, popularity: 0.9999 })) } : res;
     };
 
     const { plan, settled } = await run("John Mulaney", { source: weak });
@@ -103,7 +105,7 @@ describe("runAgent", () => {
     });
     expect(partnerEvents).toHaveLength(2);
     expect(plan.partners?.categoriesTried).toHaveLength(6);
-    expect(plan.partners?.fallback).toBe(true);
+    expect(plan.partners?.picks.every((p) => ["brand", "videogame"].includes(p.pick.entity.category))).toBe(true);
     expect(plan.notes).toContain("No partner above the threshold, so I'm widening to more categories.");
     expect(plan.status).toBe("complete");
   });

@@ -499,7 +499,7 @@ const planRoom: ToolDef = {
     const venuesIn = async (c: City) => {
       const res = await source.places(ids, cityQuery(c), format.venueTags, opts);
       calls.push(res.meta);
-      return rankPlaces(res.data, format.venueTags);
+      return rankPlaces(res.data, format.venueTags, undefined, format.avoidTags);
     };
 
     let venues = await venuesIn(city);

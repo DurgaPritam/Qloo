@@ -1,5 +1,5 @@
 import { ENGINE_CONFIG, NON_SPONSOR_BRAND_TYPES } from "./config";
-import { byScoreThenId, describeDropped, nicheScore, screen } from "./shared";
+import { byScoreThenId, describeDropped, nicheScore, screen, screenRelative } from "./shared";
 import type { Brand, BrandPick, Confidence, Place, PlacePick, RankResult } from "./types";
 
 /**
@@ -11,6 +11,7 @@ export function rankPlaces(
   results: readonly Place[],
   tags: readonly string[],
   count: number = ENGINE_CONFIG.places.count,
+  avoidTags: readonly string[] = [],
 ): RankResult<PlacePick, Place> {
   const cfg = ENGINE_CONFIG.places;
   const { kept, dropped } = screen(results, { maxPopularity: 1, minAffinity: cfg.minAffinity });
@@ -21,7 +22,11 @@ export function rankPlaces(
       const have = new Set(place.tags.map(normaliseTag));
       const matchedTags = requested.filter((t) => have.has(t));
       const matches = requested.length === 0 || matchedTags.length > 0;
-      const score = place.affinity * (matches ? 1 : cfg.tagBaseWeight);
+      // Earlier requested tags are the better fit for the format; wrong-size rooms are weighted down.
+      const first = requested.findIndex((t) => have.has(t));
+      const preference = first <= 0 ? 1 : Math.max(0.7, 1 - cfg.tagOrderStep * first);
+      const wrongSize = avoidTags.some((t) => have.has(t.toLowerCase()));
+      const score = place.affinity * (matches ? preference : cfg.tagBaseWeight) * (wrongSize ? cfg.wrongSizeWeight : 1);
       return { id: place.id, score, place, matchedTags, matches };
     })
     .sort(byScoreThenId)
@@ -73,17 +78,16 @@ export function rankBrands(
   const cfg = ENGINE_CONFIG.brands;
   // Nonprofits and government programmes are not sponsors (Qloo brand_type).
   const notSponsors = results.filter((b) => b.brandTypes?.some((t) => NON_SPONSOR_BRAND_TYPES.includes(t)));
-  const screened = screen(
-    results.filter((b) => !notSponsors.includes(b)),
-    cfg,
-  );
+  const sponsors = results.filter((b) => !notSponsors.includes(b));
+  const screened = screenRelative(sponsors, cfg, () => "brand");
+  const relOf = (b: { id: string }) => screened.rel.get(b.id) ?? 0;
   const kept = screened.kept;
   const dropped = [...notSponsors.map((item) => ({ item, reason: "not_a_sponsor" as const })), ...screened.dropped];
 
   const ranked = kept
     .map((brand) => ({
       id: brand.id,
-      score: nicheScore(brand.affinity, brand.popularity, cfg.popularityExponent),
+      score: nicheScore(Math.max(0, relOf(brand)), brand.popularity, cfg.popularityExponent),
       brand,
     }))
     .sort(byScoreThenId)
@@ -96,7 +100,7 @@ export function rankBrands(
       score,
       confidence: rankConfidence(i, ranked, kept.length),
       brand,
-      evidence: { affinity: brand.affinity, popularity: brand.popularity },
+      evidence: { affinity: brand.affinity, popularity: brand.popularity, relativeAffinity: relOf(brand) },
     }),
   );
 
@@ -107,7 +111,7 @@ export function rankBrands(
       dropped,
       fallback: true,
       reason: results.length
-        ? `No brand passed the bias guard and affinity floor; ${droppedNote}.`
+        ? `No brand passed the popularity band and affinity floor; ${droppedNote}.`
         : "No brands were returned.",
     };
   }

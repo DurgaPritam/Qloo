@@ -87,7 +87,12 @@ export interface Brand {
   description?: string;
 }
 
-export type DropReason = "too_popular" | "below_min_affinity" | "invalid_data" | "not_a_sponsor";
+export type DropReason =
+  | "too_popular"
+  | "too_obscure"
+  | "below_min_affinity"
+  | "invalid_data"
+  | "not_a_sponsor";
 
 export interface Dropped<T> {
   item: T;
@@ -112,7 +117,8 @@ interface PickBase {
 export interface PartnerPick extends PickBase {
   kind: "partner";
   entity: Candidate;
-  evidence: { affinity: number; popularity: number };
+  /** relativeAffinity: 0 = median of its category's candidates, 1 = the category's best. */
+  evidence: { affinity: number; popularity: number; relativeAffinity: number };
 }
 
 export interface PlacePick extends PickBase {
@@ -129,7 +135,7 @@ export interface PlacePick extends PickBase {
 export interface BrandPick extends PickBase {
   kind: "brand";
   brand: Brand;
-  evidence: { affinity: number; popularity: number };
+  evidence: { affinity: number; popularity: number; relativeAffinity: number };
 }
 
 export interface CityScore {

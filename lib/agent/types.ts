@@ -81,6 +81,7 @@ export interface FormatChoice {
   minPopulation: number;
   venueTags: readonly string[];
   spotTags: readonly string[];
+  avoidTags?: readonly string[];
 }
 
 export interface Explained<P> {

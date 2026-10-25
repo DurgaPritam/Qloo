@@ -108,6 +108,18 @@ async function main() {
     // Person vs artist entity for a musician: which gives better partners?
     await get("insights-sabrina-artist-podcast", "/v2/insights", { "filter.type": "urn:entity:podcast", "signal.interests.entities": [SABRINA_ARTIST], take: 20 });
   }
+  if (stage === "3") {
+    // Partner candidates for the club and for a musician's artist entity (tuning, step 4).
+    for (const [who, id, own] of [
+      ["arsenal", ARSENAL, "brand"],
+      ["sabrina-artist", SABRINA_ARTIST, "artist"],
+    ] as const) {
+      for (const c of ["artist", "movie", "tv_show", "podcast", "person", "brand", "videogame"]) {
+        if (c === own) continue;
+        await get(`partners-${who}-${c}`, "/v2/insights", { "filter.type": `urn:entity:${c}`, "signal.interests.entities": [id], take: 20 });
+      }
+    }
+  }
   console.log(`\nQloo calls: ${calls}; monthly quota remaining: ${quota ?? "unknown"}`);
 }
 

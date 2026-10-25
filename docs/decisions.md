@@ -94,3 +94,26 @@ the quota in about 11 days of heavy use).
 **D17. Without Qloo credentials (and not in mock mode) `/api/plan` returns a 503 configuration
 error**, like the missing planner key, instead of starting a run that fails at step 1.
 `/api/health` also reports the monthly quota Qloo last returned.
+
+## 2026-10-25 · Step 4: tuning (details and before/after in docs/tuning.md)
+
+**D18. Changed the partner formula's inputs, not just its numbers.** The playbook's
+`affinity × (1 − popularity)^0.5, drop p > 0.97` was meant to be tuned on fixtures; on real data it
+always picked TV shows or popularity-0 junk, because both affinity and popularity sit at different
+levels per category. Kept the shape (affinity times a mainstream discount) and changed: affinity is
+relative to its category; popularity band 0.5–0.999; exponent 0.15. *Considered:* tuning the cut
+and exponent only (no setting removed the TV-show bias); ranking within each category and
+round-robin (loses the cross-category comparison).
+
+**D19. The Prompt C test "drops pop 0.99" now uses 0.9995.** 0.99 is near the 75th percentile of
+real partners; the guard's purpose (no mega-stars) is tested at the tuned ceiling.
+
+**D20. Sponsors keep big brands.** Ceiling 0.9995 instead of 0.999: brands are naturally popular
+and real sponsors are big names; only the very top is excluded.
+
+**D21. Venue preference and wrong-size rooms.** A podcast live show landed in a stadium; formats
+other than fan fest now weight stadiums and arenas down, and earlier-listed venue tags are
+preferred.
+
+**D22. City labels show the region** ("Portland, Oregon") because GeoNames has several cities of
+the same name.

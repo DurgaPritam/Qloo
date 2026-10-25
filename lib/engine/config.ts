@@ -8,11 +8,20 @@ export const ENGINE_CONFIG = {
   partners: {
     count: 3,
     minCategories: 2,
-    /** Bias guard: anything more popular than this is "everyone likes it", not a crossover. */
-    maxPopularity: 0.97,
-    minAffinity: 0.3,
-    /** score = affinity * (1 - popularity) ^ popularityExponent */
-    popularityExponent: 0.5,
+    /**
+     * Popularity band (Qloo popularity is a percentile bunched near 1; docs/tuning.md).
+     * Above maxPopularity is a mega-star or generic platform (YouTube, Netflix, Rihanna);
+     * below minPopularity is too obscure to draw a crowd (many of these have popularity 0).
+     */
+    maxPopularity: 0.999,
+    minPopularity: 0.5,
+    /**
+     * Affinity is compared within each category: 0 = the category's median candidate, 1 = its best.
+     * A partner must sit above its category's median.
+     */
+    minRelativeAffinity: 0,
+    /** score = relativeAffinity * (1 - popularity) ^ popularityExponent: a gentle mainstream discount. */
+    popularityExponent: 0.15,
   },
   cities: {
     /** Heat cells within this distance of a city centre count towards it. */
@@ -50,14 +59,20 @@ export const ENGINE_CONFIG = {
     minAffinity: 0.2,
     /** Weight kept by a place that matches none of the requested tags. */
     tagBaseWeight: 0.5,
+    /** Each later requested tag is this much less preferred than the first (floor 0.7). */
+    tagOrderStep: 0.1,
+    /** Weight kept by a room tagged with one of the format's avoidTags (a stadium for a podcast). */
+    wrongSizeWeight: 0.5,
   },
   brands: {
     count: 3,
-    maxPopularity: 0.97,
-    minAffinity: 0.2,
-    popularityExponent: 0.5,
+    /** Sponsors may be big brands, but not the absolute top (Victoria's Secret, Starbucks, Netflix). */
+    maxPopularity: 0.9995,
+    minPopularity: 0.5,
+    minRelativeAffinity: 0,
+    popularityExponent: 0.15,
   },
-  /** Partners: thresholds on affinity. Cities: on min(sA, sB). */
+  /** Partners: thresholds on relative affinity. Cities: on min(sA, sB). */
   confidence: {
     high: 0.7,
     medium: 0.4,
@@ -93,7 +108,11 @@ export interface FormatRule {
   venueTags: readonly string[];
   /** Any of these makes a place an after-show or watch-party spot. */
   spotTags: readonly string[];
+  /** Rooms with these tags are the wrong size for the format: kept, but weighted down. */
+  avoidTags?: readonly string[];
 }
+
+const NOT_A_STADIUM: readonly string[] = ["stadium", "arena"];
 
 export const FORMAT_LABEL: Record<FormatId, string> = {
   tour_stop: "Tour stop",
@@ -109,6 +128,7 @@ export const FORMAT_LABEL: Record<FormatId, string> = {
 export const FORMAT_BY_CATEGORY: Record<Category, FormatRule> = {
   artist: {
     format: "tour_stop",
+    avoidTags: NOT_A_STADIUM,
     minPopulation: 250_000,
     venueTags: ["live music venue", "concert hall"],
     spotTags: ["bar", "night club"],
@@ -116,30 +136,35 @@ export const FORMAT_BY_CATEGORY: Record<Category, FormatRule> = {
   // Comedians. Other people (actors, hosts) get PERSON_LIVE_SHOW via formatFor.
   person: {
     format: "tour_stop",
+    avoidTags: NOT_A_STADIUM,
     minPopulation: 250_000,
     venueTags: ["comedy club", "performing arts theater"],
     spotTags: ["bar", "pub"],
   },
   movie: {
     format: "screening_tour",
+    avoidTags: NOT_A_STADIUM,
     minPopulation: 150_000,
     venueTags: ["movie theater"],
     spotTags: ["bar", "pub"],
   },
   tv_show: {
     format: "screening_tour",
+    avoidTags: NOT_A_STADIUM,
     minPopulation: 150_000,
     venueTags: ["movie theater"],
     spotTags: ["bar", "pub"],
   },
   podcast: {
     format: "live_show",
+    avoidTags: NOT_A_STADIUM,
     minPopulation: 250_000,
     venueTags: ["performing arts theater", "comedy club", "live music venue"],
     spotTags: ["bar", "cafe"],
   },
   book: {
     format: "live_show",
+    avoidTags: NOT_A_STADIUM,
     minPopulation: 150_000,
     venueTags: ["performing arts theater", "book store"],
     spotTags: ["cafe", "bar"],

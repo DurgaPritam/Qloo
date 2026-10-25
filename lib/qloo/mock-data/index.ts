@@ -43,28 +43,46 @@ export const MOCK_SEARCH: Record<
   "billie elish": [{ name: "Billie Eilish", category: "artist", popularity: 0.9 }],
 };
 
+/**
+ * Values mimic real Qloo ranges (docs/qloo-shapes.md): affinity 0.85–0.98, popularity bunched
+ * near 1. One mega-star and one barely-known entry exercise the popularity band.
+ */
 export const MOCK_CANDIDATES: Partial<Record<Category, MockItem[]>> = {
   artist: [
-    { name: "Velvet Static (sample)", affinity: 0.88, popularity: 0.41 },
-    { name: "Northbound Echo (sample)", affinity: 0.74, popularity: 0.22 },
-    // Highest affinity but near-universal reach: the bias guard should drop it.
-    { name: "Global Megastar (sample)", affinity: 0.95, popularity: 0.99 },
+    { name: "Velvet Static (sample)", affinity: 0.971, popularity: 0.982 },
+    { name: "Northbound Echo (sample)", affinity: 0.958, popularity: 0.951 },
+    { name: "Paper Lanterns (sample)", affinity: 0.941, popularity: 0.973 },
+    // Highest affinity but near-universal reach: the popularity band should drop it.
+    { name: "Global Megastar (sample)", affinity: 0.985, popularity: 0.9996 },
   ],
   movie: [
-    { name: "The Long Quiet (sample)", affinity: 0.69, popularity: 0.35 },
-    { name: "Paper Satellites (sample)", affinity: 0.52, popularity: 0.6 },
+    { name: "The Long Quiet (sample)", affinity: 0.932, popularity: 0.968 },
+    { name: "Paper Satellites (sample)", affinity: 0.914, popularity: 0.981 },
+    { name: "Low Tide (sample)", affinity: 0.897, popularity: 0.955 },
   ],
   tv_show: [
-    { name: "Afterhours Kitchen (sample)", affinity: 0.81, popularity: 0.48 },
-    { name: "Coastline Detectives (sample)", affinity: 0.44, popularity: 0.7 },
+    { name: "Afterhours Kitchen (sample)", affinity: 0.962, popularity: 0.912 },
+    { name: "Coastline Detectives (sample)", affinity: 0.948, popularity: 0.884 },
+    { name: "Night Shift Diaries (sample)", affinity: 0.939, popularity: 0.902 },
   ],
   podcast: [
-    { name: "Small Rooms, Loud Bands (sample)", affinity: 0.86, popularity: 0.12 },
-    { name: "Weekly Roundup (sample)", affinity: 0.25, popularity: 0.5 },
+    { name: "Small Rooms, Loud Bands (sample)", affinity: 0.951, popularity: 0.976 },
+    { name: "Weekly Roundup (sample)", affinity: 0.902, popularity: 0.988 },
+    // Barely known: below the popularity band.
+    { name: "Basement Tapes Pod (sample)", affinity: 0.958, popularity: 0.21 },
   ],
-  person: [{ name: "Ada Fictional (sample)", affinity: 0.63, popularity: 0.3 }],
-  brand: [{ name: "Fieldnote Coffee (sample)", affinity: 0.72, popularity: 0.28 }],
-  videogame: [{ name: "Lantern Drift (sample)", affinity: 0.58, popularity: 0.33 }],
+  person: [
+    { name: "Ada Fictional (sample)", affinity: 0.944, popularity: 0.931 },
+    { name: "Jo Placeholder (sample)", affinity: 0.921, popularity: 0.947 },
+  ],
+  brand: [
+    { name: "Fieldnote Coffee (sample)", affinity: 0.928, popularity: 0.962 },
+    { name: "Northway Outfitters (sample)", affinity: 0.911, popularity: 0.978 },
+  ],
+  videogame: [
+    { name: "Lantern Drift (sample)", affinity: 0.874, popularity: 0.981 },
+    { name: "Signal Lost (sample)", affinity: 0.861, popularity: 0.964 },
+  ],
 };
 
 /** Real city centres, used only to place sample heat cells. */
@@ -90,19 +108,20 @@ export const MOCK_CELL_OFFSETS = [
 ] as const;
 
 export const MOCK_PLACES: MockItem[] = [
-  { name: "The Lamplight Room (sample)", affinity: 0.84, popularity: 0.4, tags: ["music venue", "comedy club"] },
-  { name: "Foundry Hall (sample)", affinity: 0.71, popularity: 0.62, tags: ["concert hall", "theater"] },
-  { name: "Palisade Cinema (sample)", affinity: 0.69, popularity: 0.5, tags: ["movie theater", "cinema"] },
-  { name: "Northside Arena (sample)", affinity: 0.63, popularity: 0.8, tags: ["arena", "stadium"] },
-  { name: "Copper Tap (sample)", affinity: 0.66, popularity: 0.3, tags: ["bar", "pub", "sports bar"] },
-  { name: "Night Owl Cafe (sample)", affinity: 0.58, popularity: 0.25, tags: ["cafe", "bookstore"] },
-  { name: "Riverside Pavilion (sample)", affinity: 0.48, popularity: 0.75, tags: ["music venue", "arena"] },
-  { name: "Late Shift Diner (sample)", affinity: 0.15, popularity: 0.2, tags: ["restaurant", "bar"] },
+  { name: "The Lamplight Room (sample)", affinity: 0.884, popularity: 0.97, tags: ["live music venue", "comedy club"] },
+  { name: "Foundry Hall (sample)", affinity: 0.871, popularity: 0.95, tags: ["concert hall", "performing arts theater"] },
+  { name: "Palisade Cinema (sample)", affinity: 0.869, popularity: 0.93, tags: ["movie theater"] },
+  { name: "Northside Arena (sample)", affinity: 0.893, popularity: 0.99, tags: ["arena", "stadium", "live music venue"] },
+  { name: "Copper Tap (sample)", affinity: 0.866, popularity: 0.88, tags: ["bar", "pub", "sports bar"] },
+  { name: "Night Owl Cafe (sample)", affinity: 0.858, popularity: 0.84, tags: ["cafe", "book store"] },
+  { name: "Riverside Pavilion (sample)", affinity: 0.848, popularity: 0.96, tags: ["live music venue", "night club"] },
+  { name: "Late Shift Diner (sample)", affinity: 0.15, popularity: 0.6, tags: ["bar"] },
 ];
 
 export const MOCK_BRANDS: MockItem[] = [
-  { name: "Fieldnote Coffee (sample)", affinity: 0.72, popularity: 0.28 },
-  { name: "Northway Outfitters (sample)", affinity: 0.65, popularity: 0.45 },
-  { name: "Brightside Audio (sample)", affinity: 0.59, popularity: 0.22 },
-  { name: "Everywhere Cola (sample)", affinity: 0.9, popularity: 0.99 },
+  { name: "Fieldnote Coffee (sample)", affinity: 0.952, popularity: 0.962 },
+  { name: "Northway Outfitters (sample)", affinity: 0.945, popularity: 0.978 },
+  { name: "Brightside Audio (sample)", affinity: 0.939, popularity: 0.951 },
+  { name: "Harbor Supply Co. (sample)", affinity: 0.921, popularity: 0.944 },
+  { name: "Everywhere Cola (sample)", affinity: 0.96, popularity: 0.9997 },
 ];

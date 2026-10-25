@@ -220,8 +220,8 @@ export function CrossoverSection({
                 })}
               />
               <p className="m-0 text-chip text-mute [text-wrap:pretty]">
-                Score = affinity × √(1 − popularity): a strong shared audience counts, mainstream reach (Pop.) is
-                discounted.{" "}
+                Score = affinity relative to its category (0 at the median, 1 at the best) × a gentle discount for
+                mainstream reach (Pop.). Mega-stars above 0.999 and names below 0.5 are left out.{" "}
                 {partners.reason}
               </p>
             </div>
@@ -355,7 +355,7 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
                         </Num>,
                         <span key="c">
                           {s.city.name}
-                          <span className="text-mute">, {s.city.country}</span>
+                          <span className="text-mute">, {s.city.admin1 || s.city.country}</span>
                         </span>,
                         <Num key="s" top={s.city.id === chosen.city.id}>
                           {pct(s.combined)}
@@ -381,7 +381,7 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
                         <div className="flex min-w-0 flex-col gap-1.5">
                           <span className="font-medium">
                             {c.city.name}
-                            <span className="text-chip text-mute">, {c.city.country}</span>
+                            <span className="text-chip text-mute">, {c.city.admin1 || c.city.country}</span>
                           </span>
                           <ScoreBar value={pct(c.combined)} fill={c.city.id === chosen.city.id ? "acc" : "mute"} className="gap-2" />
                         </div>

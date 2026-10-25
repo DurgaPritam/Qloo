@@ -69,35 +69,66 @@ describe("rank confidence", () => {
   });
 
   it("lowers the top pick when first and second are nearly tied", () => {
-    const res = rankBrands([brand("a", 0.6, 0.2), brand("b", 0.59, 0.2), brand("c", 0.3, 0.2)]);
+    // Relative affinity within the list: median 0.90 → a = 1, b = 0.98, c = 0; a and b nearly tie.
+    const res = rankBrands([
+      brand("a", 0.95, 0.9),
+      brand("b", 0.949, 0.9),
+      brand("c", 0.9, 0.9),
+      brand("d", 0.89, 0.9),
+      brand("e", 0.88, 0.9),
+    ]);
+    expect(res.picks.map((p) => p.brand.id)).toEqual(["a", "b", "c"]);
     expect(res.picks.map((p) => p.confidence)).toEqual(["low", "medium", "medium"]);
   });
 
-  it("treats requested tags as alternatives", () => {
+  it("treats requested tags as alternatives, preferring the first", () => {
     const res = rankPlaces([place("hall", 0.7, ["concert hall"])], ["music venue", "concert hall"]);
-    expect(res.picks[0].score).toBeCloseTo(0.7);
+    expect(res.picks[0].score).toBeCloseTo(0.7 * 0.9);
     expect(res.fallback).toBe(false);
+  });
+
+  it("weights down rooms of the wrong size for the format", () => {
+    const res = rankPlaces(
+      [place("stadium", 0.9, ["live music venue", "stadium"]), place("club", 0.85, ["live music venue"])],
+      ["live music venue"],
+      5,
+      ["stadium", "arena"],
+    );
+    expect(res.picks.map((p) => p.place.id)).toEqual(["club", "stadium"]);
   });
 });
 
 describe("rankBrands", () => {
-  it("applies the bias guard and niche score", () => {
+  it("applies the popularity band and the niche score", () => {
     const res = rankBrands([
-      brand("everywhere", 0.95, 0.99),
-      brand("mainstream", 0.8, 0.9),
-      brand("niche", 0.6, 0.2),
+      brand("everywhere", 0.97, 0.9999),
+      brand("mainstream", 0.95, 0.999),
+      brand("niche", 0.95, 0.95),
+      brand("weak", 0.9, 0.95),
+      brand("unknown", 0.96, 0.2),
     ]);
 
-    expect(res.picks.map((p) => p.brand.id)).toEqual(["niche", "mainstream"]);
-    expect(res.dropped).toEqual([
-      { item: expect.objectContaining({ id: "everywhere" }), reason: "too_popular" },
+    expect(res.picks[0].brand.id).toBe("niche");
+    expect(res.dropped).toEqual(
+      expect.arrayContaining([
+        { item: expect.objectContaining({ id: "everywhere" }), reason: "too_popular" },
+        { item: expect.objectContaining({ id: "unknown" }), reason: "too_obscure" },
+      ]),
+    );
+  });
+
+  it("never offers nonprofits or government programmes as sponsors", () => {
+    const res = rankBrands([
+      { ...brand("ngo", 0.99, 0.95), brandTypes: ["Nonprofit Brand"] },
+      { ...brand("agency", 0.98, 0.95), brandTypes: ["Government Brand"] },
+      { ...brand("media", 0.95, 0.95), brandTypes: ["Media Brand"] },
     ]);
-    expect(res.picks[0].confidence).toBe("medium");
+    expect(res.picks.map((p) => p.brand.id)).toEqual(["media"]);
+    expect(res.reason).toMatch(/2 nonprofit or government/);
   });
 
   it("returns fallback with a reason when nothing qualifies", () => {
-    const res = rankBrands([brand("everywhere", 0.95, 0.99)]);
-
+    const res = rankBrands([brand("everywhere", 0.95, 0.9999)]);
     expect(res).toMatchObject({ picks: [], fallback: true });
     expect(res.reason).toMatch(/1 too mainstream/);
   });

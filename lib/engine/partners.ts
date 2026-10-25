@@ -1,11 +1,13 @@
 import { ENGINE_CONFIG } from "./config";
-import { byScoreThenId, confidenceFor, describeDropped, nicheScore, screen } from "./shared";
+import { byScoreThenId, confidenceFor, describeDropped, nicheScore, screenRelative } from "./shared";
 import type { Candidate, PartnerPick, RankResult } from "./types";
 
 export interface ScorePartnersOptions {
   count?: number;
   minCategories?: number;
   maxPopularity?: number;
+  minPopularity?: number;
+  /** On relative affinity (0 = category median, 1 = category best). */
   minAffinity?: number;
   /** The seed itself and anything already used. */
   excludeIds?: readonly string[];
@@ -19,11 +21,13 @@ interface Scored {
 }
 
 /**
- * Picks crossover partners: score = affinity * (1 - popularity)^0.5, bias guard on popularity,
- * affinity floor, top `count` spanning at least `minCategories` categories when possible.
+ * Picks crossover partners. Affinity is compared within each category (Qloo's levels differ by
+ * category), then score = relativeAffinity * (1 - popularity)^0.15. A popularity band drops
+ * mega-stars and the barely known. Top `count`, spanning at least `minCategories` categories when
+ * possible. Values and reasons: docs/tuning.md.
  *
  * Fallbacks, always labelled: if nothing passes the affinity floor, the best candidates that only
- * failed the floor are used. The bias guard is never relaxed.
+ * failed the floor are used. The popularity band is never relaxed.
  */
 export function scorePartners(
   candidates: readonly Candidate[],
@@ -35,10 +39,16 @@ export function scorePartners(
   const exclude = new Set(opts.excludeIds ?? []);
 
   const pool = candidates.filter((c) => !exclude.has(c.id));
-  const { kept, dropped } = screen(pool, {
-    maxPopularity: opts.maxPopularity ?? cfg.maxPopularity,
-    minAffinity: opts.minAffinity ?? cfg.minAffinity,
-  });
+  const { kept, dropped, rel } = screenRelative(
+    pool,
+    {
+      maxPopularity: opts.maxPopularity ?? cfg.maxPopularity,
+      minPopularity: opts.minPopularity ?? cfg.minPopularity,
+      minRelativeAffinity: opts.minAffinity ?? cfg.minRelativeAffinity,
+    },
+    (c) => c.category,
+  );
+  const relOf = (c: { id: string }) => rel.get(c.id) ?? 0;
   const droppedNote = describeDropped(dropped);
 
   if (pool.length === 0) {
@@ -56,7 +66,7 @@ export function scorePartners(
       picks: [],
       dropped,
       fallback: true,
-      reason: `No candidate passed the bias guard; ${droppedNote}.`,
+      reason: `No candidate passed the popularity band; ${droppedNote}.`,
     };
   }
 
@@ -64,7 +74,7 @@ export function scorePartners(
     .map((c) => ({
       id: c.id,
       category: c.category,
-      score: nicheScore(c.affinity, c.popularity, cfg.popularityExponent),
+      score: nicheScore(Math.max(0, relOf(c)), c.popularity, cfg.popularityExponent),
       candidate: c,
     }))
     .sort(byScoreThenId);
@@ -75,9 +85,9 @@ export function scorePartners(
     kind: "partner",
     rank: i + 1,
     score,
-    confidence: relaxed ? "low" : confidenceFor(candidate.affinity),
+    confidence: relaxed ? "low" : confidenceFor(relOf(candidate)),
     entity: candidate,
-    evidence: { affinity: candidate.affinity, popularity: candidate.popularity },
+    evidence: { affinity: candidate.affinity, popularity: candidate.popularity, relativeAffinity: relOf(candidate) },
   }));
 
   const summary = `Picked ${picks.length} from ${categories.size} ${plural(categories.size, "category", "categories")}; ${droppedNote}.`;
@@ -86,7 +96,7 @@ export function scorePartners(
       picks,
       dropped,
       fallback: true,
-      reason: `No candidate reached the affinity floor, so these are the closest below it. ${summary}`,
+      reason: `No candidate stood out within its category, so these are the closest. ${summary}`,
     };
   }
   if (categories.size < minCategories) {
