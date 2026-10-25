@@ -200,16 +200,14 @@ export function CrossoverSection({
             <div className="flex flex-col gap-2">
               <MonoLabel>Compare the shortlist</MonoLabel>
               <DataTable
-                columns={["Partner", "Type", "Affinity", "Popularity", "Score"]}
-                template="minmax(0,1fr) minmax(0,5.5em) 4.5em 5.5em 3.5em"
+                columns={["Partner", "Affinity", "Pop.", "Score"]}
+                template="minmax(0,1fr) 4.8em 3.6em 3.6em"
                 rows={partners.picks.map(({ pick }) => {
                   const isChosen = pick.entity.id === chosen?.pick.entity.id;
                   return [
-                    <span key="n" className={cx("[overflow-wrap:anywhere]", isChosen && "font-medium")}>
-                      {pick.entity.name}
-                    </span>,
-                    <span key="t" className="text-mute">
-                      {categoryLabel(pick.entity.category)}
+                    <span key="n" className="flex min-w-0 flex-col">
+                      <span className={cx("[overflow-wrap:anywhere]", isChosen && "font-medium")}>{pick.entity.name}</span>
+                      <span className="text-mute">{categoryLabel(pick.entity.category)}</span>
                     </span>,
                     <Num key="a">{two(pick.entity.affinity)}</Num>,
                     <Num key="p" mute>
@@ -222,7 +220,8 @@ export function CrossoverSection({
                 })}
               />
               <p className="m-0 text-chip text-mute [text-wrap:pretty]">
-                Score = affinity × √(1 − popularity): a strong shared audience counts, mainstream reach is discounted.{" "}
+                Score = affinity × √(1 − popularity): a strong shared audience counts, mainstream reach (Pop.) is
+                discounted.{" "}
                 {partners.reason}
               </p>
             </div>

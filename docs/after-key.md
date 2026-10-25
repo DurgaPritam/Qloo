@@ -11,6 +11,12 @@ fixture named in each row.
 ## TODO after the probe
 
 - [ ] Add real screenshots to the README from live Qloo runs (landing, a completed run, results).
+- [ ] Audience profile card (age and gender skew, top taste tags) once the probe shows what Qloo's
+  demographics and tags endpoints return. Needs a Claude Design pass first (new component).
+- [ ] Entity images in the crossover cards and picker (`Entity.imageUrl`, S5).
+- [ ] Re-check tour defaults on real heatmaps: 150 km spacing, 0.3 minimum score, country scope
+  with a 2,500 km fallback (`ENGINE_CONFIG.tour`).
+- [ ] Implement `scripts/warm-cache.ts` and preload the four examples plus likely judge inputs.
   The design hand-off screens were removed because they show a real comedian with invented figures.
 
 ## Transport and auth
