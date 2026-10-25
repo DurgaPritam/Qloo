@@ -54,7 +54,7 @@ export class MemoryCache implements CacheStore {
 
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     this.entries.delete(key);
-    this.entries.set(key, { value, expiresAt: this.now() + ttlSeconds * 1000 });
+    this.entries.set(key, { value, expiresAt: ttlSeconds > 0 ? this.now() + ttlSeconds * 1000 : Infinity });
     while (this.entries.size > this.maxEntries) {
       const oldest = this.entries.keys().next().value;
       if (oldest === undefined) break;
@@ -70,8 +70,10 @@ export class RedisCache implements CacheStore {
     return (await this.redis.get<T>(key)) ?? null;
   }
 
+  /** ttlSeconds 0 stores without expiry (warm cache). */
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
-    await this.redis.set(key, value, { ex: ttlSeconds });
+    if (ttlSeconds > 0) await this.redis.set(key, value, { ex: ttlSeconds });
+    else await this.redis.set(key, value);
   }
 }
 

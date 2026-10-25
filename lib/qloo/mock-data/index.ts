@@ -27,10 +27,8 @@ export const MOCK_SEARCH: Record<
 > = {
   "john mulaney": [{ name: "John Mulaney", category: "person", popularity: 0.7, description: "Stand-up comedian (sample description)" }],
   "phoebe bridgers": [{ name: "Phoebe Bridgers", category: "artist", popularity: 0.65 }],
-  "everything everywhere all at once": [
-    { name: "Everything Everywhere All at Once", category: "movie", popularity: 0.75 },
-  ],
-  "golden state warriors": [{ name: "Golden State Warriors", category: "brand", popularity: 0.8 }],
+  sinners: [{ name: "Sinners", category: "movie", popularity: 0.75 }],
+  arsenal: [{ name: "Arsenal F.C.", category: "brand", popularity: 0.8 }],
   // Same name, two categories, similar reach: the picker.
   mercury: [
     { name: "Mercury", category: "artist", popularity: 0.6 },

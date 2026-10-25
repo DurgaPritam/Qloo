@@ -24,12 +24,14 @@ function remember(plan: Plan) {
  * Stores finished plans for share links (/plan/<runId>). Sample (mock) plans stay in memory
  * only, so they never reach Redis.
  */
-export async function savePlan(plan: Plan): Promise<void> {
+export async function savePlan(plan: Plan, opts: { forever?: boolean } = {}): Promise<void> {
   remember(plan);
   const redis = getRedis();
   if (plan.mock || !redis) return;
   try {
-    await redis.set(key(plan.runId), plan, { ex: TTL_SECONDS });
+    // Preloaded examples (scripts/warm-cache.ts) never expire; live runs last through judging.
+    if (opts.forever) await redis.set(key(plan.runId), plan);
+    else await redis.set(key(plan.runId), plan, { ex: TTL_SECONDS });
   } catch {
     console.warn("[plan-store] Redis write failed; plan kept in memory only");
   }

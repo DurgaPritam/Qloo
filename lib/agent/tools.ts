@@ -8,7 +8,7 @@ import { formatFor } from "@/lib/engine/formats";
 import { DEFAULT_MARKET, marketFor } from "@/lib/engine/markets";
 import { CITIES } from "@/lib/engine/data";
 import { CATEGORY_LABEL, explain } from "@/lib/engine/explain";
-import { classifyMatches, isComedian } from "@/lib/engine/match";
+import { classifyMatches, foldName, isComedian } from "@/lib/engine/match";
 import { metroCities, nearestCities } from "@/lib/engine/metro";
 import { scorePartners } from "@/lib/engine/partners";
 import { rankBrands, rankPlaces } from "@/lib/engine/places";
@@ -293,7 +293,11 @@ const findPartners: ToolDef = {
       state.candidates.set(category, fetched[i].data);
     });
 
-    const result = scorePartners([...state.candidates.values()].flat(), { excludeIds: [fanbase.id] });
+    // Exclude the fanbase and its own twin records (Qloo lists people as both person and artist).
+    const twins = [...state.candidates.values()].flat().filter((c) => foldName(c.name) === foldName(fanbase.name));
+    const result = scorePartners([...state.candidates.values()].flat(), {
+      excludeIds: [fanbase.id, ...twins.map((t) => t.id)],
+    });
     const wantedPartner = state.overrides.partnerId;
     const chosen =
       result.picks.find((p) => p.entity.id === wantedPartner) ?? result.picks[0] ?? null;

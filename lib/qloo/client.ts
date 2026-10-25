@@ -51,6 +51,8 @@ export interface QlooClientDeps {
   now?: () => number;
   timeoutMs?: number;
   budget?: number;
+  /** Cache lifetime for responses; 0 = no expiry (warm cache). Default 7 days. */
+  ttlSeconds?: number;
 }
 
 export interface QlooClient {
@@ -69,6 +71,7 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
   const now = deps.now ?? (() => performance.now());
   const timeoutMs = deps.timeoutMs ?? QLOO_TIMEOUT_MS;
   const budget = deps.budget ?? QLOO_RUN_BUDGET;
+  const ttlSeconds = deps.ttlSeconds ?? QLOO_CACHE_TTL_SECONDS;
 
   const runCalls = new Map<string, number>();
 
@@ -161,7 +164,7 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
 
     const url = buildUrl(baseUrl, path, params);
     const { data, quotaRemaining } = await send<T>({ url, apiKey, redact, fail: { endpoint, params: clean } });
-    await cache.set(key, data, QLOO_CACHE_TTL_SECONDS);
+    await cache.set(key, data, ttlSeconds);
     return { data, meta: { ...meta(false), quotaRemaining } };
   }
 

@@ -149,3 +149,21 @@ audiences strongest" (docs/tuning.md).
 
 **D31. Left as is: politicians can appear as person partners** ("Selena" film). Excluding people
 by description words would be guesswork; noted in docs/test-results.md.
+
+## 2026-10-25 · Step 7: examples and warm cache
+
+**D32. Landing examples: John Mulaney, Phoebe Bridgers, Sinners, Arsenal.** Chosen on real runs for
+the most specific results: Mulaney → Mythic Quest, Seattle, The Rendezvous; Phoebe Bridgers →
+PEN15 and Maggie Rogers, Seattle, The Vera Project, Urban Outfitters/Dr. Martens/Free People;
+Sinners → Los Angeles, Dolby Theatre; Arsenal → All or Nothing: Arsenal, London, Nike Training
+Club/Burberry/Zara. *Considered:* Everything Everywhere All at Once (regional fallback to Oxnard),
+Oppenheimer (obscure person partners), Golden State Warriors (a Lakers series steered it to Los
+Angeles), Sabrina Carpenter (New York is also #1 by population, so the Qloo-vs-population story is
+weak), Chappell Roan (venue "Hardcore Stadium").
+
+**D33. Partners exclude the fanbase's own twin records** (Phoebe Bridgers was offered "Phoebe
+Bridgers", her person record).
+
+**D34. The warm cache refuses to run without Upstash (nothing would persist) and, by default,
+without an Anthropic key** (preloaded briefs should be written by Claude, as production runs are).
+Qloo responses it fetches are cached with no expiry; recordings and plans too.

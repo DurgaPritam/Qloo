@@ -265,3 +265,13 @@ describe("cache fallback", () => {
     expect(await cache.get("k")).toBeNull();
   });
 });
+
+describe("cache lifetime", () => {
+  it("stores without expiry when ttl is 0 (warm cache)", async () => {
+    let t = 0;
+    const cache = new MemoryCache(10, () => t);
+    await cache.set("k", 1, 0);
+    t = 10 * 365 * 24 * 3600 * 1000;
+    expect(await cache.get("k")).toBe(1);
+  });
+});

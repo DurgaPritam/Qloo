@@ -239,3 +239,18 @@ describe("ClaudePlanner", () => {
   });
 });
 
+
+describe("partners exclude the fanbase's own twin records", () => {
+  it("never offers a same-name entity as a partner", async () => {
+    const twin = new MockQlooSource();
+    const candidates = twin.candidates.bind(twin);
+    twin.candidates = async (...args) => {
+      const res = await candidates(...args);
+      return args[1] === "person"
+        ? { ...res, data: [...res.data, { ...res.data[0], id: "twin", name: "Phoebe Bridgers", affinity: 0.99, popularity: 0.98 }] }
+        : res;
+    };
+    const { plan } = await run("Phoebe Bridgers", { source: twin });
+    expect(plan.partners?.picks.map((p) => p.pick.entity.name)).not.toContain("Phoebe Bridgers");
+  });
+});

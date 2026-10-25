@@ -1,13 +1,72 @@
 /**
- * Stub until the probe runs and lib/qloo/api.ts is implemented.
+ * Preloads the landing examples and likely judge inputs: runs the full agent on the real Qloo
+ * source, keeps every Qloo response in Redis with no expiry, and stores each finished run as a
+ * replayable recording (served by /api/plan as a "cached run") and as a share-link plan.
  *
- * When built, this will run the full agent for the four landing examples
- * (lib/examples.ts) plus about ten likely judge inputs, with createRecorder from
- * lib/server/replay.ts, and store every Qloo response (through the Qloo client cache) and each
- * Recording with saveRecording, with no expiry. /api/plan then replays those runs, labelled
- * "cached run", without counting against visitor limits.
+ *   npm run warm-cache                 # needs QLOO_*, UPSTASH_* and ANTHROPIC_API_KEY
+ *   npm run warm-cache -- --allow-scripted   # without a model key (template wording)
  *
- * It must run against the real Qloo source only: saveRecording refuses mock runs.
+ * Never runs in mock mode: sample data must not reach Redis.
  */
-console.error("warm-cache: not implemented until probe runs (see docs/after-key.md).");
-process.exit(1);
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+
+import { runAgent } from "@/lib/agent/loop";
+import { createPlanner } from "@/lib/agent/planner";
+import { EXAMPLES } from "@/lib/examples";
+import { isMockMode } from "@/lib/mock-mode";
+import { QlooApiSource } from "@/lib/qloo/api";
+import { createQlooClient, lastQuota } from "@/lib/qloo/client";
+import { savePlan } from "@/lib/server/plan-store";
+import { getRedis } from "@/lib/server/redis";
+import { createRecorder, saveRecording } from "@/lib/server/replay";
+
+/** Likely judge inputs beyond the four chips (playbook Step 6). */
+export const JUDGE_INPUTS = [
+  "Kevin Hart",
+  "Ali Wong",
+  "Taylor Swift",
+  "Bad Bunny",
+  "Billie Eilish",
+  "Manchester United",
+  "Golden State Warriors",
+  "Call Her Daddy",
+  "Dune: Part Two",
+  "Black Country, New Road",
+];
+
+async function main() {
+  try {
+    process.loadEnvFile(path.resolve(import.meta.dirname, "..", ".env.local"));
+  } catch {
+    // Env may come from the shell instead.
+  }
+  if (isMockMode()) throw new Error("TAKEOVER_MOCK=1 is set: sample data must never be cached.");
+  if (!getRedis()) throw new Error("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are needed: nothing would persist.");
+  const planner = createPlanner();
+  if (planner.kind === "scripted" && !process.argv.includes("--allow-scripted")) {
+    throw new Error("ANTHROPIC_API_KEY is not set; pass --allow-scripted to preload template wording.");
+  }
+
+  const source = new QlooApiSource(createQlooClient({ ttlSeconds: 0 }));
+  const inputs = [...EXAMPLES.map((e) => e.name), ...JUDGE_INPUTS];
+  let stored = 0;
+  for (const query of inputs) {
+    const recorder = createRecorder(query);
+    const plan = await runAgent({ query }, { runId: randomUUID(), source, planner, emit: recorder.emit });
+    if (plan.status !== "complete") {
+      console.log(`✗ ${query}: ${plan.status} (${plan.needsInput?.question ?? plan.notes.join(" ")})`);
+      continue;
+    }
+    await saveRecording(recorder.finish(plan));
+    await savePlan(plan, { forever: true });
+    stored++;
+    console.log(`✓ ${query}: ${plan.brief?.title} · ${plan.qlooCalls} calls`);
+  }
+  console.log(`\nStored ${stored} of ${inputs.length}. Qloo quota left: ${lastQuota.remaining ?? "unknown"}.`);
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});
