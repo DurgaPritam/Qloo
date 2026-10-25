@@ -93,6 +93,8 @@ filter.location.query is required for heatmap insight".
 - About 7,600 (UK) to 9,900 (US incl. territories) cells per call.
 - `affinity` is a percentile across the returned cells (quartiles exactly 0.25 / 0.5 / 0.75), so
   it measures over-indexing, not raw audience size.
+- `popularity` per cell is also a percentile and tracks size (New York and Los Angeles lead). City
+  heat uses affinity × popularity (docs/tuning.md).
 - Works for any fanbase type tried: person, podcast, brand.
 
 ## `GET /v2/insights` with `filter.type=urn:entity:place`

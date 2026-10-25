@@ -58,7 +58,13 @@ describe("QlooApiSource on real responses", () => {
     const { data } = await source.heatmap(["x"], "United States", run);
     expect(get.mock.calls[0][1]).toMatchObject({ "filter.type": "urn:heatmap", "filter.location.query": "United States" });
     expect(data.length).toBeGreaterThan(2000);
-    expect(data[0]).toEqual({ lat: expect.any(Number), lon: expect.any(Number), affinity: expect.any(Number), geohash: expect.any(String) });
+    expect(data[0]).toEqual({
+      lat: expect.any(Number),
+      lon: expect.any(Number),
+      affinity: expect.any(Number),
+      popularity: expect.any(Number),
+      geohash: expect.any(String),
+    });
   });
 
   it("places: real tag ids in the request, tag names and address in the result", async () => {

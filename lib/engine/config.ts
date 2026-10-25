@@ -197,7 +197,10 @@ export const PERSON_LIVE_SHOW: FormatRule = {
   spotTags: ["bar", "pub"],
 };
 
-/** Brand types never offered as sponsors (Qloo `brand_type`). */
-export const NON_SPONSOR_BRAND_TYPES: readonly string[] = ["Nonprofit Brand", "Government Brand"];
+/**
+ * Brand types never offered as sponsors (Qloo `brand_type`). "Entertainment Brand" is how Qloo
+ * types sports teams and leagues: a Warriors fan fest was offered the Lakers as a sponsor.
+ */
+export const NON_SPONSOR_BRAND_TYPES: readonly string[] = ["Nonprofit Brand", "Government Brand", "Entertainment Brand"];
 
 export type EngineConfig = typeof ENGINE_CONFIG;

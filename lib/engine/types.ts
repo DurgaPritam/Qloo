@@ -30,6 +30,8 @@ export interface Entity {
   disambiguation?: string;
   /** ISO country code from Qloo properties (citizenship, release country, description). */
   homeCountry?: string;
+  /** Other names Qloo knows (its `akas`, in many scripts), used only for matching. */
+  aliases?: string[];
 }
 
 /** An entity returned relative to a seed, with the seed audience's affinity for it. */
@@ -41,8 +43,10 @@ export interface Candidate extends Entity {
 export interface HeatCell {
   lat: number;
   lon: number;
-  /** 0–1 */
+  /** 0–1, how strongly the audience over-indexes here (a percentile across the market). */
   affinity: number;
+  /** 0–1, how present the entity is here (a percentile); absent → treated as 1. */
+  popularity?: number;
   geohash?: string;
 }
 

@@ -21,7 +21,16 @@ export type MatchResult =
  */
 export function classifyMatches(query: string, results: readonly Entity[]): MatchResult {
   const cfg = ENGINE_CONFIG.match;
-  const scored = mergeSamePerson(results).map((entity) => ({ entity, similarity: nameSimilarity(query, entity.name) }));
+  // A name typed in another script ("अरिजीत सिंह") is compared with Qloo's other names too. Latin
+  // queries are not: Qloo's aliases include short forms ("Mercury" for Phoenix Mercury).
+  const useAliases = !LATIN_ONLY.test(query);
+  const scored = mergeSamePerson(results).map((entity) => ({
+    entity,
+    similarity: Math.max(
+      nameSimilarity(query, entity.name),
+      ...(useAliases ? (entity.aliases ?? []) : []).map((a) => nameSimilarity(query, a)),
+    ),
+  }));
 
   const exact = scored.filter((o) => o.similarity >= cfg.exactSimilarity);
   if (exact.length > 0) {
@@ -62,16 +71,19 @@ export function foldName(name: string): string {
   return (
     name
       .normalize("NFKD")
-      .replace(/\p{M}/gu, "")
+      // Latin accents only: other scripts' vowel signs are marks too and must stay.
+      .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
       .replace(/&/g, " and ")
       // Club suffixes: "Arsenal F.C." and "Arsenal" are the same name.
       .replace(/\b(a\.?f\.?c|f\.?c|c\.?f|s\.?c)\.?$/u, "")
-      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .replace(/[^\p{L}\p{N}\p{M}]+/gu, " ")
       .replace(/^the /, "")
       .trim()
   );
 }
+
+const LATIN_ONLY = /^[\p{Script=Latin}\p{N}\p{P}\p{S}\p{Zs}\p{M}]*$/u;
 
 const COMEDY = /\b(comedian|comedy|comic|stand-?up)\b/i;
 

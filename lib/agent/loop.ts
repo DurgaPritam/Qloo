@@ -143,6 +143,7 @@ async function runCall(call: ToolCall, ctx: Ctx, note?: string): Promise<Anthrop
     out = { status: "error", summary: describeError(err, ctx.state), calls: [] };
   }
   if (out.status === "fallback" || out.status === "error") ctx.state.notes.push(out.fallbackNote ?? out.summary);
+  if (out.status === "error") ctx.state.failed.add(tool.name);
 
   const calls = out.calls.map(view);
   await ctx.emit({
@@ -170,7 +171,9 @@ function describeError(err: unknown, state: RunState): string {
   if (err instanceof QlooError) {
     if (err.kind === "rate_limited") return "Qloo is busy right now; this step was skipped.";
     if (err.kind === "not_found") return "Qloo had no data for this request.";
-    return "Qloo did not answer in time; this step was skipped.";
+    if (err.status === 400) return "Qloo couldn't use this entity for this step, so it was skipped.";
+    if (/timed out/.test(err.message)) return "Qloo did not answer in time; this step was skipped.";
+    return "Qloo returned an error; this step was skipped.";
   }
   console.error("[agent] tool failed:", err instanceof Error ? err.message : "unknown");
   return "Something went wrong in this step.";

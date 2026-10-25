@@ -9,7 +9,7 @@ interface Heat {
 }
 
 /**
- * Scores cities for two fanbases at once. Each side's heat is the mean affinity of its cells
+ * Scores cities for two fanbases at once. Each side's heat is the mean affinity × popularity of its cells
  * within `radiusKm` of the city centre (config default; wider for regional overlap),
  * normalised 0–1 against the hottest scored city.
  * combined = sqrt(sA * sB), so a city only wins if it is warm for both sides, and the result
@@ -83,7 +83,9 @@ function heatNear(cells: readonly HeatCell[], city: City, radiusKm: number): Hea
   for (const cell of cells) {
     if (Math.abs(cell.lat - city.lat) > dLat || Math.abs(cell.lon - city.lon) > dLon) continue;
     if (distanceKm(city.lat, city.lon, cell.lat, cell.lon) <= radiusKm) {
-      sum += cell.affinity;
+      // Over-indexing weighted by presence, so a handful of small-town cells cannot win alone
+      // (docs/tuning.md, "City heat").
+      sum += cell.affinity * (isUnit(cell.popularity) ? cell.popularity : 1);
       count++;
     }
   }

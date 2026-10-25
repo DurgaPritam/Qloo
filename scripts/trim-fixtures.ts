@@ -60,7 +60,8 @@ function trim(raw: Json): Json | null {
       .filter((_, i) => i % 3 === 0)
       .map((c) => {
         const loc = (c as Json).location as Json;
-        return { location: { latitude: round(loc.latitude), longitude: round(loc.longitude), geohash: loc.geohash }, query: { affinity: round(((c as Json).query as Json).affinity) } };
+        const q = (c as Json).query as Json;
+        return { location: { latitude: round(loc.latitude), longitude: round(loc.longitude), geohash: loc.geohash }, query: { affinity: round(q.affinity), popularity: round(q.popularity) } };
       });
     return { results: { heatmap: cells } };
   }

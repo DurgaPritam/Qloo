@@ -129,3 +129,23 @@ docs/test-results.md. They stay covered by unit tests.
 
 **D25. Metro merging stays within a country** (bug: Laredo, San Diego and El Paso vanished into
 larger Mexican neighbours).
+
+## 2026-10-25 · Step 6: test matrix
+
+**D26. Video games cannot be a fanbase.** Qloo returns 400 for video-game signals. They stay as
+partner candidates. "Mercury" now offers the band and a film instead of a game.
+
+**D27. Error messages say what happened**: unusable entity (400), timeout, or other error; a failed
+step is not retried by the scripted planner.
+
+**D28. Names in other scripts match Qloo's `akas`; Latin names do not**, because Qloo's aliases
+include short forms that over-matched ("Mercury" → Phoenix Mercury).
+
+**D29. Teams and leagues are not sponsors** (`brand_type` "Entertainment Brand").
+
+**D30. City heat = affinity × cell popularity.** Affinity alone picked small cities a promoter
+would question; popularity alone tracks population. The product still answers "where are both
+audiences strongest" (docs/tuning.md).
+
+**D31. Left as is: politicians can appear as person partners** ("Selena" film). Excluding people
+by description words would be guesswork; noted in docs/test-results.md.

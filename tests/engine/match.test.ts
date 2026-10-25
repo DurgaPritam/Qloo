@@ -72,3 +72,23 @@ describe("classifyMatches", () => {
     expect(classifyMatches("anything", [])).toEqual({ kind: "none" });
   });
 });
+
+describe("names in other scripts", () => {
+  it("matches a query in Devanagari against Qloo's other names", () => {
+    const arijit = { ...entity("a", "Arijit Singh", "person", 0.99), aliases: ["अरिजीत सिंह", "Arijit Singh"] };
+    expect(classifyMatches("अरिजीत सिंह", [arijit])).toMatchObject({ kind: "resolved", entity: { id: "a" } });
+  });
+
+  it("keeps vowel signs in Indic scripts while folding Latin accents", () => {
+    expect(foldName("अरिजीत")).toBe("अरिजीत".normalize("NFKD"));
+    expect(foldName("Beyoncé")).toBe("beyonce");
+  });
+});
+
+describe("aliases stay out of Latin-script matching", () => {
+  it("does not treat a short alias as an exact match for a Latin query", () => {
+    const club = { ...entity("club", "Phoenix Mercury", "brand", 0.95), aliases: ["Mercury"] };
+    const band = entity("band", "Mercury", "artist", 0.75);
+    expect(classifyMatches("Mercury", [club, band])).toMatchObject({ kind: "resolved", entity: { id: "band" } });
+  });
+});

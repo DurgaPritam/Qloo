@@ -117,7 +117,7 @@ export function describeDropped(dropped: readonly Dropped<unknown>[]): string {
     counts.too_obscure && `${counts.too_obscure} too little known`,
     counts.below_min_affinity && `${counts.below_min_affinity} below their category's median affinity`,
     counts.invalid_data && `${counts.invalid_data} with missing or invalid data`,
-    counts.not_a_sponsor && `${counts.not_a_sponsor} nonprofit or government`,
+    counts.not_a_sponsor && `${counts.not_a_sponsor} not sponsors (nonprofit, government or teams)`,
   ].filter(Boolean);
   return `dropped ${dropped.length} (${parts.join(", ")})`;
 }

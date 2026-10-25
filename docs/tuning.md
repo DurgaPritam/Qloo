@@ -73,6 +73,22 @@ Mulaney × Oh, Hello (US, 250k): Boston #1 (population rank 22), Portland #2 (23
 #1, then Southend-on-Sea, Brighton, Reading, Milton Keynes. Qloo rank differs from population rank
 for 4–5 of the top 5 in every example ✓.
 
+## City heat
+
+City heat was the mean cell affinity within 40 km. Affinity alone over-indexes small places: real
+runs picked Lincoln, NE for Call Her Daddy and Oxnard, CA for Sinners. Each cell also carries a
+`popularity` percentile (the entity's presence there). City heat is now the mean of
+affinity × popularity.
+
+| Mulaney × Oh, Hello (US, 250k+) | Top cities (population rank) |
+|---|---|
+| Affinity only (before) | Boston #24, Portland #25, Seattle #18, Buffalo #68, Milwaukee #32 |
+| Popularity only (not used) | New York City #1, Los Angeles #2, Santa Ana #56, San Francisco #17 |
+| Affinity × popularity (after) | Boston #24, Seattle #18, Portland #25, Denver #19, Buffalo #68, Philadelphia #6 |
+
+Still clearly different from a population ranking, but a city now needs real presence as well as
+over-indexing.
+
 ## Venues
 
 Venue tags are alternatives, but the first listed is preferred (each later tag × 0.9, floor 0.7),

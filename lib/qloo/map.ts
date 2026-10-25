@@ -18,6 +18,7 @@ export interface RawEntity {
   query?: { affinity?: number };
   location?: { lat?: number; lon?: number };
   properties?: {
+    akas?: Array<{ value?: string }>;
     short_description?: string;
     image?: { url?: string };
     citizenship?: string[];
@@ -30,7 +31,7 @@ export interface RawEntity {
 
 export interface RawHeatCell {
   location?: { latitude?: number; longitude?: number; geohash?: string };
-  query?: { affinity?: number };
+  query?: { affinity?: number; popularity?: number };
 }
 
 const CATEGORIES: ReadonlySet<string> = new Set<Category>([
@@ -77,7 +78,14 @@ export function toEntity(raw: RawEntity): Entity | null {
     description: raw.properties?.short_description || undefined,
     disambiguation: raw.disambiguation || undefined,
     homeCountry: homeCountryOf(raw),
+    aliases: aliasesOf(raw),
   };
+}
+
+function aliasesOf(raw: RawEntity): string[] | undefined {
+  const names = [...new Set((raw.properties?.akas ?? []).map((a) => a.value?.trim()).filter((v): v is string => Boolean(v)))];
+  const others = names.filter((n) => n !== raw.name).slice(0, 25);
+  return others.length ? others : undefined;
 }
 
 /** An insights result relative to the signal. Missing affinity or popularity → NaN, so the engine drops it as invalid. */
@@ -97,7 +105,8 @@ export function toHeatCell(raw: RawHeatCell): HeatCell | null {
   const lon = raw.location?.longitude;
   const affinity = raw.query?.affinity;
   if (typeof lat !== "number" || typeof lon !== "number" || typeof affinity !== "number") return null;
-  return { lat, lon, affinity, geohash: raw.location?.geohash };
+  const popularity = raw.query?.popularity;
+  return { lat, lon, affinity, popularity: typeof popularity === "number" ? popularity : undefined, geohash: raw.location?.geohash };
 }
 
 /** Place tag names (lower case) from Qloo's category and genre place tags, for matching. */

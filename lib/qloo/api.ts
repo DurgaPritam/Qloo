@@ -17,17 +17,12 @@ import {
 import type { QlooSource, SourceMeta } from "./source";
 import { placeTagIds } from "./tags";
 
-/** Types a fanbase can be. Places and localities are excluded: Qloo rejects them as signals. */
-export const FANBASE_CATEGORIES: readonly Category[] = [
-  "artist",
-  "person",
-  "movie",
-  "tv_show",
-  "podcast",
-  "brand",
-  "book",
-  "videogame",
-];
+/**
+ * Types a fanbase can be. Places, localities and video games are excluded: Qloo rejects them as
+ * signals ("All of the provided signal.interests.entities were invalid"). Video games can still
+ * be partners.
+ */
+export const FANBASE_CATEGORIES: readonly Category[] = ["artist", "person", "movie", "tv_show", "podcast", "brand", "book"];
 
 interface RawList {
   results?: RawEntity[] | { entities?: RawEntity[]; heatmap?: RawHeatCell[] };

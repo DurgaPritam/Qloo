@@ -124,7 +124,7 @@ describe("rankBrands", () => {
       { ...brand("media", 0.95, 0.95), brandTypes: ["Media Brand"] },
     ]);
     expect(res.picks.map((p) => p.brand.id)).toEqual(["media"]);
-    expect(res.reason).toMatch(/2 nonprofit or government/);
+    expect(res.reason).toMatch(/2 not sponsors/);
   });
 
   it("returns fallback with a reason when nothing qualifies", () => {

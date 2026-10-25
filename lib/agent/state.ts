@@ -32,6 +32,8 @@ export interface RunState {
   brief: Brief | null;
   outreach: Email[] | null;
   notes: string[];
+  /** Tools that errored this run; the scripted planner does not retry them. */
+  failed: Set<string>;
   /** Set when the run must pause for the user. */
   stopped: boolean;
   budgetHit: boolean;
@@ -57,6 +59,7 @@ export function newRunState(query: string, overrides: Overrides = {}): RunState 
     brief: null,
     outreach: null,
     notes: [],
+    failed: new Set(),
     stopped: false,
     budgetHit: false,
   };

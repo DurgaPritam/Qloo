@@ -36,6 +36,12 @@ export interface ScriptedCall {
  */
 export function nextScriptedCalls(state: RunState): ScriptedCall[] {
   if (state.stopped) return [];
+  const calls = nextCalls(state);
+  // A step that already errored is not retried: the run finishes with what exists, labelled.
+  return calls.some((c) => state.failed.has(c.name)) ? [] : calls;
+}
+
+function nextCalls(state: RunState): ScriptedCall[] {
   if (!state.match && !state.fanbase) return [{ name: "resolve_fanbase", input: {} }];
   if (!state.fanbase) return state.needsInput ? [{ name: "ask_user", input: {} }] : [];
   if (!state.format) return [{ name: "choose_format", input: {} }, { name: "find_partners", input: {} }];
