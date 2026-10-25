@@ -23,7 +23,12 @@ export interface QlooCallMeta {
   params: Record<string, string>;
   cached: boolean;
   ms: number;
+  /** Qloo's x-month-ratelimit-remaining after this call; absent on cache hits. */
+  quotaRemaining?: number;
 }
+
+/** The last monthly quota Qloo reported to this process, for /api/health. */
+export const lastQuota: { remaining?: number; limit?: number; at?: number } = {};
 
 export interface QlooResult<T> {
   data: T;
@@ -84,9 +89,17 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
         headers: { "X-Api-Key": req.apiKey, Accept: "application/json" },
         signal: controller.signal,
       });
+      const remaining = Number(res.headers.get("x-month-ratelimit-remaining"));
+      const limit = Number(res.headers.get("x-month-ratelimit-limit"));
+      if (Number.isFinite(remaining) && res.headers.has("x-month-ratelimit-remaining")) {
+        Object.assign(lastQuota, { remaining, limit: Number.isFinite(limit) ? limit : undefined, at: Date.now() });
+      }
       return {
         status: res.status,
-        retryAfterMs: parseRetryAfter(res.headers.get("retry-after")),
+        // Qloo sends x-second-ratelimit-reset (seconds) on per-second limits.
+        retryAfterMs:
+          parseRetryAfter(res.headers.get("retry-after")) ?? parseRetryAfter(res.headers.get("x-second-ratelimit-reset")),
+        quotaRemaining: res.headers.has("x-month-ratelimit-remaining") ? remaining : undefined,
         body: await res.text(),
       };
     } catch (err) {
@@ -100,14 +113,14 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
   }
 
   /** One attempt, plus one retry with backoff on 429/5xx. */
-  async function send<T>(req: HttpRequest): Promise<T> {
+  async function send<T>(req: HttpRequest): Promise<{ data: T; quotaRemaining?: number }> {
     let res = await attempt(req);
     if (isRetryable(res.status)) {
       const jitter = RETRY_BASE_MS + Math.random() * RETRY_BASE_MS;
       await sleep(Math.min(res.retryAfterMs ?? jitter, RETRY_MAX_MS));
       res = await attempt(req);
     }
-    return parseResponse<T>(res, req);
+    return { data: parseResponse<T>(res, req), quotaRemaining: res.quotaRemaining };
   }
 
   async function get<T>(
@@ -116,7 +129,10 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
     { runId }: QlooCallOptions,
   ): Promise<QlooResult<T>> {
     const started = now();
-    const { QLOO_API_KEY: apiKey, QLOO_BASE_URL: baseUrl } = readEnv();
+    const env = readEnv();
+    // Trimmed: a stray space after "=" in an env file must not break the URL or the header.
+    const apiKey = env.QLOO_API_KEY?.trim();
+    const baseUrl = env.QLOO_BASE_URL?.trim();
     const redact = (text: string) => (apiKey ? text.split(apiKey).join("[redacted]") : text);
 
     const endpoint = path;
@@ -140,9 +156,9 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
     chargeRun(runId, endpoint, clean);
 
     const url = buildUrl(baseUrl, path, params);
-    const data = await send<T>({ url, apiKey, redact, fail: { endpoint, params: clean } });
+    const { data, quotaRemaining } = await send<T>({ url, apiKey, redact, fail: { endpoint, params: clean } });
     await cache.set(key, data, QLOO_CACHE_TTL_SECONDS);
-    return { data, meta: meta(false) };
+    return { data, meta: { ...meta(false), quotaRemaining } };
   }
 
   return {
@@ -164,6 +180,7 @@ interface HttpRequest {
 interface HttpResponse {
   status: number;
   retryAfterMs?: number;
+  quotaRemaining?: number;
   body: string;
 }
 

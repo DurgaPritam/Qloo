@@ -51,3 +51,7 @@ next-env.d.ts
 # Personal planning notes: keep local, never commit
 /docs/Takeover build playbook for Claude Code and Claude Design.md
 /docs/playbook.md
+
+# Raw Qloo probe output stays local (docs/decisions.md D6); the trimmed set is committed.
+/tests/fixtures/*
+!/tests/fixtures/qloo/

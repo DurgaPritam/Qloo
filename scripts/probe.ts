@@ -16,12 +16,12 @@ import { QlooError } from "../lib/qloo/errors";
 
 const INPUTS = [
   { name: "comedian", query: "John Mulaney" },
-  { name: "music-artist", query: "Taylor Swift" },
-  { name: "film", query: "Everything Everywhere All at Once" },
+  { name: "music-artist", query: "Sabrina Carpenter" },
+  { name: "film", query: "Sinners" },
   { name: "podcast", query: "Call Her Daddy" },
-  { name: "sports-team", query: "Golden State Warriors" },
-  { name: "misspelled", query: "Beyonse" },
-  { name: "nonsense", query: "xqzvbnmlkjhg" },
+  { name: "sports-team", query: "Arsenal" },
+  { name: "misspelled", query: "Billie Elish" },
+  { name: "nonsense", query: "asdfgh" },
   { name: "niche-act", query: "Black Country, New Road" },
 ] as const;
 
@@ -105,11 +105,17 @@ function countResults(data: unknown): number | null {
   return null;
 }
 
+/** Failed calls still reached Qloo (except budget refusals), so they count. */
+function failuresCount(calls: CallRecord[]): number {
+  return calls.filter((c) => !c.outcome.ok && c.outcome.kind !== "budget_exceeded").length;
+}
+
 async function main() {
   const { city, fresh } = parseArgs(process.argv.slice(2));
   loadEnv();
 
   const client = createQlooClient(fresh ? { cache: new MemoryCache() } : {});
+  const quota: { last?: number } = {};
   const calls: CallRecord[] = [];
   const fields: FieldStats = {
     affinity: new Set(),
@@ -132,6 +138,7 @@ async function main() {
       await mkdir(path.dirname(out), { recursive: true });
       await writeFile(out, `${JSON.stringify(data, null, 2)}\n`);
       collectFields(data, fields, endpoint);
+      if (meta.quotaRemaining !== undefined) quota.last = meta.quotaRemaining;
       calls.push({
         input,
         step,
@@ -221,6 +228,8 @@ async function main() {
   const summary = {
     probedAt: new Date().toISOString(),
     city,
+    qlooCalls: calls.filter((c) => c.outcome.ok && !c.outcome.cached).length + failuresCount(calls),
+    monthlyQuotaRemaining: quota.last ?? null,
     typesByInput,
     fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, [...v].sort()])),
     calls,
@@ -247,7 +256,8 @@ async function main() {
     const status = c.outcome.status ? ` ${c.outcome.status}` : "";
     console.log(`✗ ${c.input} ${c.step} [${c.outcome.kind}${status}] ${c.outcome.error}`);
   }
-  console.log(`\nFixtures in tests/fixtures, summary in tests/fixtures/probe-summary.json`);
+  console.log(`\nQloo calls this probe: ${summary.qlooCalls}; monthly quota remaining: ${summary.monthlyQuotaRemaining ?? "unknown"}`);
+  console.log(`Fixtures in tests/fixtures, summary in tests/fixtures/probe-summary.json`);
 }
 
 main().catch((err) => {
