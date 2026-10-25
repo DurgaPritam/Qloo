@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { scorePartners } from "@/lib/engine/partners";
 import { assertMockAllowed, isMockMode } from "@/lib/mock-mode";
-import { NOT_IMPLEMENTED, QlooApiSource } from "@/lib/qloo/api";
+import { QlooApiSource } from "@/lib/qloo/api";
 import { MockQlooSource } from "@/lib/qloo/mock";
 import { getQlooSource, type QlooSource } from "@/lib/qloo/source";
 
@@ -27,12 +27,6 @@ describe("mock mode guard", () => {
     expect(getQlooSource({ TAKEOVER_MOCK: "1" })).toBeInstanceOf(MockQlooSource);
     expect(getQlooSource({})).toBeInstanceOf(QlooApiSource);
     expect(() => getQlooSource({ TAKEOVER_MOCK: "1", VERCEL_ENV: "production" })).toThrow();
-  });
-});
-
-describe("QlooApiSource", () => {
-  it("is a stub until the probe runs", async () => {
-    await expect(new QlooApiSource().searchEntities()).rejects.toThrow(NOT_IMPLEMENTED);
   });
 });
 

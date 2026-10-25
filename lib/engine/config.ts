@@ -75,8 +75,11 @@ export const ENGINE_CONFIG = {
     /** Below this a result is not offered as a "did you mean" suggestion. */
     suggestSimilarity: 0.5,
     maxOptions: 3,
-    /** Two same-name matches are ambiguous unless the less popular is below this share of the other. */
-    ambiguityPopularityRatio: 0.8,
+    /**
+     * Two same-name matches in different categories are ambiguous unless one is clearly better
+     * known: its distance from popularity 1 is at least this many times smaller.
+     */
+    dominanceFactor: 5,
   },
 } as const;
 
@@ -99,42 +102,46 @@ export const FORMAT_LABEL: Record<FormatId, string> = {
   fan_fest: "Fan fest",
 };
 
-/** Sports teams may resolve as brands (docs/after-key.md S8), so brands get the fan fest. */
+/**
+ * Readable place tags, as Qloo names them (docs/qloo-shapes.md); lib/qloo/tags.ts maps them to ids.
+ * Sports teams are Qloo brands, so brands get the fan fest.
+ */
 export const FORMAT_BY_CATEGORY: Record<Category, FormatRule> = {
   artist: {
     format: "tour_stop",
     minPopulation: 250_000,
-    venueTags: ["music venue", "concert hall"],
-    spotTags: ["bar", "pub"],
+    venueTags: ["live music venue", "concert hall"],
+    spotTags: ["bar", "night club"],
   },
+  // Comedians. Other people (actors, hosts) get PERSON_LIVE_SHOW via formatFor.
   person: {
     format: "tour_stop",
     minPopulation: 250_000,
-    venueTags: ["comedy club", "theater"],
+    venueTags: ["comedy club", "performing arts theater"],
     spotTags: ["bar", "pub"],
   },
   movie: {
     format: "screening_tour",
     minPopulation: 150_000,
-    venueTags: ["movie theater", "cinema"],
-    spotTags: ["bar", "restaurant"],
+    venueTags: ["movie theater"],
+    spotTags: ["bar", "pub"],
   },
   tv_show: {
     format: "screening_tour",
     minPopulation: 150_000,
-    venueTags: ["movie theater", "cinema"],
-    spotTags: ["bar", "restaurant"],
+    venueTags: ["movie theater"],
+    spotTags: ["bar", "pub"],
   },
   podcast: {
     format: "live_show",
     minPopulation: 250_000,
-    venueTags: ["theater", "music venue"],
+    venueTags: ["performing arts theater", "comedy club", "live music venue"],
     spotTags: ["bar", "cafe"],
   },
   book: {
     format: "live_show",
     minPopulation: 150_000,
-    venueTags: ["theater", "bookstore"],
+    venueTags: ["performing arts theater", "book store"],
     spotTags: ["cafe", "bar"],
   },
   brand: {
@@ -147,7 +154,7 @@ export const FORMAT_BY_CATEGORY: Record<Category, FormatRule> = {
     format: "fan_fest",
     minPopulation: 300_000,
     venueTags: ["arena", "convention center"],
-    spotTags: ["bar", "arcade"],
+    spotTags: ["bar", "night club"],
   },
   place: {
     format: "fan_fest",
@@ -156,5 +163,16 @@ export const FORMAT_BY_CATEGORY: Record<Category, FormatRule> = {
     spotTags: ["bar", "pub"],
   },
 };
+
+/** People whose Qloo description is not comedy (actors, hosts): a live show in a theatre. */
+export const PERSON_LIVE_SHOW: FormatRule = {
+  format: "live_show",
+  minPopulation: 250_000,
+  venueTags: ["performing arts theater", "live music venue"],
+  spotTags: ["bar", "pub"],
+};
+
+/** Brand types never offered as sponsors (Qloo `brand_type`). */
+export const NON_SPONSOR_BRAND_TYPES: readonly string[] = ["Nonprofit Brand", "Government Brand"];
 
 export type EngineConfig = typeof ENGINE_CONFIG;

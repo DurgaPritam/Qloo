@@ -21,17 +21,20 @@ export type MatchResult =
  */
 export function classifyMatches(query: string, results: readonly Entity[]): MatchResult {
   const cfg = ENGINE_CONFIG.match;
-  const scored = results.map((entity) => ({ entity, similarity: nameSimilarity(query, entity.name) }));
+  const scored = mergeSamePerson(results).map((entity) => ({ entity, similarity: nameSimilarity(query, entity.name) }));
 
   const exact = scored.filter((o) => o.similarity >= cfg.exactSimilarity);
   if (exact.length > 0) {
     const [first, ...rest] = [...exact].sort(
       (a, b) => b.entity.popularity - a.entity.popularity,
     );
+    // Qloo popularity is a percentile bunched near 1, so compare distance from 1: a rival is no
+    // more than dominanceFactor times rarer than the top match.
+    const rarity = (e: Entity) => 1 - e.popularity;
     const rivals = rest.filter(
       (o) =>
         o.entity.category !== first.entity.category &&
-        o.entity.popularity >= first.entity.popularity * cfg.ambiguityPopularityRatio,
+        rarity(o.entity) <= cfg.dominanceFactor * Math.max(rarity(first.entity), 1e-6),
     );
     if (rivals.length === 0) {
       return { kind: "resolved", entity: first.entity, similarity: first.similarity };
@@ -56,14 +59,46 @@ export function nameSimilarity(a: string, b: string): number {
 }
 
 export function foldName(name: string): string {
-  return name
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .replace(/^the /, "")
-    .trim();
+  return (
+    name
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      // Club suffixes: "Arsenal F.C." and "Arsenal" are the same name.
+      .replace(/\b(a\.?f\.?c|f\.?c|c\.?f|s\.?c)\.?$/u, "")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .replace(/^the /, "")
+      .trim()
+  );
+}
+
+const COMEDY = /\b(comedian|comedy|comic|stand-?up)\b/i;
+
+export function isComedian(entity: Entity): boolean {
+  return COMEDY.test(entity.description ?? "");
+}
+
+/**
+ * Qloo lists famous people twice under one name: a person and an artist (docs/qloo-shapes.md).
+ * Keep one: the person for comedians (comedy rooms, comedy partners), the artist otherwise
+ * (music). Order and other results are unchanged.
+ */
+export function mergeSamePerson(results: readonly Entity[]): Entity[] {
+  const drop = new Set<string>();
+  const enrich = new Map<string, Entity>();
+  for (const person of results.filter((e) => e.category === "person")) {
+    const artist = results.find((e) => e.category === "artist" && foldName(e.name) === foldName(person.name));
+    if (!artist) continue;
+    if (isComedian(person) || isComedian(artist)) {
+      drop.add(artist.id);
+    } else {
+      drop.add(person.id);
+      // Only the person record carries citizenship.
+      enrich.set(artist.id, { ...artist, homeCountry: artist.homeCountry ?? person.homeCountry });
+    }
+  }
+  return results.filter((e) => !drop.has(e.id)).map((e) => enrich.get(e.id) ?? e);
 }
 
 function levenshtein(a: string, b: string): number {

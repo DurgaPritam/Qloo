@@ -1,5 +1,6 @@
 /**
- * Regenerates lib/engine/data/cities.json from GeoNames cities15000 (CC BY 4.0).
+ * Regenerates lib/engine/data/cities.json from GeoNames cities15000 and
+ * lib/engine/data/countries.json from countryInfo (both CC BY 4.0).
  *
  *   npx tsx scripts/build-cities.ts
  *
@@ -17,6 +18,7 @@ const MIN_POPULATION = 100_000;
 // PPLX: section of a populated place; PPLH: historical; PPLQ: abandoned; PPLW: destroyed.
 const EXCLUDED_CODES = new Set(["PPLX", "PPLH", "PPLQ", "PPLW"]);
 const OUT = path.resolve(import.meta.dirname, "..", "lib", "engine", "data", "cities.json");
+const COUNTRIES_OUT = path.resolve(import.meta.dirname, "..", "lib", "engine", "data", "countries.json");
 
 interface CityRow {
   id: string;
@@ -65,10 +67,19 @@ function parseCities(text: string, admin1: Map<string, string>): CityRow[] {
 
 async function main() {
   console.log("Downloading GeoNames cities15000 and admin1 codes…");
-  const [zip, admin1Bytes] = await Promise.all([
+  const [zip, admin1Bytes, countryBytes] = await Promise.all([
     download(`${DUMP}/cities15000.zip`),
     download(`${DUMP}/admin1CodesASCII.txt`),
+    download(`${DUMP}/countryInfo.txt`),
   ]);
+  const countries = strFromU8(countryBytes)
+    .split("\n")
+    .filter((l) => l && !l.startsWith("#"))
+    .map((l) => l.split("\t"))
+    .filter((f) => /^[A-Z]{2}$/.test(f[0]) && f[4])
+    .map((f) => ({ code: f[0], name: f[4] }));
+  await writeFile(COUNTRIES_OUT, `[\n${countries.map((c) => JSON.stringify(c)).join(",\n")}\n]\n`);
+  console.log(`Wrote ${countries.length} countries`);
   const txt = unzipSync(zip)["cities15000.txt"];
   if (!txt) throw new Error("cities15000.txt not found in the zip");
 

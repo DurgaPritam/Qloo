@@ -58,7 +58,8 @@ Params: `signal.interests.entities` (comma-separated ids, several allowed), `tak
 { success: true,
   results: { entities: [ {
     entity_id, name,
-    type?: "urn:entity:podcast", subtype?,
+    type: "urn:entity",                     // generic on every insights result
+    subtype: "urn:entity:podcast",          // the real type
     popularity: number,                     // 0–1 percentile
     query: { affinity: number, measurements?: { audience_growth } },   // affinity 0–1
     properties: { short_description?, image?: { url }, brand_type?: string[], … },

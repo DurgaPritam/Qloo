@@ -21,8 +21,11 @@ export const MOCK_SEED = { category: "artist" as Category, popularity: 0.55 };
  * Queries with scripted search results, to exercise each branch of the identify step. The
  * landing examples get a category so each format shows; the rest default to MOCK_SEED.
  */
-export const MOCK_SEARCH: Record<string, Array<{ name: string; category: Category; popularity: number }>> = {
-  "john mulaney": [{ name: "John Mulaney", category: "person", popularity: 0.7 }],
+export const MOCK_SEARCH: Record<
+  string,
+  Array<{ name: string; category: Category; popularity: number; description?: string }>
+> = {
+  "john mulaney": [{ name: "John Mulaney", category: "person", popularity: 0.7, description: "Stand-up comedian (sample description)" }],
   "phoebe bridgers": [{ name: "Phoebe Bridgers", category: "artist", popularity: 0.65 }],
   "everything everywhere all at once": [
     { name: "Everything Everywhere All at Once", category: "movie", popularity: 0.75 },
@@ -36,7 +39,7 @@ export const MOCK_SEARCH: Record<string, Array<{ name: string; category: Categor
   // Nonsense: nothing found.
   asdfgh: [],
   // Misspellings: "did you mean".
-  "kevn hart": [{ name: "Kevin Hart", category: "person", popularity: 0.85 }],
+  "kevn hart": [{ name: "Kevin Hart", category: "person", popularity: 0.85, description: "Comedian and actor (sample description)" }],
   "billie elish": [{ name: "Billie Eilish", category: "artist", popularity: 0.9 }],
 };
 

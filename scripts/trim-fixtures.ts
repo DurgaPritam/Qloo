@@ -38,6 +38,7 @@ function entity(e: Json): Json {
     name: e.name,
     types: e.types,
     type: e.type,
+    subtype: e.subtype,
     popularity: round(e.popularity),
     disambiguation: e.disambiguation || undefined,
     query: q ? { affinity: round(q.affinity) } : undefined,

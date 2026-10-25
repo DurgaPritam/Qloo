@@ -57,12 +57,13 @@ export function byScoreThenId<T extends { score: number; id: string }>(a: T, b: 
 
 export function describeDropped(dropped: readonly Dropped<unknown>[]): string {
   if (dropped.length === 0) return "dropped none";
-  const counts = { too_popular: 0, below_min_affinity: 0, invalid_data: 0 };
+  const counts = { too_popular: 0, below_min_affinity: 0, invalid_data: 0, not_a_sponsor: 0 };
   for (const d of dropped) counts[d.reason]++;
   const parts = [
     counts.too_popular && `${counts.too_popular} too mainstream`,
     counts.below_min_affinity && `${counts.below_min_affinity} below the affinity floor`,
     counts.invalid_data && `${counts.invalid_data} with missing or invalid data`,
+    counts.not_a_sponsor && `${counts.not_a_sponsor} nonprofit or government`,
   ].filter(Boolean);
   return `dropped ${dropped.length} (${parts.join(", ")})`;
 }

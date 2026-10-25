@@ -18,9 +18,16 @@ export function withBudget(source: QlooSource, runId: string, limit = QLOO_RUN_B
 
   async function guard<T>(endpoint: string, call: () => Promise<SourceResult<T>>) {
     if (used >= limit) throw new BudgetExceededError({ endpoint, params: {}, runId, limit });
-    const res = await call();
-    if (!res.meta.cached) used++;
-    return res;
+    // Reserve the slot before calling, so parallel calls cannot overshoot; give it back on a cache hit.
+    used++;
+    try {
+      const res = await call();
+      if (res.meta.cached) used--;
+      return res;
+    } catch (err) {
+      used--;
+      throw err;
+    }
   }
 
   return {

@@ -108,6 +108,8 @@ export interface CityResult {
   /** Up to ten cities for the map, best first. */
   map: Array<{ id: string; name: string; lat: number; lon: number; combined: number }>;
   level: "city" | "region";
+  /** The country the cities were ranked in. */
+  market: { code: string; name: string };
   fallback: boolean;
   reason: string;
 }

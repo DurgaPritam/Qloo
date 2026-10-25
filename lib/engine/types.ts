@@ -24,6 +24,12 @@ export interface Entity {
   popularity: number;
   imageUrl?: string;
   tags?: string[];
+  /** Qloo's short description, e.g. "American actor and comedian". */
+  description?: string;
+  /** Qloo's disambiguation line, e.g. a year or a birth date. */
+  disambiguation?: string;
+  /** ISO country code from Qloo properties (citizenship, release country, description). */
+  homeCountry?: string;
 }
 
 /** An entity returned relative to a seed, with the seed audience's affinity for it. */
@@ -57,6 +63,7 @@ export interface City {
 export interface Place {
   id: string;
   name: string;
+  description?: string;
   /** 0–1 */
   affinity: number;
   /** 0–1 */
@@ -75,9 +82,12 @@ export interface Brand {
   /** 0–1 */
   popularity: number;
   tags?: string[];
+  /** Qloo's brand_type, e.g. ["Media Brand"]. */
+  brandTypes?: string[];
+  description?: string;
 }
 
-export type DropReason = "too_popular" | "below_min_affinity" | "invalid_data";
+export type DropReason = "too_popular" | "below_min_affinity" | "invalid_data" | "not_a_sponsor";
 
 export interface Dropped<T> {
   item: T;

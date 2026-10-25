@@ -46,3 +46,40 @@ Qloo properties when available, the agent's choice when it passes `country`, els
 States. The product promise holds: the city where both audiences are strongest, within a market.
 *Considered:* several countries per run (2 heatmap calls each, 2–7 s each, budget and time);
 stopping to ask (city-level data exists, so the promise is unchanged).
+
+## 2026-10-25 · Step 2: assumptions and the real source
+
+**D8. Search only fanbase types.** Untyped search let places and localities win ("asdfgh" matched a
+shop; "Arsenal" returned localities), and Qloo rejects those as signals. `types` now lists artist,
+person, movie, tv_show, podcast, brand, book, videogame. *Considered:* filtering after an untyped
+search (wastes the 10 result slots on places).
+
+**D9. "Clearly the famous one" compares distance from popularity 1.** Popularity is a percentile
+bunched near 1, so the old 0.8 ratio never separated anything. A same-name match in another
+category is a rival only if it is no more than 5× further from 1 than the top match. Arsenal F.C.
+(0.999) beats the video game (0.969); John Mulaney's person and artist entries (0.969 vs 0.966) are
+handled by D10. *Considered:* always showing the picker for same names (too many pauses).
+
+**D10. Merge a person's two entries using Qloo's description.** Famous people appear as `person`
+and `artist`. Keep the person when either description says comedian/comedy/comic/stand-up (comedy
+rooms and comedy partners), else the artist (music), carrying over the person's citizenship.
+*Considered:* always the higher-popularity entry (picks the person for singers, giving comedy
+venues to musicians).
+
+**D11. Home market from Qloo properties, else the United States.** Order: person citizenship,
+release country, "based in <City>" in the description, a nationality word in the description.
+Default US when none (podcasts have no such property): it is the largest market in Qloo's data.
+The agent can pass another country. *Considered:* asking the user (no design for it yet).
+
+**D12. Nonprofits and government programmes are not sponsors.** Real brand lists included ACLU,
+Planned Parenthood and TSA PreCheck. Excluded by Qloo's own `brand_type`; media brands stay.
+
+**D13. People who are not comedians get a live show in a theatre**, not comedy clubs.
+
+**D14. Partner categories are fetched three at a time and both heatmaps in parallel.** Heatmaps
+take 2–7 s each; serial calls risked the 60 s route limit. Three at a time stays under Qloo's 10
+calls a second even with a few runs at once. The run budget now reserves a slot before each call so
+parallel calls cannot overshoot.
+
+**D15. Place queries are "City, Region"** ("Chicago, Illinois"); the country code was never tested
+and the region separates same-named cities.

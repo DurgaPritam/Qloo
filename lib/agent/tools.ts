@@ -3,10 +3,12 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 
 import { scoreCities } from "@/lib/engine/cities";
-import { ENGINE_CONFIG, FORMAT_BY_CATEGORY, FORMAT_LABEL } from "@/lib/engine/config";
+import { ENGINE_CONFIG, FORMAT_LABEL } from "@/lib/engine/config";
+import { formatFor } from "@/lib/engine/formats";
+import { DEFAULT_MARKET, marketFor } from "@/lib/engine/markets";
 import { CITIES } from "@/lib/engine/data";
 import { CATEGORY_LABEL, explain } from "@/lib/engine/explain";
-import { classifyMatches } from "@/lib/engine/match";
+import { classifyMatches, isComedian } from "@/lib/engine/match";
 import { metroCities, nearestCities } from "@/lib/engine/metro";
 import { scorePartners } from "@/lib/engine/partners";
 import { rankBrands, rankPlaces } from "@/lib/engine/places";
@@ -85,9 +87,28 @@ function metroPool(): City[] {
   return metro;
 }
 
+/** "Chicago, Illinois": Qloo resolves names; the region separates same-named cities. */
 export function cityQuery(city: City): string {
   const region = city.admin1 && city.admin1 !== city.name ? city.admin1 : "";
-  return [city.name, region, city.country].filter(Boolean).join(", ");
+  return [city.name, region].filter(Boolean).join(", ");
+}
+
+/** Runs `fn` over `items` with at most `limit` in flight; results keep input order. */
+async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+function shorten(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
 const explained = <P extends Pick>(pick: P): Explained<P> => ({ pick, explanation: explain(pick) });
@@ -173,8 +194,8 @@ function toChoice(entity: Entity): Choice {
     name: entity.name,
     category: entity.category,
     imageUrl: entity.imageUrl,
-    // Qloo's descriptive fields are unknown until the probe runs (docs/after-key.md M6).
-    detail: `popularity ${two(entity.popularity)}`,
+    // Qloo's own description, else its disambiguation line (a year, a birth date).
+    detail: shorten(entity.description ?? entity.disambiguation ?? label(entity.category), 110),
   };
 }
 
@@ -209,11 +230,18 @@ const chooseFormat: ToolDef = {
   running: () => "Choosing the format…",
   requires: (s) => (s.fanbase ? null : "resolve_fanbase first"),
   async run(_input, { state }) {
-    const rule = FORMAT_BY_CATEGORY[state.fanbase!.category];
+    const fanbase = state.fanbase!;
+    const rule = formatFor(fanbase);
     state.format = { ...rule, label: FORMAT_LABEL[rule.format] };
+    const what =
+      fanbase.category === "person"
+        ? isComedian(fanbase)
+          ? "a comedian"
+          : "a performer"
+        : withArticle(fanbase.category);
     return {
       status: "done",
-      summary: `${state.format.label}, since ${state.fanbase!.name} is ${withArticle(state.fanbase!.category)}.`,
+      summary: `${state.format.label}, since ${fanbase.name} is ${what}.`,
       data: state.format,
       calls: [],
     };
@@ -252,11 +280,13 @@ const findPartners: ToolDef = {
     const wanted = widen ? pool : asked.length ? asked : pool.slice(0, FIRST_PASS);
 
     const calls: SourceMeta[] = [];
-    for (const category of wanted.filter((c) => !state.candidates.has(c))) {
-      const res = await source.candidates([fanbase.id], category, undefined, opts);
-      calls.push(res.meta);
-      state.candidates.set(category, res.data);
-    }
+    // Three at a time: faster than one by one, well under Qloo's 10 calls a second.
+    const todo = wanted.filter((c) => !state.candidates.has(c));
+    const fetched = await mapLimit(todo, 3, (category) => source.candidates([fanbase.id], category, undefined, opts));
+    todo.forEach((category, i) => {
+      calls.push(fetched[i].meta);
+      state.candidates.set(category, fetched[i].data);
+    });
 
     const result = scorePartners([...state.candidates.values()].flat(), { excludeIds: [fanbase.id] });
     const wantedPartner = state.overrides.partnerId;
@@ -327,8 +357,9 @@ const pickCity: ToolDef = {
   name: "pick_city",
   step: "city",
   description:
-    "Rank cities where both the fanbase and the partner's fans are strong (Qloo heatmaps, scored " +
-    "by code). Optionally limit to one country (ISO code). If city-level data is thin, call again " +
+    "Rank cities where both the fanbase and the partner's fans are strong, inside one market " +
+    "(country), from Qloo heatmaps scored by code. The market defaults to the fanbase's home " +
+    "country; pass country (ISO code) to choose another. If city-level data is thin, call again " +
     'once with level="region".',
   input_schema: {
     type: "object",
@@ -346,18 +377,21 @@ const pickCity: ToolDef = {
     const format = state.format!;
     const calls: SourceMeta[] = [];
 
-    if (state.heat?.partnerId !== partner.id) {
-      const a = await source.heatmap([fanbase.id], undefined, opts);
-      const b = await source.heatmap([partner.id], undefined, opts);
+    // Qloo heatmaps need a location, so cities are ranked inside one market (decisions D7).
+    const market =
+      marketFor(str(input.country)) ?? marketFor(fanbase.homeCountry) ?? marketFor(DEFAULT_MARKET)!;
+    if (state.heat?.partnerId !== partner.id || state.heat.market !== market.code) {
+      const [a, b] = await Promise.all([
+        source.heatmap([fanbase.id], market.name, opts),
+        source.heatmap([partner.id], market.name, opts),
+      ]);
       calls.push(a.meta, b.meta);
-      state.heat = { partnerId: partner.id, a: a.data, b: b.data };
+      state.heat = { partnerId: partner.id, market: market.code, a: a.data, b: b.data };
     }
 
     const level = input.level === "region" ? "region" : "city";
     if (level === "region") state.cityWidened = true;
-    const country = str(input.country)?.toUpperCase();
-    let pool = metroPool();
-    if (country && pool.some((c) => c.country === country)) pool = pool.filter((c) => c.country === country);
+    const pool = metroPool().filter((c) => c.country === market.code);
 
     const cfg = ENGINE_CONFIG.cities;
     const radiusKm = level === "region" ? cfg.regionalRadiusKm : cfg.radiusKm;
@@ -392,6 +426,7 @@ const pickCity: ToolDef = {
         combined: s.combined,
       })),
       level,
+      market,
       fallback: thin,
       reason: thin ? "City-level heat is thin for at least one audience." : "Both audiences have city-level heat.",
     };
@@ -486,6 +521,7 @@ const planRoom: ToolDef = {
     const venue = venues.picks[0] ?? null;
     const spotsRes = await source.places(ids, where, format.spotTags, opts);
     const brandsRes = await source.brands(ids, where, opts);
+    // Musicians get artists as openers; everyone else gets people (comedians, hosts).
     const openerCategory: Category = state.fanbase!.category === "artist" ? "artist" : "person";
     const openerRes = await source.candidates(ids, openerCategory, where, opts);
     calls.push(spotsRes.meta, brandsRes.meta, openerRes.meta);

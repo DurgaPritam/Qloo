@@ -1,105 +1,100 @@
-# Check after the Qloo key arrives
+# Qloo assumptions: checked against the real API
 
-Everything below is an **assumption** made while building without a key. When the probe has run
-(`npm run probe`, fixtures in `tests/fixtures/`), check each item against the real responses, tick
-it or correct the code it points to, then write `docs/qloo-shapes.md` and implement
-`lib/qloo/api.ts` (`QlooApiSource`), which is a stub until then.
+Every assumption made while building without a key, checked on 25 Oct 2026 against real responses
+(`npm run probe`, `scripts/probe-extra.ts`; shapes in `docs/qloo-shapes.md`, judgement calls in
+`docs/decisions.md`, thresholds in `docs/tuning.md`).
 
-How to check: open `tests/fixtures/probe-summary.json` (field paths, failed calls) and the raw
-fixture named in each row.
+Status: ✅ confirmed · ❌ wrong, fixed (how) · ➖ not testable here (why).
 
-## TODO after the probe
+## Still to do
 
-- [ ] Add real screenshots to the README from live Qloo runs (landing, a completed run, results).
-- [ ] Audience profile card (age and gender skew, top taste tags) once the probe shows what Qloo's
-  demographics and tags endpoints return. Needs a Claude Design pass first (new component).
-- [ ] Entity images in the crossover cards and picker (`Entity.imageUrl`, S5).
-- [ ] Re-check tour defaults on real heatmaps: 150 km spacing, 0.3 minimum score, country scope
-  with a 2,500 km fallback (`ENGINE_CONFIG.tour`).
-- [ ] Implement `scripts/warm-cache.ts` and preload the four examples plus likely judge inputs.
-  The design hand-off screens were removed because they show a real comedian with invented figures.
+- [ ] Real screenshots in the README from live runs (step 8).
+- [ ] Audience profile card (age and gender skew, top taste tags). Needs a Claude Design pass
+  first (new component) and a probe of Qloo's demographics data.
+- [ ] Entity images in the crossover cards (images exist: S5). The picker already shows them.
+- [ ] `scripts/warm-cache.ts` and the preloaded examples (step 7).
 
 ## Transport and auth
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| T1 | Auth is a single `X-Api-Key` header; no query-string key. | `lib/qloo/client.ts` | any call succeeds |
-| T2 | `QLOO_BASE_URL` is a host root (e.g. the hackathon host) and paths are `/search`, `/v2/insights`, `/v2/tags`. | client, probe | probe has no 404s on these paths |
-| T3 | Unknown entity ids give 200 with empty results, not 404. Client maps 404 to `NotFoundError` either way. | client, agent fallbacks | probe `nonsense` row |
-| T4 | 429 may carry `Retry-After` in seconds. | client retry | only visible under rate limiting |
-| T5 | Error bodies never echo the API key (the client redacts anyway). | client | failed-call messages in summary |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| T1 | Auth is a single `X-Api-Key` header. | ✅ Every call in both probes succeeded with the header alone. |
+| T2 | Base URL is a host root; paths `/search`, `/v2/insights`, `/v2/tags`. | ✅ No 404s on any path. |
+| T3 | Unknown entities give 200 with empty results, not 404. | ❌ Unusable signals give **400** "All of the provided signal.interests.entities were invalid" (place/locality ids). Fixed: search only returns fanbase types, so such ids never reach insights; the agent's error path labels any 400. |
+| T4 | 429 may carry `Retry-After`. | ❌ Qloo sends `x-second-ratelimit-reset` (seconds) and per-month/per-second limit headers. Fixed: the client retries using either header and records the monthly remaining quota. Not triggered in testing. |
+| T5 | Error bodies never echo the key. | ✅ All 22 failed calls' bodies checked; the client also redacts. |
 
 ## Search (`/search`)
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| S1 | Params are `query` and optional `types` (comma-separated `urn:entity:*`). | `QlooSource.searchEntities` | `search/*.json` |
-| S2 | Response is `{ results: [...] }`, best match first. | probe (top result = `results[0]`) | `search/*.json` |
-| S3 | Each result has `entity_id`, `name`, `types: string[]` (e.g. `urn:entity:artist`). | mapping to `Entity.id/name/category` | `search/*.json` |
-| S4 | `popularity` is on each result, 0–1. | `Entity.popularity` | summary `fields.popularity` |
-| S5 | An image URL lives at `properties.image.url`. | `Entity.imageUrl` | summary `fields.images` |
-| S6 | A misspelling ("Beyonse") still returns the intended entity first. | agent search step | `search/misspelled.json` |
-| S7 | A nonsense string returns an empty `results` array (not an error). | mock mirrors this; agent fallback | `search/nonsense.json` |
-| S8 | A comedian, podcast and sports team each map to one of our `Category` values. Which `urn:entity:*` they use is unknown. | `Category` union in `lib/engine/types.ts` | `search/{comedian,podcast,sports-team}.json` |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| S1 | Params `query` and optional `types`. | ✅ `types` filters results (`extra/search-typed-*.json`). Now always sent, limited to fanbase types. |
+| S2 | `{ results: [...] }`, best match first. | ✅ |
+| S3 | Results have `entity_id`, `name`, `types[]`. | ✅ One type per result. |
+| S4 | `popularity` on each result, 0–1. | ❌ Missing on some results (e.g. "asdfgh", a film special). Fixed: missing popularity maps to 0 for search, and to invalid (dropped) for insights. |
+| S5 | Image at `properties.image.url`. | ✅ `https://images.qloo.com/…`. |
+| S6 | A misspelling returns the intended entity first. | ✅ "Billie Elish" → Billie Eilish first; offered as "did you mean". |
+| S7 | Nonsense returns an empty list. | ❌ Untyped search returned a **place** named "asdfgh". Fixed: typed search returns nothing for "asdfgh". |
+| S8 | Comedians, podcasts and teams map to our categories. | ✅ Comedians are `person`, podcasts `podcast`, clubs `brand` ("Arsenal F.C.", "Golden State Warriors", "Manchester United F.C."). |
 
-## Insights (`/v2/insights`) for partner candidates
+## Insights for partner candidates
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| I1 | Params `filter.type=urn:entity:<category>`, `signal.interests.entities=<ids>` (comma-separated), `take`. | `QlooSource.candidates` | `insights/*/*.json` |
-| I2 | Category names `artist, movie, tv_show, podcast, person, brand, videogame` are all valid `filter.type` values. | probe, `Category` | failed calls in summary |
-| I3 | Response is `{ success, results: { entities: [...] } }`. | mapping | `insights/*/*.json` |
-| I4 | Each entity has `query.affinity`, 0–1, higher = stronger over-index. | `Candidate.affinity` | summary `fields.affinity` |
-| I5 | Each entity has `popularity`, 0–1, as a percentile, so `> 0.97` means near-universal reach. | bias guard `partners.maxPopularity` | distribution in fixtures |
-| I6 | Affinity is comparable **across categories** for the same seed, so one ranking can mix artists, films and podcasts. | `scorePartners` | compare ranges across `insights/<name>/*.json` |
-| I7 | Typical affinity values make `minAffinity = 0.3` a sensible floor. | `ENGINE_CONFIG.partners.minAffinity` | distribution in fixtures |
-| I8 | Confidence thresholds high ≥ 0.7, medium ≥ 0.4 on affinity are meaningful. | `ENGINE_CONFIG.confidence` | distribution in fixtures |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| I1 | `filter.type`, `signal.interests.entities`, `take`. | ✅ |
+| I2 | All seven categories are valid `filter.type` values. | ✅ No category-related errors for valid signals. |
+| I3 | `{ success, results: { entities } }`. | ✅ But each entity's `type` is the generic `urn:entity`; the real type is in `subtype`. Fixed in `lib/qloo/map.ts`. |
+| I4 | `query.affinity`, 0–1. | ✅ |
+| I5 | Popularity is a percentile, so `> 0.97` means near-universal reach. | ❌ Percentile, but bunched near 1: median partner popularity is 0.966, p90 0.998. A 0.97 cut drops half of every list. Fixed in step 4 (`docs/tuning.md`). |
+| I6 | Affinity is comparable across categories. | ❌ Medians differ by category (TV shows 0.947, podcasts 0.899, video games 0.855). Fixed in step 4: affinity is compared within each category before ranking. |
+| I7 | `minAffinity = 0.3` is a sensible floor. | ❌ Every returned partner scores 0.81–0.99. Fixed in step 4. |
+| I8 | Confidence high ≥ 0.7, medium ≥ 0.4 on affinity. | ❌ Everything would be "high". Fixed in step 4. |
 
-## Heatmap (`/v2/insights`, `filter.type=urn:heatmap`)
+## Heatmap
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| H1 | Works with only `signal.interests.entities`, no location filter, and returns global cells. | `QlooSource.heatmap`, probe | `heatmap/*.json` or failed calls |
-| H2 | Response is `{ results: { heatmap: [...] } }`. | mapping | `heatmap/*.json` |
-| H3 | Each cell has `location.latitude`, `location.longitude` (and `location.geohash`). | `HeatCell.lat/lon/geohash` | summary `fields.location` |
-| H4 | Each cell has `query.affinity`, 0–1. | `HeatCell.affinity` | summary `fields.affinity` |
-| H5 | Cells are dense enough that ≥ 3 fall within 40 km of a major city. | `cities.radiusKm`, `cities.minCellsForHigh` | count cells near a known city |
-| H6 | The mean of cell affinities near a city is a fair city heat. Normalising per entity removes scale differences between two entities' heatmaps. | `scoreCities` | sanity-check top cities for `music-artist` |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| H1 | Works without a location and returns global cells. | ❌ 400 "filter.location or filter.location.query is required for heatmap insight". Fixed: cities are ranked inside a market (country), passed as `filter.location.query` (decisions D7). |
+| H2 | `{ results: { heatmap } }`. | ✅ |
+| H3 | Cells have `location.latitude/longitude/geohash`. | ✅ Geohash length 4. |
+| H4 | Cells have `query.affinity`, 0–1. | ✅ It is a percentile across the returned cells (quartiles exactly 0.25/0.5/0.75). |
+| H5 | ≥ 3 cells within 40 km of a major city. | ✅ 8–10 cells near New York, Chicago, Los Angeles, Austin and Boise. |
+| H6 | Mean cell affinity near a city is a fair city heat; per-entity normalisation removes scale. | ✅ Because affinity is already a percentile per heatmap. Checked on real runs in step 4. |
 
 ## Places and brands
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| P1 | Places use `filter.type=urn:entity:place`, `filter.location.query=<city name>`, optional `filter.tags`. | `QlooSource.places` | `places/*/{venues,bars}.json` |
-| P2 | Tag ids are `urn:tag:genre:place:music_venue` and `urn:tag:genre:place:bar`. These are guesses; `/v2/tags?filter.query=…` should give the real ones. | probe `PLACE_TAGS` | `tags/*.json` |
-| P3 | Places carry `query.affinity`, `popularity` and `tags[]` (with `name` or `tag_id`) to match against. | `Place`, `rankPlaces` tag matching | `places/*/*.json` |
-| P4 | Places carry coordinates and an address under `location`/`properties`. Never capacity, dates or prices; those stay "to confirm with the promoter". | `Place.lat/lon/address` | `places/*/*.json` |
-| P5 | Brands use `filter.type=urn:entity:brand` with the city as `signal.location.query` (a signal, not a filter). | `QlooSource.brands` | `places/*/brands.json` |
-| P6 | Brands carry `query.affinity` and `popularity` 0–1, so the same bias guard applies. | `rankBrands` | `places/*/brands.json` |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| P1 | Places: `filter.type=urn:entity:place`, `filter.location.query`, `filter.tags`. | ✅ "Chicago" resolves; several tags combine as any-of. |
+| P2 | Tag ids `urn:tag:genre:place:music_venue`, `…:bar`. | ❌ Those returned nothing. Fixed: real ids from `/v2/tags` (`urn:tag:category:place:comedy_club`, `…:live_music_venue`, …) in `lib/qloo/tags.ts`. |
+| P3 | Places carry affinity, popularity and named tags. | ✅ Tag names like "Comedy club", "Live music venue". |
+| P4 | Coordinates and address; never capacity, dates or prices. | ✅ `location.lat/lon`, `properties.address`. No capacity, dates or prices in anything we read. |
+| P5 | Brands with the city as `signal.location.query`. | ✅ |
+| P6 | Brands carry affinity and popularity, so the same bias guard applies. | ✅ But the list includes nonprofits and government programmes (ACLU, TSA PreCheck). Fixed: brands with `brand_type` "Nonprofit Brand" or "Government Brand" are not offered as sponsors. |
 
 ## Matching and formats
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| M1 | Qloo search can return the same name in several categories (artist and film). Popularity tells the famous one apart (ratio 0.8). | `classifyMatches`, `ENGINE_CONFIG.match` | `search/*.json` |
-| M2 | For a misspelling, the intended entity is among the results, so "did you mean" can offer it. | `classifyMatches` | `search/misspelled.json` |
-| M3 | Comedians resolve as `person`, teams as `brand` (or a type we add to `Category`). | `FORMAT_BY_CATEGORY` | S8 |
-| M4 | Place tags can be matched by readable names ("music venue", "comedy club", "movie theater", "sports bar"). The real source maps these to Qloo tag ids. | `FORMAT_BY_CATEGORY.*.venueTags/spotTags`, `rankPlaces` | `tags/*.json`, P2/P3 |
-| M6 | Search results carry a short descriptive field (year, genre, team league) to show as the picker's "disambiguating detail". Until then the picker shows popularity. | `toChoice` in `lib/agent/tools.ts` | `search/*.json` |
-| M5 | `candidates` can be scoped to a city to find a local opener or host. | `QlooSource.candidates(…, location)` | add a probe call |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| M1 | Same name in several categories; popularity ratio 0.8 tells the famous one apart. | ❌ Popularity is bunched near 1, so a ratio never separates them; and famous people appear twice (person + artist). Fixed: compare distance from 1 (`match.dominanceFactor` 5), merge person/artist pairs by Qloo's description, fold club suffixes ("F.C."). |
+| M2 | The intended entity is among a misspelling's results. | ✅ |
+| M3 | Comedians resolve as `person`, teams as `brand`. | ✅ Musicians are both person and artist; the artist is kept unless Qloo's description says comedian. |
+| M4 | Place tags matched by readable names. | ✅ With the real names ("live music venue", "performing arts theater", "book store"). |
+| M5 | `candidates` can be scoped to a city for an opener or host. | ✅ `signal.location.query=Chicago` returns comedians with Chicago links (`extra/artists-near-chicago.json`). |
+| M6 | A descriptive field for the picker. | ✅ `properties.short_description` ("American actor and comedian") and `disambiguation` (a year or birth date). The picker now shows them instead of popularity. |
 
 ## Agent calls
 
-| # | Assumption | Used in | Check in |
-|---|---|---|---|
-| A1 | A heatmap works for an entity of any category (the partner may be a podcast or TV show). | `pick_city` | add a probe heatmap call for a podcast id |
-| A2 | `signal.interests.entities` accepts two ids (fanbase + partner) for places, brands and local talent. | `plan_room` | add a probe call with two ids |
-| A3 | When both audiences have some heat in most large cities, "population rank among overlapping cities" is still a fair "without Qloo" baseline. | `pick_city` second pass | `populationPick` on real runs |
-| A4 | Uncached runs fit in about 11–15 Qloo calls (search 1, partners 4–6, heatmaps 2, room 4–5), well under the 25 cap. | budget | `plan.qlooCalls` on real runs |
+| # | Assumption | Status and evidence |
+|---|---|---|
+| A1 | A heatmap works for any category. | ✅ Person, podcast and brand heatmaps all returned. |
+| A2 | Two ids in `signal.interests.entities`. | ✅ Places and brands with fanbase + partner. |
+| A3 | Population rank among overlapping cities is a fair baseline. | ✅ Checked on real runs in step 4. |
+| A4 | Uncached runs fit in about 11–15 calls. | ✅ Search 1, partners 4–6, heatmaps 2, room 4–5. Measured on real runs in step 6. |
 
 ## Not from Qloo
 
-| # | Assumption | Used in |
+| # | Assumption | Status |
 |---|---|---|
-| N1 | City list is GeoNames cities15000, population ≥ 100k (`lib/engine/data/cities.json`), folded into metros within 25 km. | `scoreCities` input, `metroCities`, populationRank |
-| N2 | `filter.location.query` accepts a plain "City, Region, CC" string built from that list. | places, brands |
+| N1 | GeoNames cities ≥ 100k, folded into metros within 40 km. | ✅ Now filtered to the market's country before scoring. |
+| N2 | `filter.location.query` accepts "City, Region, CC". | ❌ Not tested in that form; Qloo resolved "Chicago" and "London". Fixed: the query is "City, Region" (e.g. "Chicago, Illinois") without the code. |

@@ -1,4 +1,4 @@
-import { ENGINE_CONFIG } from "./config";
+import { ENGINE_CONFIG, NON_SPONSOR_BRAND_TYPES } from "./config";
 import { byScoreThenId, describeDropped, nicheScore, screen } from "./shared";
 import type { Brand, BrandPick, Confidence, Place, PlacePick, RankResult } from "./types";
 
@@ -71,7 +71,14 @@ export function rankBrands(
   count: number = ENGINE_CONFIG.brands.count,
 ): RankResult<BrandPick, Brand> {
   const cfg = ENGINE_CONFIG.brands;
-  const { kept, dropped } = screen(results, cfg);
+  // Nonprofits and government programmes are not sponsors (Qloo brand_type).
+  const notSponsors = results.filter((b) => b.brandTypes?.some((t) => NON_SPONSOR_BRAND_TYPES.includes(t)));
+  const screened = screen(
+    results.filter((b) => !notSponsors.includes(b)),
+    cfg,
+  );
+  const kept = screened.kept;
+  const dropped = [...notSponsors.map((item) => ({ item, reason: "not_a_sponsor" as const })), ...screened.dropped];
 
   const ranked = kept
     .map((brand) => ({

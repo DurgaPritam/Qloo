@@ -77,7 +77,11 @@ function validCell(cell: HeatCell): boolean {
 function heatNear(cells: readonly HeatCell[], city: City, radiusKm: number): Heat {
   let sum = 0;
   let count = 0;
+  // Cheap degree box first: real heatmaps have ~10,000 cells per side.
+  const dLat = radiusKm / 111;
+  const dLon = radiusKm / (111 * Math.max(0.1, Math.cos((city.lat * Math.PI) / 180)));
   for (const cell of cells) {
+    if (Math.abs(cell.lat - city.lat) > dLat || Math.abs(cell.lon - city.lon) > dLon) continue;
     if (distanceKm(city.lat, city.lon, cell.lat, cell.lon) <= radiusKm) {
       sum += cell.affinity;
       count++;

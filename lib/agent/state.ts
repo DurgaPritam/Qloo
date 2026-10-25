@@ -24,7 +24,7 @@ export interface RunState {
   partners: PartnerResult | null;
   partner: Candidate | null;
   partnersWidened: boolean;
-  heat: { partnerId: string; a: HeatCell[]; b: HeatCell[] } | null;
+  heat: { partnerId: string; market: string; a: HeatCell[]; b: HeatCell[] } | null;
   city: CityResult | null;
   chosenCity: City | null;
   cityWidened: boolean;
