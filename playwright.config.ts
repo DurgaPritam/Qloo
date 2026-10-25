@@ -22,7 +22,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL, extraHTTPHeaders: headers, trace: "retain-on-failure" },
+  use: { baseURL, extraHTTPHeaders: headers, trace: "retain-on-failure", acceptDownloads: true },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] }, grepInvert: /@mobile/ },
     { name: "mobile", use: { ...devices["Desktop Chrome"], viewport: { width: 380, height: 800 }, hasTouch: true }, grep: /@mobile/ },

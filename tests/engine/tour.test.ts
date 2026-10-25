@@ -64,3 +64,32 @@ describe("planTour", () => {
     expect(tour.stops.length).toBeLessThanOrEqual(8);
   });
 });
+
+describe("planTour scope", () => {
+  const us = ["Austin", "Chicago", "Seattle", "Nashville"].map((n) => find(n, "US"));
+  const far = [find("London", "GB"), find("Mexico City", "MX")];
+
+  it("always includes the chosen city and stays in its country", () => {
+    // Chicago is chosen though Austin ranks first; London and Mexico City score well but are abroad.
+    const scores = ranked([us[0], far[0], us[1], far[1], us[2], us[3]], [0.9, 0.88, 0.8, 0.79, 0.7, 0.6]);
+    const tour = planTour(scores, { anchorId: us[1].id, stops: 6 });
+
+    const names = tour.stops.map((s) => s.city.name);
+    expect(names).toContain("Chicago");
+    expect(names).not.toContain("London");
+    expect(names).not.toContain("Mexico City");
+    expect(tour.stops.every((s) => s.city.country === "US")).toBe(true);
+    expect(tour.reason).toMatch(/in US/);
+  });
+
+  it("widens to a radius around the chosen city when its country is too thin, and says so", () => {
+    const toronto = find("Toronto", "CA");
+    const scores = ranked([toronto, find("Chicago", "US"), find("New York City", "US"), find("London", "GB")], [0.9, 0.8, 0.7, 0.85]);
+    const tour = planTour(scores, { anchorId: toronto.id, stops: 4 });
+
+    expect(tour.stops.map((s) => s.city.name)).toEqual(expect.arrayContaining(["Toronto", "Chicago", "New York City"]));
+    expect(tour.stops.map((s) => s.city.name)).not.toContain("London");
+    expect(tour.fallback).toBe(true);
+    expect(tour.reason).toMatch(/within 2,500 km of Toronto/);
+  });
+});

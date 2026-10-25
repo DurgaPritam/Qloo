@@ -37,6 +37,10 @@ export const ENGINE_CONFIG = {
     minSpacingKm: 150,
     /** A stop must score at least this combined (0–1). */
     minCombined: 0.3,
+    /** Tours stay in the chosen city's country; below this many stops they widen to a radius. */
+    minStopsInCountry: 3,
+    /** The radius around the chosen city used when the country alone is too thin. */
+    widenKm: 2500,
   },
   places: {
     /** Venues considered for the main room. */

@@ -383,7 +383,7 @@ const pickCity: ToolDef = {
       table: scores.slice(0, cfg.tableSize).map(explained),
       chosen: chosen ? explained(chosen) : null,
       populationPick: scores.find((s) => s.populationRank === 1) ?? null,
-      tour: planTour(scores),
+      tour: planTour(scores, { anchorId: chosen?.city.id }),
       map: scores.slice(0, 10).map((s) => ({
         id: s.city.id,
         name: s.city.name,

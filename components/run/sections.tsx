@@ -5,6 +5,7 @@ import { useState, type CSSProperties } from "react";
 import { ENGINE_CONFIG } from "@/lib/engine/config";
 
 import { GeoMap, type GeoPoint } from "../geo-map";
+import { downloadCsv, downloadDeck } from "./exports";
 
 import {
   Banner,
@@ -195,6 +196,37 @@ export function CrossoverSection({
               </div>
             </div>
           )}
+          {partners.picks.length > 1 && (
+            <div className="flex flex-col gap-2">
+              <MonoLabel>Compare the shortlist</MonoLabel>
+              <DataTable
+                columns={["Partner", "Type", "Affinity", "Popularity", "Score"]}
+                template="minmax(0,1fr) minmax(0,5.5em) 4.5em 5.5em 3.5em"
+                rows={partners.picks.map(({ pick }) => {
+                  const isChosen = pick.entity.id === chosen?.pick.entity.id;
+                  return [
+                    <span key="n" className={cx("[overflow-wrap:anywhere]", isChosen && "font-medium")}>
+                      {pick.entity.name}
+                    </span>,
+                    <span key="t" className="text-mute">
+                      {categoryLabel(pick.entity.category)}
+                    </span>,
+                    <Num key="a">{two(pick.entity.affinity)}</Num>,
+                    <Num key="p" mute>
+                      {two(pick.entity.popularity)}
+                    </Num>,
+                    <Num key="s" top={isChosen}>
+                      {pct(pick.score)}
+                    </Num>,
+                  ];
+                })}
+              />
+              <p className="m-0 text-chip text-mute [text-wrap:pretty]">
+                Score = affinity × √(1 − popularity): a strong shared audience counts, mainstream reach is discounted.{" "}
+                {partners.reason}
+              </p>
+            </div>
+          )}
         </>
       )}
     </Panel>
@@ -369,7 +401,10 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <MonoLabel>With Qloo rank vs population rank</MonoLabel>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <MonoLabel>With Qloo rank vs population rank</MonoLabel>
+                  {view.plan && <Button onClick={() => downloadCsv(view.plan!)}>Download CSV</Button>}
+                </div>
                 <div className="max-w-[520px]">
                   <DataTable
                     columns={["City", "With Qloo", "Population"]}
@@ -544,6 +579,7 @@ export function BriefSection({ view, shareUrl }: { view: RunView; shareUrl?: str
         <Button variant="primary" onClick={() => window.print()}>
           Download PDF
         </Button>
+        {view.plan && <DeckButton plan={view.plan} />}
         <Button onClick={() => copy("brief", text)}>{copied === "brief" ? "Copied" : "Copy as text"}</Button>
         <Button onClick={() => copy("link", shareUrl ?? `${location.href.split("#")[0]}#brief`)}>
           {copied === "link" ? "Copied" : "Copy link"}
@@ -580,6 +616,25 @@ export function BriefSection({ view, shareUrl }: { view: RunView; shareUrl?: str
         </div>
       </article>
     </section>
+  );
+}
+
+function DeckButton({ plan }: { plan: NonNullable<RunView["plan"]> }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      loading={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await downloadDeck(plan);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? "Building deck…" : "Download deck"}
+    </Button>
   );
 }
 

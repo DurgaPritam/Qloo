@@ -156,3 +156,23 @@ test("the city map draws real geography and a tour route", async ({ page }) => {
   await expect(city.getByText("start", { exact: true })).toBeVisible();
   await expect(city.locator('svg path[stroke-dasharray]')).toHaveCount(1);
 });
+
+test("the shortlist comparison and both downloads work", async ({ page }) => {
+  await run(page, EXAMPLES[0].name);
+  await complete(page);
+  await expect(page.getByText("Compare the shortlist")).toBeVisible();
+
+  const [csv] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download CSV" }).click()]);
+  expect(csv.suggestedFilename()).toMatch(/\.csv$/);
+  const text = await (await csv.createReadStream()).toArray().then((c) => Buffer.concat(c).toString("utf8"));
+  expect(text.split("\r\n")[0]).toContain("rank_with_qloo,population_rank,city");
+
+  const [deck] = await Promise.all([
+    page.waitForEvent("download", { timeout: 30_000 }),
+    page.getByRole("button", { name: "Download deck" }).click(),
+  ]);
+  expect(deck.suggestedFilename()).toMatch(/\.pptx$/);
+  const bytes = await (await deck.createReadStream()).toArray().then((c) => Buffer.concat(c));
+  expect(bytes.subarray(0, 2).toString()).toBe("PK"); // a .pptx is a zip archive
+  expect(bytes.length).toBeGreaterThan(20_000);
+});
