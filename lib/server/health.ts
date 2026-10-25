@@ -3,7 +3,7 @@ import "server-only";
 import { plannerStatus } from "@/lib/agent/planner";
 import { isMockMode } from "@/lib/mock-mode";
 import { MemoryCache } from "@/lib/qloo/cache";
-import { createQlooClient } from "@/lib/qloo/client";
+import { createQlooClient, lastQuota } from "@/lib/qloo/client";
 import { QlooError } from "@/lib/qloo/errors";
 
 import { DAILY_ID, getLimiters, LIMITS } from "./rate-limit";
@@ -13,7 +13,15 @@ export interface Health {
   ok: boolean;
   mock: boolean;
   checkedAt: string;
-  qloo: { configured: boolean; reachable: boolean | null; ms: number | null; note: string };
+  qloo: {
+    configured: boolean;
+    reachable: boolean | null;
+    ms: number | null;
+    note: string;
+    /** Monthly quota left, from the last response this server saw; null before any call. */
+    quotaRemaining: number | null;
+    quotaLimit: number | null;
+  };
   redis: { configured: boolean; ok: boolean | null; ms: number | null };
   /** ok is false in production without a key: the scripted planner is never used there. */
   anthropic: { configured: boolean; ok: boolean; planner: "claude" | "scripted" | "unavailable"; note: string };
@@ -28,11 +36,13 @@ export interface Health {
 
 /** Qloo is pinged at most this often, so the health route costs almost no quota. */
 const QLOO_CHECK_MS = 10 * 60 * 1000;
-let lastQloo: { at: number; value: Health["qloo"] } | null = null;
+let lastQloo: { at: number; value: QlooCheck } | null = null;
 
-async function checkQloo(env: Record<string, string | undefined>): Promise<Health["qloo"]> {
+type QlooCheck = Omit<Health["qloo"], "quotaRemaining" | "quotaLimit">;
+
+async function checkQloo(env: Record<string, string | undefined>): Promise<QlooCheck> {
   if (isMockMode(env)) return { configured: false, reachable: null, ms: null, note: "Mock mode: Qloo is not called." };
-  if (!env.QLOO_API_KEY || !env.QLOO_BASE_URL) {
+  if (!env.QLOO_API_KEY?.trim() || !env.QLOO_BASE_URL?.trim()) {
     return { configured: false, reachable: false, ms: null, note: "QLOO_API_KEY or QLOO_BASE_URL is not set." };
   }
   if (lastQloo && Date.now() - lastQloo.at < QLOO_CHECK_MS) return lastQloo.value;
@@ -40,7 +50,7 @@ async function checkQloo(env: Record<string, string | undefined>): Promise<Healt
   // Own client with a fresh memory cache, so the check is never answered from the cache.
   const client = createQlooClient({ cache: new MemoryCache(1), budget: 1, timeoutMs: 4000 });
   const started = Date.now();
-  let value: Health["qloo"];
+  let value: QlooCheck;
   try {
     await client.get("/search", { query: "Takeover health check", take: 1 }, { runId: `health-${started}` });
     value = { configured: true, reachable: true, ms: Date.now() - started, note: "Search answered." };
@@ -66,7 +76,8 @@ async function checkRedis(): Promise<Health["redis"]> {
 
 /** Status only: no keys, tokens, URLs or visitor data. */
 export async function getHealth(env: Record<string, string | undefined> = process.env): Promise<Health> {
-  const [qloo, redis, daily] = await Promise.all([checkQloo(env), checkRedis(), getLimiters().daily.peek(DAILY_ID)]);
+  const [check, redis, daily] = await Promise.all([checkQloo(env), checkRedis(), getLimiters().daily.peek(DAILY_ID)]);
+  const qloo: Health["qloo"] = { ...check, quotaRemaining: lastQuota.remaining ?? null, quotaLimit: lastQuota.limit ?? null };
   const planner = plannerStatus(env);
   let plannerNote = "Claude plans each run.";
   if (!planner.ok) plannerNote = planner.reason;

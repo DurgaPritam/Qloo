@@ -83,3 +83,14 @@ parallel calls cannot overshoot.
 
 **D15. Place queries are "City, Region"** ("Chicago, Illinois"); the country code was never tested
 and the region separates same-named cities.
+
+## 2026-10-25 · Step 3: real source by default
+
+**D16. Daily ceiling of 120 live runs by default.** About 45,000 spare monthly calls over the ~22
+days to 16 Nov is ~2,000 a day; an uncached run uses up to 15. Cached replays and cache hits do
+not count. `TAKEOVER_DAILY_RUNS` overrides it. *Considered:* 300 (the old default; could exhaust
+the quota in about 11 days of heavy use).
+
+**D17. Without Qloo credentials (and not in mock mode) `/api/plan` returns a 503 configuration
+error**, like the missing planner key, instead of starting a run that fails at step 1.
+`/api/health` also reports the monthly quota Qloo last returned.

@@ -21,6 +21,8 @@ describe("planner in production", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("TAKEOVER_MOCK", "");
     vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("QLOO_API_KEY", "test-qloo-value");
+    vi.stubEnv("QLOO_BASE_URL", "https://qloo.test");
 
     const res = await POST(postJson("http://localhost/api/plan", { query: "John Mulaney" }, "198.51.100.200"));
 
@@ -30,6 +32,17 @@ describe("planner in production", () => {
     expect(body).toMatchObject({ code: "planner_unconfigured" });
     expect(body.error).toMatch(/not.*configured|isn't fully configured/i);
     expect(JSON.stringify(body)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("/api/plan returns a configuration error when Qloo credentials are missing", async () => {
+    vi.stubEnv("TAKEOVER_MOCK", "");
+    vi.stubEnv("QLOO_API_KEY", "");
+    vi.stubEnv("QLOO_BASE_URL", "");
+
+    const res = await POST(postJson("http://localhost/api/plan", { query: "John Mulaney" }, "198.51.100.201"));
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ code: "qloo_unconfigured", mock: false });
   });
 
   it("/api/health reports the planner red in production without a key", async () => {

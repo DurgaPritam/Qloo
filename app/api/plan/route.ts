@@ -39,6 +39,19 @@ export async function POST(req: Request): Promise<Response> {
     return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": recording.plan.runId } });
   }
 
+  // Outside mock mode a run needs Qloo credentials; say so instead of failing at step 1.
+  if (!mock && !(process.env.QLOO_API_KEY?.trim() && process.env.QLOO_BASE_URL?.trim())) {
+    console.error("[api/plan] not configured: QLOO_API_KEY or QLOO_BASE_URL is missing.");
+    return Response.json(
+      {
+        error: "Takeover isn't fully configured yet: Qloo data is unavailable, so nothing was planned. Try a cached example.",
+        code: "qloo_unconfigured",
+        mock,
+      },
+      { status: 503 },
+    );
+  }
+
   // In production a missing model key is a configuration error, never a scripted plan.
   const planner = plannerStatus();
   if (!planner.ok) {

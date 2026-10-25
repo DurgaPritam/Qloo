@@ -27,8 +27,12 @@ export interface QlooCallMeta {
   quotaRemaining?: number;
 }
 
-/** The last monthly quota Qloo reported to this process, for /api/health. */
-export const lastQuota: { remaining?: number; limit?: number; at?: number } = {};
+/**
+ * The last monthly quota Qloo reported to this process, for /api/health. On globalThis because
+ * route handlers are separate bundles with their own module copies.
+ */
+const shared = globalThis as typeof globalThis & { __takeoverQuota?: { remaining?: number; limit?: number; at?: number } };
+export const lastQuota = (shared.__takeoverQuota ??= {});
 
 export interface QlooResult<T> {
   data: T;

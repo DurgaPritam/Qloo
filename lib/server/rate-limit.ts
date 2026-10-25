@@ -15,9 +15,13 @@ export const LIMITS = {
   dailyRuns: dailyCeiling(process.env.TAKEOVER_DAILY_RUNS),
 } as const;
 
+/**
+ * Default 120 live runs a day: about 45,000 spare monthly Qloo calls over the ~22 days to the end
+ * of judging is ~2,000 calls a day, at up to 15 calls per uncached run (decisions D16).
+ */
 function dailyCeiling(raw: string | undefined): number {
   const n = Number(raw);
-  return Number.isInteger(n) && n > 0 ? n : 300;
+  return Number.isInteger(n) && n > 0 ? n : 120;
 }
 
 const HOUR_MS = 60 * 60 * 1000;
