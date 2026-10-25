@@ -111,6 +111,8 @@ export interface CityResult {
   level: "city" | "region";
   /** The country the cities were ranked in. */
   market: { code: string; name: string };
+  /** "fanbase" when the partner had no city-level heat and cities are ranked by the fanbase alone. */
+  basis: "both" | "fanbase";
   fallback: boolean;
   reason: string;
 }

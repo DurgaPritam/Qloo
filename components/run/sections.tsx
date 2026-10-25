@@ -290,6 +290,12 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
               <ConfirmPill>Fallback · wider region</ConfirmPill>
             </div>
           )}
+          {city.basis === "fanbase" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Banner tone="warn">{city.reason}</Banner>
+              <ConfirmPill>Fallback · fanbase only</ConfirmPill>
+            </div>
+          )}
           {!chosen ? (
             <Banner tone="warn">{city.reason} No city has heat for both audiences, so the plan stops here.</Banner>
           ) : (

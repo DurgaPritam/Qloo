@@ -93,6 +93,11 @@ export function cityQuery(city: City): string {
   return [city.name, region].filter(Boolean).join(", ");
 }
 
+function cityReason(basis: "both" | "fanbase", thin: boolean, fanbase: string, partner: string, market: string): string {
+  if (basis === "fanbase") return `${partner} has no city-level data in ${market}, so cities are ranked by ${fanbase} fans alone.`;
+  return thin ? "City-level heat is thin for at least one audience." : "Both audiences have city-level heat.";
+}
+
 /** Runs `fn` over `items` with at most `limit` in flight; results keep input order. */
 async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out = new Array<R>(items.length);
@@ -400,7 +405,19 @@ const pickCity: ToolDef = {
     // Second pass over cities where both audiences show up, so population rank compares like
     // with like instead of against every large city on Earth.
     const overlap = score(pool).filter((s) => s.combined > 0).map((s) => s.city);
-    const scores = overlap.length ? score(overlap) : score(pool);
+    let scores = overlap.length ? score(overlap) : score(pool);
+    // Fallback: the partner has no city-level heat in this market, so rank by the fanbase alone.
+    let basis: "both" | "fanbase" = "both";
+    if (!scores[0] || scores[0].combined === 0) {
+      const alone = (cities: readonly City[]) =>
+        scoreCities(state.heat!.a, state.heat!.a, cities, format.minPopulation, { radiusKm });
+      const heated = alone(pool).filter((s) => s.combined > 0).map((s) => s.city);
+      const fanbaseOnly = heated.length ? alone(heated) : [];
+      if (fanbaseOnly[0]?.combined) {
+        scores = fanbaseOnly;
+        basis = "fanbase";
+      }
+    }
     const top = scores[0];
     const thin =
       !top || top.combined === 0 || Math.min(top.evidence.cellsA, top.evidence.cellsB) < cfg.minCellsForHigh;
@@ -427,8 +444,9 @@ const pickCity: ToolDef = {
       })),
       level,
       market,
-      fallback: thin,
-      reason: thin ? "City-level heat is thin for at least one audience." : "Both audiences have city-level heat.",
+      basis,
+      fallback: thin || basis === "fanbase",
+      reason: cityReason(basis, thin, fanbase.name, partner.name, market.name),
     };
 
     const forModel = {
@@ -458,6 +476,17 @@ const pickCity: ToolDef = {
       };
     }
     const c = chosen;
+    if (basis === "fanbase") {
+      return {
+        status: "fallback",
+        summary: `Picked ${c.city.name}: ${fanbase.name} fans are strongest here (${two(c.sA)}); #${c.populationRank} by population.`,
+        fallbackNote: state.city.reason,
+        data: state.city,
+        calls,
+        branch: true,
+        forModel,
+      };
+    }
     const summary =
       `Picked ${c.city.name}: combined ${two(c.combined)} (${two(c.sA)} for ${fanbase.name}, ` +
       `${two(c.sB)} for ${partner.name}); #${c.populationRank} by population.`;

@@ -117,3 +117,15 @@ preferred.
 
 **D22. City labels show the region** ("Portland, Oregon") because GeoNames has several cities of
 the same name.
+
+## 2026-10-25 · Step 5: fallbacks
+
+**D23. New fallback: rank cities by the fanbase alone when the partner has no city heat**, labelled
+"fanbase only", instead of stopping the run (CLAUDE.md: every step continues with the best result).
+
+**D24. Three fallbacks are recorded as not reproducible on real data** (fanbase-only cities, widen
+partners, nearest city for venues) rather than forced with invented inputs; evidence in
+docs/test-results.md. They stay covered by unit tests.
+
+**D25. Metro merging stays within a country** (bug: Laredo, San Diego and El Paso vanished into
+larger Mexican neighbours).

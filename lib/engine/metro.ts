@@ -3,8 +3,8 @@ import { distanceKm } from "./geo";
 import type { City } from "./types";
 
 /**
- * Folds each city into any larger city within `mergeKm`, so boroughs and suburbs (Brooklyn,
- * Islington, Salford) do not crowd the ranking next to the city they belong to.
+ * Folds each city into any larger city of the same country within `mergeKm`, so boroughs and
+ * suburbs (Brooklyn, Islington, Salford) do not crowd the ranking next to the city they belong to.
  */
 export function metroCities(
   cities: readonly City[],
@@ -15,7 +15,10 @@ export function metroCities(
     (a, b) => b.population - a.population || a.id.localeCompare(b.id),
   );
   for (const city of byPopulation) {
-    const absorbed = kept.some((k) => distanceKm(k.lat, k.lon, city.lat, city.lon) <= mergeKm);
+    // Only within one country: San Diego must not fold into Tijuana, nor Laredo into Nuevo Laredo.
+    const absorbed = kept.some(
+      (k) => k.country === city.country && distanceKm(k.lat, k.lon, city.lat, city.lon) <= mergeKm,
+    );
     if (!absorbed) kept.push(city);
   }
   return kept;

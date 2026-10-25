@@ -33,6 +33,15 @@ describe("metroCities", () => {
     expect(names.has("Manchester")).toBe(true);
     expect(names.has("Leeds")).toBe(true);
   });
+
+  it("never merges across a border", () => {
+    const kept = metroCities(CITIES);
+    const has = (name: string, country: string) => kept.some((c) => c.name === name && c.country === country);
+    expect(has("San Diego", "US")).toBe(true);
+    expect(has("Tijuana", "MX")).toBe(true);
+    expect(has("El Paso", "US")).toBe(true);
+    expect(has("Laredo", "US")).toBe(true);
+  });
 });
 
 describe("nearestCities", () => {
