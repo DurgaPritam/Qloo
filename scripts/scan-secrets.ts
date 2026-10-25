@@ -28,9 +28,12 @@ export interface Rules {
   forbidden: string[];
 }
 
-export const SECRET_ENV = ["QLOO_API_KEY", "ANTHROPIC_API_KEY", "UPSTASH_REDIS_REST_TOKEN"];
+export const SECRET_ENV = ["QLOO_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY", "UPSTASH_REDIS_REST_TOKEN"];
 export const CLIENT_FORBIDDEN = [...SECRET_ENV, "X-Api-Key"];
-export const KEY_PATTERNS = [{ name: "Anthropic key", re: /sk-ant-[A-Za-z0-9_-]{20,}/ }];
+export const KEY_PATTERNS = [
+  { name: "Anthropic key", re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
+  { name: "Google API key", re: /AIza[0-9A-Za-z_-]{35}/ },
+];
 
 export function scanText(text: string, file: string, rules: Rules): Finding[] {
   const findings: Finding[] = [];

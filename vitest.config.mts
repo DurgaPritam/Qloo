@@ -11,5 +11,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    // Tests never call a real model: providers are faked where a test needs one.
+    env: { LLM_PROVIDER: "", GEMINI_API_KEY: "", ANTHROPIC_API_KEY: "", LLM_DAILY_TOKEN_BUDGET: "" },
   },
 });

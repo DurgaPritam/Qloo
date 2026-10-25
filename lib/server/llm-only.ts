@@ -2,10 +2,9 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import Anthropic from "@anthropic-ai/sdk";
-
-import { AGENT_MODEL } from "@/lib/agent/planner";
 import { stripUnknownFacts } from "@/lib/agent/sanitize";
+import { createProvider, MAX_OUTPUT_TOKENS } from "@/lib/llm";
+import type { LLMProvider } from "@/lib/llm/types";
 
 import { getRedis } from "./redis";
 
@@ -28,19 +27,22 @@ export const LLM_ONLY_PROMPT = (query: string) =>
   `capacity, dates or prices.`;
 
 const SAMPLE_ANSWER =
-  "SAMPLE ANSWER (no Anthropic key configured): a plain chatbot typically suggests a famous " +
+  "SAMPLE ANSWER (no model key configured): a plain chatbot typically suggests a famous " +
   "partner everyone has heard of and the largest city it can think of, with reasoning that " +
   "would fit any fanbase and no sources.";
 
-type Client = Pick<Anthropic, "beta">;
-
 /**
  * What a plain chatbot answers with no tools and no taste data, for the "LLM only" toggle.
- * Cached by normalised query. Without an Anthropic key, mock mode gets a labelled sample.
+ * Cached by normalised query. Without a model key, mock mode gets a labelled sample. Throws
+ * TokenBudgetExceededError once today's token budget is spent (cached answers still return).
  */
 export async function llmOnlyAnswer(
   query: string,
-  { mock, client, env = process.env }: { mock: boolean; client?: Client; env?: Record<string, string | undefined> },
+  {
+    mock,
+    provider,
+    env = process.env,
+  }: { mock: boolean; provider?: LLMProvider | null; env?: Record<string, string | undefined> },
 ): Promise<LlmOnlyAnswer | null> {
   const key = `takeover:llm:v1:${createHash("sha256").update(query.trim().toLowerCase()).digest("hex").slice(0, 32)}`;
 
@@ -56,23 +58,16 @@ export async function llmOnlyAnswer(
     }
   }
 
-  if (!client && !env.ANTHROPIC_API_KEY) {
+  const model = provider === undefined ? createProvider(env) : provider;
+  if (!model) {
     return mock ? { text: SAMPLE_ANSWER, noSources: true, model: "sample", cached: false, mock } : null;
   }
 
-  const res = await (client ?? new Anthropic()).beta.messages.create({
-    model: AGENT_MODEL,
-    max_tokens: 2000,
-    output_config: { effort: "low" },
-    messages: [{ role: "user", content: LLM_ONLY_PROMPT(query) }],
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-  });
-  const raw = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+  const res = await model.complete(LLM_ONLY_PROMPT(query), { maxOutputTokens: MAX_OUTPUT_TOKENS.completion });
   const answer = {
-    text: res.stop_reason === "refusal" || !raw ? "The model gave no answer." : stripUnknownFacts(raw),
+    text: res.refused || !res.text ? "The model gave no answer." : stripUnknownFacts(res.text),
     noSources: true as const,
-    model: AGENT_MODEL,
+    model: model.model,
     mock,
   };
 

@@ -162,7 +162,7 @@ export interface Plan {
   runId: string;
   query: string;
   mock: boolean;
-  planner: "claude" | "scripted";
+  planner: "gemini" | "anthropic" | "scripted";
   status: "complete" | "needs_input" | "incomplete";
   fanbase: Entity | null;
   needsInput: NeedsInput | null;

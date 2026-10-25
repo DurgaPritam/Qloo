@@ -167,3 +167,37 @@ Bridgers", her person record).
 **D34. The warm cache refuses to run without Upstash (nothing would persist) and, by default,
 without an Anthropic key** (preloaded briefs should be written by Claude, as production runs are).
 Qloo responses it fetches are cached with no expiry; recordings and plans too.
+
+## 2026-10-25 · Gemini as the planning model
+
+**D35. Default model: `gemini-3.8-flash`.** Google's models page (last updated 22 Oct 2026) lists it
+as the newest stable Flash and says new projects should use 3.5 Flash-Lite or 3.8 Flash. Flash
+rather than Flash-Lite because the agent chains up to eight function-calling turns and writes the
+brief's prose. *Considered:* `gemini-3.6-flash` (previous stable generation), `gemini-3-flash-preview`
+(preview models can change or be withdrawn during judging), 3.5 Flash-Lite (cheaper, weaker at
+multi-turn tool use). Override with `GEMINI_MODEL`.
+
+**D36. `LLM_PROVIDER` defaults to `gemini` when unset** (it was missing from `.env.local`). A value
+other than `gemini` or `anthropic` is a configuration error everywhere rather than a silent
+fallback. Only the selected provider's key counts: with Gemini selected, an Anthropic key does not
+satisfy the production guard. *Considered:* picking whichever key is present (hides a typo in
+production).
+
+**D37. Calls use `generateContent` with function declarations, not the Interactions API.** Google's
+function-calling page now shows only the Interactions API, but the SDK's `generateContent` supports
+function calling and fits the existing loop: the provider keeps the transcript and sends each model
+turn back unchanged, which Gemini requires for thought signatures. Tool schemas go in
+`parametersJsonSchema`, without `additionalProperties`; tools without inputs get no schema.
+Function results go back as `functionResponse` with `output` (or `error` for a rejected call).
+Thinking is `LOW`. *Considered:* the Interactions API (server-held state; a second loop to maintain
+for one provider).
+
+**D38. Spending limits.** Each call is capped at 8,192 output tokens for the planner (thinking
+included) and 2,048 for the LLM-only answer. The daily budget (`LLM_DAILY_TOKEN_BUDGET`, default
+2,000,000) counts input (prompt + tool-use prompt) and output (candidates + thinking) tokens from
+the usage metadata, in Redis per UTC day, falling back to memory. When it is spent, new live runs
+and LLM-only answers are refused with a friendly message that points to the cached examples; it is
+checked before the per-visitor limit so a refused run costs the visitor nothing. A run that crosses
+the line mid-way makes no further model calls and is finished by code, labelled, rather than
+discarded after its Qloo calls were spent. *Considered:* stopping the run outright (wastes the Qloo
+calls already made); estimating tokens before each call (inexact; the metadata is exact).

@@ -1,12 +1,12 @@
 import "server-only";
 
-import type Anthropic from "@anthropic-ai/sdk";
-
+import { TokenBudgetExceededError } from "@/lib/llm/budget";
+import type { ToolResult } from "@/lib/llm/types";
 import { BudgetExceededError, QlooError } from "@/lib/qloo/errors";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 import { withBudget, type BudgetedSource } from "./budget";
-import type { Planner, ToolCall } from "./planner";
+import type { Planner, PlannerInput, ToolCall } from "./planner";
 import { sanitizeProse, TO_CONFIRM_SENTENCE } from "./sanitize";
 import { nextScriptedCalls } from "./script";
 import { newRunState, type RunState } from "./state";
@@ -52,7 +52,7 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
     emit: options.emit,
   };
 
-  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: userPrompt(input.query, state) }];
+  let next: PlannerInput = userPrompt(input.query, state);
   let turns = 0;
   let stopNote: string | null = null;
 
@@ -69,10 +69,13 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
 
     let reply;
     try {
-      reply = await planner.next(messages, state);
+      reply = await planner.next(next, state);
     } catch (err) {
       console.error("[agent] planner failed:", err instanceof Error ? err.name : "unknown");
-      stopNote = "The planning model was unavailable.";
+      stopNote =
+        err instanceof TokenBudgetExceededError
+          ? "Today's model budget ran out mid-run."
+          : "The planning model was unavailable.";
       break;
     }
     if (reply.stopReason === "refusal") {
@@ -84,15 +87,14 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
       break;
     }
 
-    messages.push({ role: "assistant", content: reply.content });
     const note = sanitizeProse(reply.text).text.replace(TO_CONFIRM_SENTENCE, "").trim() || undefined;
-    const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
+    const results: ToolResult[] = [];
     for (const call of reply.calls) {
       results.push(await runCall(call, ctx, note));
       if (state.stopped) break;
     }
     if (state.stopped || finished(state)) break;
-    messages.push({ role: "user", content: results });
+    next = results;
   }
 
   if (!finished(state) && !signal?.aborted) await finishByCode(ctx, stopNote);
@@ -121,14 +123,9 @@ function userPrompt(query: string, state: RunState): string {
   return `Plan a takeover for this fanbase: ${JSON.stringify(query.slice(0, 120))}.${overrides}`;
 }
 
-async function runCall(call: ToolCall, ctx: Ctx, note?: string): Promise<Anthropic.Beta.BetaToolResultBlockParam> {
+async function runCall(call: ToolCall, ctx: Ctx, note?: string): Promise<ToolResult> {
   const tool = TOOLS_BY_NAME.get(call.name);
-  const reply = (content: unknown, isError = false): Anthropic.Beta.BetaToolResultBlockParam => ({
-    type: "tool_result",
-    tool_use_id: call.id,
-    content: JSON.stringify(content),
-    is_error: isError,
-  });
+  const reply = (content: unknown, isError = false): ToolResult => ({ id: call.id, name: call.name, content, isError });
   if (!tool) return reply({ error: `Unknown tool ${call.name}.` }, true);
   const missing = tool.requires(ctx.state);
   if (missing) return reply({ error: `Not yet: ${missing}.` }, true);

@@ -1,31 +1,20 @@
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
+import { createProvider, keyEnvName, MAX_OUTPUT_TOKENS, providerStatus } from "@/lib/llm";
+import type { ChatTurn, LLMProvider, ProviderName, ToolChat, ToolResult } from "@/lib/llm/types";
 
 import { nextScriptedCalls } from "./script";
 import type { RunState } from "./state";
-import { anthropicTools } from "./tools";
+import { toolSpecs } from "./tools";
 
-export const AGENT_MODEL = "claude-sonnet-5-5";
+export type { ToolCall } from "@/lib/llm/types";
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-}
-
-export interface PlannerReply {
-  stopReason: "tool_use" | "end_turn" | "refusal" | "other";
-  /** Any text the model wrote alongside its calls. */
-  text: string;
-  calls: ToolCall[];
-  /** The assistant turn to append to the history, unchanged. */
-  content: Anthropic.Beta.BetaMessageContentParam;
-}
+/** The user's request to start a run, then the results of the previous turn's calls. */
+export type PlannerInput = string | readonly ToolResult[];
 
 export interface Planner {
-  readonly kind: "claude" | "scripted";
-  next(messages: readonly Anthropic.Beta.BetaMessageParam[], state: RunState): Promise<PlannerReply>;
+  readonly kind: ProviderName | "scripted";
+  next(input: PlannerInput, state: RunState): Promise<ChatTurn>;
 }
 
 export const SYSTEM_PROMPT = `You are Takeover, a market-entry agent for anyone with a fanbase. You plan one event by calling tools in this order: resolve_fanbase, choose_format, find_partners, pick_city, plan_room, write_brief, draft_outreach.
@@ -39,79 +28,57 @@ Rules:
 - Outreach emails are drafts a person will review and send. Make them warm, brief and specific about why the two audiences overlap.
 - Keep any text outside tool calls to one sentence.`;
 
-/** Claude chooses the tools; the loop runs them. */
-export class ClaudePlanner implements Planner {
-  readonly kind = "claude";
-  private readonly tools = anthropicTools();
+/** The model chooses the tools; the loop runs them. */
+export class LlmPlanner implements Planner {
+  readonly kind: ProviderName;
+  private chat: ToolChat | null = null;
 
-  constructor(private readonly client: Pick<Anthropic, "beta"> = new Anthropic()) {}
+  constructor(private readonly provider: LLMProvider) {
+    this.kind = provider.name;
+  }
 
-  async next(messages: readonly Anthropic.Beta.BetaMessageParam[]): Promise<PlannerReply> {
-    const res = await this.client.beta.messages.create({
-      model: AGENT_MODEL,
-      max_tokens: 16000,
-      system: SYSTEM_PROMPT,
-      tools: this.tools,
-      messages: [...messages],
-      cache_control: { type: "ephemeral" },
-      output_config: { effort: "medium" },
-      // Re-run on a policy decline with the model Anthropic routes to, inside the same call.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-    });
-
-    const calls: ToolCall[] = [];
-    const text: string[] = [];
-    for (const block of res.content) {
-      if (block.type === "tool_use") {
-        const input = block.input && typeof block.input === "object" ? block.input : {};
-        calls.push({ id: block.id, name: block.name, input: input as Record<string, unknown> });
-      } else if (block.type === "text") {
-        text.push(block.text);
-      }
+  async next(input: PlannerInput): Promise<ChatTurn> {
+    // A user message starts a new run with a fresh transcript.
+    if (typeof input === "string" || !this.chat) {
+      this.chat = this.provider.chat({ system: SYSTEM_PROMPT, tools: toolSpecs(), maxOutputTokens: MAX_OUTPUT_TOKENS.planner });
     }
-    let stopReason: PlannerReply["stopReason"] = "other";
-    if (res.stop_reason === "tool_use" || res.stop_reason === "end_turn" || res.stop_reason === "refusal") {
-      stopReason = res.stop_reason;
-    }
-    return { stopReason, text: text.join(" "), calls, content: res.content };
+    return this.chat.send(input);
   }
 }
 
 /**
- * Follows the seven steps with default inputs and template prose. Used when no Anthropic key
- * is configured, so mock mode and tests run end to end without a model.
+ * Follows the seven steps with default inputs and template prose. Used when no model key is
+ * configured, so mock mode and tests run end to end without a model.
  */
 export class ScriptedPlanner implements Planner {
   readonly kind = "scripted";
   private turn = 0;
 
-  async next(_messages: readonly Anthropic.Beta.BetaMessageParam[], state: RunState): Promise<PlannerReply> {
+  async next(_input: PlannerInput, state: RunState): Promise<ChatTurn> {
     this.turn++;
     const calls = nextScriptedCalls(state).map((c, i) => ({ ...c, id: `scripted_${this.turn}_${i}` }));
-    return {
-      stopReason: calls.length ? "tool_use" : "end_turn",
-      text: "",
-      calls,
-      content: calls.map((c) => ({ type: "tool_use" as const, id: c.id, name: c.name, input: c.input })),
-    };
+    return { stopReason: calls.length ? "tool_use" : "end_turn", text: "", calls, usage: { input: 0, output: 0 } };
   }
 }
 
 export type PlannerStatus =
-  | { ok: true; kind: "claude" | "scripted" }
-  | { ok: false; kind: "unavailable"; reason: string };
+  | { ok: true; kind: ProviderName | "scripted"; provider: string; model: string | null }
+  | { ok: false; kind: "unavailable"; provider: string; model: string | null; reason: string };
 
 /**
- * Claude when a key is set. Without one, the scripted planner runs locally and in previews, but
- * never in production: there a missing key is a configuration error, not a quieter plan.
+ * The selected provider (LLM_PROVIDER) when its key is set. Without one, the scripted planner
+ * runs locally and in previews, but never in production: there a missing key is a configuration
+ * error, not a quieter plan.
  */
 export function plannerStatus(env: Record<string, string | undefined> = process.env): PlannerStatus {
-  if (env.ANTHROPIC_API_KEY) return { ok: true, kind: "claude" };
+  const p = providerStatus(env);
+  if (!p.ok) return { ok: false, kind: "unavailable", provider: p.provider, model: null, reason: p.reason };
+  if (p.configured) return { ok: true, kind: p.provider, provider: p.provider, model: p.model };
   if (env.VERCEL_ENV === "production") {
-    return { ok: false, kind: "unavailable", reason: "ANTHROPIC_API_KEY is not set in production." };
+    const reason = `${keyEnvName(p.provider)} is not set in production.`;
+    return { ok: false, kind: "unavailable", provider: p.provider, model: p.model, reason };
   }
-  return { ok: true, kind: "scripted" };
+  return { ok: true, kind: "scripted", provider: p.provider, model: null };
 }
 
 export class PlannerConfigError extends Error {
@@ -121,5 +88,6 @@ export class PlannerConfigError extends Error {
 export function createPlanner(env: Record<string, string | undefined> = process.env): Planner {
   const status = plannerStatus(env);
   if (!status.ok) throw new PlannerConfigError(status.reason);
-  return status.kind === "claude" ? new ClaudePlanner() : new ScriptedPlanner();
+  if (status.kind === "scripted") return new ScriptedPlanner();
+  return new LlmPlanner(createProvider(env)!);
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { plannerStatus } from "@/lib/agent/planner";
+import { getTokenBudget } from "@/lib/llm/budget";
 import { isMockMode } from "@/lib/mock-mode";
 import { MemoryCache } from "@/lib/qloo/cache";
 import { createQlooClient, lastQuota } from "@/lib/qloo/client";
@@ -23,8 +24,21 @@ export interface Health {
     quotaLimit: number | null;
   };
   redis: { configured: boolean; ok: boolean | null; ms: number | null };
-  /** ok is false in production without a key: the scripted planner is never used there. */
-  anthropic: { configured: boolean; ok: boolean; planner: "claude" | "scripted" | "unavailable"; note: string };
+  /**
+   * The planning model. ok is false in production without the selected provider's key (the
+   * scripted planner is never used there) and once today's token budget is spent.
+   */
+  llm: {
+    provider: string;
+    model: string | null;
+    configured: boolean;
+    ok: boolean;
+    planner: "gemini" | "anthropic" | "scripted" | "unavailable";
+    note: string;
+    tokensToday: number;
+    tokenBudget: number;
+    tokensResetAt: string;
+  };
   limits: {
     runsPerVisitorPerHour: number;
     replansPerVisitorPerHour: number;
@@ -76,19 +90,38 @@ async function checkRedis(): Promise<Health["redis"]> {
 
 /** Status only: no keys, tokens, URLs or visitor data. */
 export async function getHealth(env: Record<string, string | undefined> = process.env): Promise<Health> {
-  const [check, redis, daily] = await Promise.all([checkQloo(env), checkRedis(), getLimiters().daily.peek(DAILY_ID)]);
+  const budget = getTokenBudget(env);
+  const [check, redis, daily, tokensToday] = await Promise.all([
+    checkQloo(env),
+    checkRedis(),
+    getLimiters().daily.peek(DAILY_ID),
+    budget.used(),
+  ]);
   const qloo: Health["qloo"] = { ...check, quotaRemaining: lastQuota.remaining ?? null, quotaLimit: lastQuota.limit ?? null };
   const planner = plannerStatus(env);
-  let plannerNote = "Claude plans each run.";
+  const withinBudget = tokensToday < budget.limit;
+  let plannerNote = `${planner.model} plans each run.`;
   if (!planner.ok) plannerNote = planner.reason;
   else if (planner.kind === "scripted") plannerNote = "No model key: scripted planner with template wording (not allowed in production).";
+  else if (!withinBudget) plannerNote = "Today's token budget is spent: live runs are paused until it resets; cached examples still work.";
+  const llmOk = planner.ok && (planner.kind === "scripted" || withinBudget);
   return {
-    ok: qloo.reachable !== false && redis.ok !== false && daily.remaining > 0 && planner.ok,
+    ok: qloo.reachable !== false && redis.ok !== false && daily.remaining > 0 && llmOk,
     mock: isMockMode(env),
     checkedAt: new Date().toISOString(),
     qloo,
     redis,
-    anthropic: { configured: Boolean(env.ANTHROPIC_API_KEY), ok: planner.ok, planner: planner.kind, note: plannerNote },
+    llm: {
+      provider: planner.provider,
+      model: planner.model,
+      configured: planner.kind !== "scripted" && planner.kind !== "unavailable",
+      ok: llmOk,
+      planner: planner.kind,
+      note: plannerNote,
+      tokensToday,
+      tokenBudget: budget.limit,
+      tokensResetAt: new Date(budget.resetsAt()).toISOString(),
+    },
     limits: {
       runsPerVisitorPerHour: LIMITS.runsPerHour,
       replansPerVisitorPerHour: LIMITS.replansPerHour,

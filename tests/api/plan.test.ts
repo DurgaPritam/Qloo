@@ -10,7 +10,6 @@ const URL = "http://localhost/api/plan";
 
 beforeAll(() => {
   vi.stubEnv("TAKEOVER_MOCK", "1");
-  vi.stubEnv("ANTHROPIC_API_KEY", "");
   vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
 });
 afterAll(() => vi.unstubAllEnvs());

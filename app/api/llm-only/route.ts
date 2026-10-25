@@ -1,3 +1,4 @@
+import { TokenBudgetExceededError } from "@/lib/llm/budget";
 import { isMockMode } from "@/lib/mock-mode";
 import { llmOnlyAnswer } from "@/lib/server/llm-only";
 import { getLimiters, isE2eRequest, visitorId } from "@/lib/server/rate-limit";
@@ -28,6 +29,12 @@ export async function POST(req: Request): Promise<Response> {
     }
     return Response.json(answer);
   } catch (err) {
+    if (err instanceof TokenBudgetExceededError) {
+      return Response.json(
+        { error: "Takeover has used today's AI budget. Cached comparisons still work; live ones reopen tomorrow.", mock },
+        { status: 429 },
+      );
+    }
     console.error("[api/llm-only] failed:", err instanceof Error ? err.name : "unknown");
     return Response.json({ error: "The comparison model is unavailable right now.", mock }, { status: 502 });
   }

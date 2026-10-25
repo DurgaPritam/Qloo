@@ -2,14 +2,15 @@
 
 > Work in progress. Feature code has not been written yet.
 
-A Next.js (App Router) app that combines the Qloo Taste AI API with a Claude-driven agent to build plans, alongside an LLM-only route for comparison.
+A Next.js (App Router) app that combines the Qloo Taste AI API with a model-driven agent (Gemini by default) to build plans, alongside an LLM-only route for comparison.
 
-## Stack
+## Built with
 
-- Next.js (App Router) + TypeScript
-- Tailwind CSS
-- ESLint
-- Vitest
+- [Qloo Taste AI API](https://docs.qloo.com/): every partner, city, venue, opener and sponsor
+- Gemini (`gemini-3.8-flash`) through the official [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai): the agent picks tools and writes the brief's prose; Claude is supported as an alternative (`LLM_PROVIDER=anthropic`)
+- Next.js (App Router) + TypeScript, Tailwind CSS
+- Upstash Redis: Qloo cache, rate limits, the daily token budget and preloaded examples
+- Vitest and Playwright
 
 ## Layout
 
@@ -18,6 +19,7 @@ A Next.js (App Router) app that combines the Qloo Taste AI API with a Claude-dri
 | `lib/qloo/` | Qloo API client |
 | `lib/engine/` | Scoring logic (pure functions) |
 | `lib/agent/` | Agent tool loop and tool definitions |
+| `lib/llm/` | Model providers (Gemini, Anthropic) and the daily token budget |
 | `app/api/plan/` | Plan route (Server-Sent Events) |
 | `app/api/llm-only/` | LLM-only comparison route |
 | `components/` | React components |
@@ -53,11 +55,11 @@ TAKEOVER_MOCK=1 npm run dev  # http://localhost:3000, sample data
 | --- | --- |
 | `POST /api/plan` | `{query, overrides?}` → SSE stream of agent events and a final plan |
 | `POST /api/llm-only` | `{query}` → the same model's answer with no tools or Qloo data |
-| `GET /api/health` | Qloo reachability, Redis status, limits and remaining daily runs; no secrets |
+| `GET /api/health` | Qloo reachability, Redis status, limits, remaining daily runs, the model and today's token use against the budget; no secrets |
 
 ## Environment
 
-See `.env.example`: `QLOO_API_KEY`, `QLOO_BASE_URL`, `ANTHROPIC_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, plus `TAKEOVER_MOCK` and `TAKEOVER_DAILY_RUNS`. Without `ANTHROPIC_API_KEY` the agent runs a scripted planner with template prose; without Upstash, caches and limits fall back to memory.
+See `.env.example`: `QLOO_API_KEY`, `QLOO_BASE_URL`, `LLM_PROVIDER` (`gemini`, the default, or `anthropic`), `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`), `GEMINI_MODEL`, `LLM_DAILY_TOKEN_BUDGET` (default 2,000,000), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, plus `TAKEOVER_MOCK` and `TAKEOVER_DAILY_RUNS`. Without the selected provider's key the agent runs a scripted planner with template prose locally and in previews; in production that is a configuration error instead. Once the day's token budget is spent, live runs pause and the cached examples still work. Without Upstash, caches, limits and the token count fall back to memory.
 
 ## Data credits
 

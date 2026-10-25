@@ -3,7 +3,7 @@
  * source, keeps every Qloo response in Redis with no expiry, and stores each finished run as a
  * replayable recording (served by /api/plan as a "cached run") and as a share-link plan.
  *
- *   npm run warm-cache                 # needs QLOO_*, UPSTASH_* and ANTHROPIC_API_KEY
+ *   npm run warm-cache                 # needs QLOO_*, UPSTASH_* and the LLM_PROVIDER's key
  *   npm run warm-cache -- --allow-scripted   # without a model key (template wording)
  *
  * Never runs in mock mode: sample data must not reach Redis.
@@ -45,7 +45,7 @@ async function main() {
   if (!getRedis()) throw new Error("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are needed: nothing would persist.");
   const planner = createPlanner();
   if (planner.kind === "scripted" && !process.argv.includes("--allow-scripted")) {
-    throw new Error("ANTHROPIC_API_KEY is not set; pass --allow-scripted to preload template wording.");
+    throw new Error("No model key for LLM_PROVIDER; pass --allow-scripted to preload template wording.");
   }
 
   const source = new QlooApiSource(createQlooClient({ ttlSeconds: 0 }));

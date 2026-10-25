@@ -1,44 +1,49 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/llm-only/route";
-import { AGENT_MODEL } from "@/lib/agent/planner";
 import { stripUnknownFacts, TO_CONFIRM_SENTENCE } from "@/lib/agent/sanitize";
+import { TokenBudget, TokenBudgetExceededError, withTokenBudget } from "@/lib/llm/budget";
+import type { LLMProvider } from "@/lib/llm/types";
 import { llmOnlyAnswer } from "@/lib/server/llm-only";
 
 import { postJson } from "./sse";
 
-function fakeClient(text: string, stop_reason = "end_turn") {
-  const create = vi.fn(async () => ({ stop_reason, content: [{ type: "text", text }] }));
-  return { client: { beta: { messages: { create } } } as unknown as Anthropic, create };
+function fakeProvider(text: string, refused = false) {
+  const complete = vi.fn<LLMProvider["complete"]>(async () => ({
+    text,
+    refused,
+    usage: { input: 50, output: 80 },
+  }));
+  const chat = vi.fn();
+  const provider: LLMProvider = { name: "gemini", model: "gemini-test-flash", chat, complete };
+  return { provider, complete, chat };
 }
 
-const env = { ANTHROPIC_API_KEY: "" };
+const env = { GEMINI_API_KEY: "", ANTHROPIC_API_KEY: "" };
 
 describe("llmOnlyAnswer", () => {
   it("asks the same model with no tools and flags the answer as unsourced", async () => {
-    const { client, create } = fakeClient("Partner: Taylor Swift.\nCity: New York, the biggest market.");
-    const answer = await llmOnlyAnswer("Unique query one", { mock: false, client, env });
+    const { provider, complete, chat } = fakeProvider("Partner: Taylor Swift.\nCity: New York, the biggest market.");
+    const answer = await llmOnlyAnswer("Unique query one", { mock: false, provider, env });
 
-    expect(answer).toMatchObject({ noSources: true, model: AGENT_MODEL, cached: false });
+    expect(answer).toMatchObject({ noSources: true, model: "gemini-test-flash", cached: false });
     expect(answer?.text).toBe("Partner: Taylor Swift.\nCity: New York, the biggest market.");
-    const params = (create.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
-    expect(params).not.toHaveProperty("tools");
-    expect(params.model).toBe(AGENT_MODEL);
+    expect(chat).not.toHaveBeenCalled();
+    expect(complete.mock.calls[0][1]).toEqual({ maxOutputTokens: 2048 });
   });
 
   it("caches by normalised query", async () => {
-    const { client, create } = fakeClient("Same answer.");
-    await llmOnlyAnswer("Cache Me", { mock: false, client, env });
-    const second = await llmOnlyAnswer("  cache me ", { mock: false, client, env });
+    const { provider, complete } = fakeProvider("Same answer.");
+    await llmOnlyAnswer("Cache Me", { mock: false, provider, env });
+    const second = await llmOnlyAnswer("  cache me ", { mock: false, provider, env });
 
     expect(second?.cached).toBe(true);
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(complete).toHaveBeenCalledTimes(1);
   });
 
   it("replaces capacity, date and price claims but keeps the chatbot's wording", async () => {
-    const { client } = fakeClient("Try Coldplay in London. The O2 holds 20,000 people.");
-    const answer = await llmOnlyAnswer("Unique query two", { mock: false, client, env });
+    const { provider } = fakeProvider("Try Coldplay in London. The O2 holds 20,000 people.");
+    const answer = await llmOnlyAnswer("Unique query two", { mock: false, provider, env });
 
     expect(answer?.text).toBe(`Try Coldplay in London. ${TO_CONFIRM_SENTENCE}`);
   });
@@ -53,10 +58,25 @@ describe("llmOnlyAnswer", () => {
   });
 
   it("handles a refusal", async () => {
-    const { client } = fakeClient("", "refusal");
-    expect((await llmOnlyAnswer("Unique query five", { mock: false, client, env }))?.text).toBe(
+    const { provider } = fakeProvider("", true);
+    expect((await llmOnlyAnswer("Unique query five", { mock: false, provider, env }))?.text).toBe(
       "The model gave no answer.",
     );
+  });
+
+  it("stops calling the model once today's token budget is spent", async () => {
+    const { provider, complete } = fakeProvider("An answer.");
+    const budget = new TokenBudget(100, null, () => Date.UTC(2026, 10, 2), new Map());
+    const capped = withTokenBudget(provider, budget);
+
+    await llmOnlyAnswer("Unique query six", { mock: false, provider: capped, env });
+    expect(await budget.used()).toBe(130);
+    await expect(llmOnlyAnswer("Unique query seven", { mock: false, provider: capped, env })).rejects.toBeInstanceOf(
+      TokenBudgetExceededError,
+    );
+    expect(complete).toHaveBeenCalledTimes(1);
+    // Cached answers still come back.
+    expect(await llmOnlyAnswer("Unique query six", { mock: false, provider: capped, env })).toMatchObject({ cached: true });
   });
 });
 
@@ -67,10 +87,7 @@ describe("stripUnknownFacts", () => {
 });
 
 describe("POST /api/llm-only", () => {
-  beforeAll(() => {
-    vi.stubEnv("TAKEOVER_MOCK", "1");
-    vi.stubEnv("ANTHROPIC_API_KEY", "");
-  });
+  beforeAll(() => vi.stubEnv("TAKEOVER_MOCK", "1"));
   afterAll(() => vi.unstubAllEnvs());
 
   it("answers with the sample in mock mode and validates input", async () => {

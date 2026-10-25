@@ -32,18 +32,19 @@ describe("health", () => {
   afterAll(() => vi.unstubAllEnvs());
 
   it("reports status and limits without secrets", async () => {
-    const ANTHROPIC = "anthropic-test-value-not-a-key";
-    const h = await getHealth({ TAKEOVER_MOCK: "1", QLOO_API_KEY: SECRET, ANTHROPIC_API_KEY: ANTHROPIC });
+    const GEMINI = "gemini-test-value-not-a-key";
+    const h = await getHealth({ TAKEOVER_MOCK: "1", QLOO_API_KEY: SECRET, GEMINI_API_KEY: GEMINI });
     expect(h).toMatchObject({
       mock: true,
       qloo: { reachable: null },
       redis: { configured: false },
-      anthropic: { configured: true, planner: "claude", ok: true },
+      llm: { provider: "gemini", model: "gemini-3.8-flash", configured: true, planner: "gemini", ok: true, tokenBudget: 2_000_000 },
       limits: { runsPerVisitorPerHour: LIMITS.runsPerHour, dailyRuns: LIMITS.dailyRuns },
     });
     const json = JSON.stringify(h);
     expect(json).not.toContain(SECRET);
-    expect(json).not.toContain(ANTHROPIC);
+    expect(json).not.toContain(GEMINI);
+    expect(h.llm.tokensToday).toEqual(expect.any(Number));
   });
 
   it("flags an unconfigured Qloo key outside mock mode", async () => {

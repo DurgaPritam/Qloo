@@ -1,6 +1,7 @@
 import { runAgent } from "@/lib/agent/loop";
 import { createPlanner, plannerStatus } from "@/lib/agent/planner";
 import type { AgentEvent, Overrides } from "@/lib/agent/types";
+import { getTokenBudget } from "@/lib/llm/budget";
 import { getQlooSource } from "@/lib/qloo/source";
 import { savePlan } from "@/lib/server/plan-store";
 import { DAILY_ID, getLimiters, isE2eRequest, LIMITS, visitorId, type LimitResult } from "@/lib/server/rate-limit";
@@ -67,14 +68,19 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const runId = crypto.randomUUID();
-  const limiters = getLimiters();
-  const visitor = isE2eRequest(req.headers)
-    ? { ok: true, limit: 0, remaining: 0, resetAt: 0 }
-    : await (replan ? limiters.replans : limiters.runs).check(visitorId(req.headers));
-  const daily = visitor.ok ? await limiters.daily.check(DAILY_ID) : null;
   let limited: { summary: string; retryAfterSec: number } | null = null;
-  if (!visitor.ok) limited = limitedMessage(visitor, replan);
-  else if (daily && !daily.ok) limited = dailyMessage(daily);
+  // Today's model token budget comes first, so a refused run costs the visitor nothing.
+  const budget = getTokenBudget();
+  if (planner.kind !== "scripted" && (await budget.exceeded())) limited = budgetMessage(budget.resetsAt());
+  if (!limited) {
+    const limiters = getLimiters();
+    const visitor = isE2eRequest(req.headers)
+      ? { ok: true, limit: 0, remaining: 0, resetAt: 0 }
+      : await (replan ? limiters.replans : limiters.runs).check(visitorId(req.headers));
+    const daily = visitor.ok ? await limiters.daily.check(DAILY_ID) : null;
+    if (!visitor.ok) limited = limitedMessage(visitor, replan);
+    else if (daily && !daily.ok) limited = dailyMessage(daily);
+  }
 
   const stream = sseStream(async (send) => {
     if (limited) {
@@ -126,6 +132,13 @@ function dailyMessage(limit: LimitResult) {
   return {
     summary: "Takeover has reached today's limit of live runs. The cached examples still work, and live runs reopen tomorrow.",
     retryAfterSec: minutesUntil(limit.resetAt) * 60,
+  };
+}
+
+function budgetMessage(resetAt: number) {
+  return {
+    summary: "Takeover has used today's AI budget for live runs. The cached examples still work, and live runs reopen tomorrow.",
+    retryAfterSec: minutesUntil(resetAt) * 60,
   };
 }
 

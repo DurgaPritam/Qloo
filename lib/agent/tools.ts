@@ -1,7 +1,5 @@
 import "server-only";
 
-import type Anthropic from "@anthropic-ai/sdk";
-
 import { scoreCities } from "@/lib/engine/cities";
 import { ENGINE_CONFIG, FORMAT_LABEL } from "@/lib/engine/config";
 import { formatFor } from "@/lib/engine/formats";
@@ -15,6 +13,7 @@ import { rankBrands, rankPlaces } from "@/lib/engine/places";
 import { planTour } from "@/lib/engine/tour";
 import type { Category, City, Entity, Pick } from "@/lib/engine/types";
 import type { QlooCallOptions } from "@/lib/qloo/client";
+import type { JsonSchemaObject, ToolSpec } from "@/lib/llm/types";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 import { safeProse, sanitizeProse, type Slots } from "./sanitize";
@@ -53,7 +52,7 @@ export interface ToolDef {
   name: string;
   step: StepId;
   description: string;
-  input_schema: Anthropic.Beta.BetaTool.InputSchema;
+  input_schema: JsonSchemaObject;
   /** Shown on the step card while the tool runs. */
   running(state: RunState): string;
   /** Null when the tool can run; otherwise what must happen first. */
@@ -786,7 +785,7 @@ export const TOOLS: readonly ToolDef[] = [
 
 export const TOOLS_BY_NAME: ReadonlyMap<string, ToolDef> = new Map(TOOLS.map((t) => [t.name, t]));
 
-/** Tool definitions for the Messages API. */
-export function anthropicTools(): Anthropic.Beta.BetaTool[] {
-  return TOOLS.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
+/** Tool definitions for the model; each provider converts them to its own format. */
+export function toolSpecs(): ToolSpec[] {
+  return TOOLS.map(({ name, description, input_schema }) => ({ name, description, parameters: input_schema }));
 }

@@ -1,8 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 
+import { AnthropicProvider, ANTHROPIC_MODEL } from "@/lib/llm/anthropic";
+
 import { runAgent, MAX_TURNS } from "@/lib/agent/loop";
-import { AGENT_MODEL, ClaudePlanner, ScriptedPlanner, type Planner } from "@/lib/agent/planner";
+import { LlmPlanner, ScriptedPlanner, type Planner } from "@/lib/agent/planner";
 import { TO_CONFIRM_SENTENCE } from "@/lib/agent/sanitize";
 import type { AgentEvent } from "@/lib/agent/types";
 import { MockQlooSource } from "@/lib/qloo/mock";
@@ -112,12 +114,12 @@ describe("runAgent", () => {
 
   it("stops at the turn cap and finishes the rest by code, labelled", async () => {
     const stuck: Planner = {
-      kind: "claude",
+      kind: "gemini",
       next: vi.fn(async () => ({
         stopReason: "tool_use" as const,
         text: "",
         calls: [{ id: "x", name: "resolve_fanbase", input: {} }],
-        content: [{ type: "tool_use" as const, id: "x", name: "resolve_fanbase", input: {} }],
+        usage: { input: 0, output: 0 },
       })),
     };
 
@@ -162,7 +164,7 @@ describe("runAgent", () => {
   });
 });
 
-describe("ClaudePlanner", () => {
+describe("LlmPlanner with the Anthropic provider", () => {
   function fakeClient(turns: Array<Array<{ name: string; input?: Record<string, unknown> }>>, text = "") {
     let i = 0;
     const create = vi.fn(async () => {
@@ -173,9 +175,11 @@ describe("ClaudePlanner", () => {
           ...(text ? [{ type: "text", text }] : []),
           ...calls.map((c, j) => ({ type: "tool_use", id: `t${i}_${j}`, name: c.name, input: c.input ?? {} })),
         ],
+        usage: { input_tokens: 100, output_tokens: 20 },
       };
     });
-    return { client: { beta: { messages: { create } } } as unknown as Anthropic, create };
+    const client = { beta: { messages: { create } } } as unknown as Anthropic;
+    return { client: new LlmPlanner(new AnthropicProvider(() => client)), create };
   }
 
   const SEVEN = [
@@ -197,10 +201,10 @@ describe("ClaudePlanner", () => {
 
   it("calls claude-sonnet-5-5 with tools, auto tool choice and server-side fallbacks", async () => {
     const { client, create } = fakeClient(SEVEN);
-    await run("John Mulaney", { planner: new ClaudePlanner(client) });
+    await run("John Mulaney", { planner: client });
 
     const params = (create.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
-    expect(params).toMatchObject({ model: AGENT_MODEL, fallbacks: "default" });
+    expect(params).toMatchObject({ model: ANTHROPIC_MODEL, fallbacks: "default", max_tokens: 8192 });
     expect(params.model).toBe("claude-sonnet-5-5");
     expect(params).not.toHaveProperty("tool_choice");
     expect((params.tools as Array<{ name: string }>).map((t) => t.name)).toHaveLength(8);
@@ -209,7 +213,7 @@ describe("ClaudePlanner", () => {
 
   it("keeps the model's prose, fills names from engine data and removes numbers and dates", async () => {
     const { client } = fakeClient(SEVEN);
-    const { plan } = await run("John Mulaney", { planner: new ClaudePlanner(client) });
+    const { plan } = await run("John Mulaney", { planner: client });
 
     const partner = plan.partners!.picks[0].pick.entity.name;
     expect(plan.brief?.headline).toBe(`John Mulaney meets ${partner} in ${plan.room!.cityName}. ${TO_CONFIRM_SENTENCE}`);
@@ -221,7 +225,7 @@ describe("ClaudePlanner", () => {
 
   it("refuses to run tools out of order", async () => {
     const { client } = fakeClient([[{ name: "pick_city" }], []]);
-    const { plan, settled } = await run("John Mulaney", { planner: new ClaudePlanner(client) });
+    const { plan, settled } = await run("John Mulaney", { planner: client });
 
     // The out-of-order call is rejected without an event; the model then stopped, so code finished.
     expect(settled[0].step).toBe("identify");
@@ -230,11 +234,11 @@ describe("ClaudePlanner", () => {
 
   it("passes the agent's one-line remark through sanitised", async () => {
     const { client } = fakeClient(SEVEN, "Starting with 3 searches.");
-    const { events } = await run("John Mulaney", { planner: new ClaudePlanner(client) });
+    const { events } = await run("John Mulaney", { planner: client });
     expect(events.some((e) => e.note)).toBe(false);
 
     const { client: chatty } = fakeClient(SEVEN, "Let me find the fanbase first.");
-    const second = await run("John Mulaney", { planner: new ClaudePlanner(chatty) });
+    const second = await run("John Mulaney", { planner: chatty });
     expect(second.events[0].note).toBe("Let me find the fanbase first.");
   });
 });
