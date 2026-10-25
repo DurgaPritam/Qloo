@@ -29,6 +29,15 @@ export const ENGINE_CONFIG = {
     /** Rows in the "with Qloo vs population" table. */
     tableSize: 5,
   },
+  tour: {
+    stops: 6,
+    /** Exact ordering tries every order, so keep this small (8! = 40,320). */
+    maxStops: 8,
+    /** Stops closer than this would split one audience across two nights. */
+    minSpacingKm: 150,
+    /** A stop must score at least this combined (0–1). */
+    minCombined: 0.3,
+  },
   places: {
     /** Venues considered for the main room. */
     count: 5,

@@ -7,6 +7,7 @@ import type {
   Entity,
   PartnerPick,
   PlacePick,
+  TourPlan,
 } from "@/lib/engine/types";
 
 export type StepId = "identify" | "format" | "partners" | "city" | "room" | "brief" | "outreach";
@@ -102,6 +103,8 @@ export interface CityResult {
   chosen: Explained<CityScore> | null;
   /** The city a population-only planner would pick. */
   populationPick: CityScore | null;
+  /** A multi-city route over the top cities, ordered by code to keep travel short. */
+  tour: TourPlan;
   /** Up to ten cities for the map, best first. */
   map: Array<{ id: string; name: string; lat: number; lon: number; combined: number }>;
   level: "city" | "region";

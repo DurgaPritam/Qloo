@@ -145,3 +145,14 @@ test("going Back to the landing page leaves Plan takeover usable", async ({ page
   await submit.click();
   await expect(page).toHaveURL(new RegExp(`q=${encodeURIComponent(EXAMPLES[0].name).replace(/%20/g, "(\\\\+|%20)")}`));
 });
+
+test("the city map draws real geography and a tour route", async ({ page }) => {
+  await run(page, EXAMPLES[1].name);
+  await complete(page);
+  const city = page.locator("section").filter({ hasText: "02 · City" }).last();
+  await expect(city.locator("svg path").first()).toHaveAttribute("d", /^M/);
+  await city.getByRole("tab", { name: "Tour route" }).click();
+  await expect(city.getByText(/Tour route · \d+ stops · [\d,]+ km/)).toBeVisible();
+  await expect(city.getByText("start", { exact: true })).toBeVisible();
+  await expect(city.locator('svg path[stroke-dasharray]')).toHaveCount(1);
+});

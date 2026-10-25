@@ -66,6 +66,9 @@ City names, regions, coordinates and populations come from [GeoNames](https://ww
 cities with population of 100,000 or more in `lib/engine/data/cities.json`; regenerate it with
 `npx tsx scripts/build-cities.ts`.
 
+Map outlines come from [Natural Earth](https://www.naturalearthdata.com/) (public domain) via
+[world-atlas](https://github.com/topojson/world-atlas) (ISC), served from `public/geo/`.
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Third-party data keeps its own licence (see Data credits).

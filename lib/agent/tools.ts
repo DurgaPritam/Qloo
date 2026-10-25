@@ -10,6 +10,7 @@ import { classifyMatches } from "@/lib/engine/match";
 import { metroCities, nearestCities } from "@/lib/engine/metro";
 import { scorePartners } from "@/lib/engine/partners";
 import { rankBrands, rankPlaces } from "@/lib/engine/places";
+import { planTour } from "@/lib/engine/tour";
 import type { Category, City, Entity, Pick } from "@/lib/engine/types";
 import type { QlooCallOptions } from "@/lib/qloo/client";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
@@ -382,6 +383,7 @@ const pickCity: ToolDef = {
       table: scores.slice(0, cfg.tableSize).map(explained),
       chosen: chosen ? explained(chosen) : null,
       populationPick: scores.find((s) => s.populationRank === 1) ?? null,
+      tour: planTour(scores),
       map: scores.slice(0, 10).map((s) => ({
         id: s.city.id,
         name: s.city.name,

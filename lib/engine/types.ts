@@ -139,4 +139,20 @@ export interface CityScore {
   evidence: { cellsA: number; cellsB: number };
 }
 
+export interface TourStop {
+  city: City;
+  combined: number;
+  /** Rank by combined score among the scored cities. */
+  rank: number;
+  /** Distance from the previous stop; 0 for the first. */
+  legKm: number;
+}
+
+export interface TourPlan {
+  stops: TourStop[];
+  totalKm: number;
+  fallback: boolean;
+  reason: string;
+}
+
 export type Pick = PartnerPick | PlacePick | BrandPick | CityScore;

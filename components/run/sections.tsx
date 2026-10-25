@@ -2,7 +2,9 @@
 
 import { useState, type CSSProperties } from "react";
 
-import type { CityResult } from "@/lib/agent/types";
+import { ENGINE_CONFIG } from "@/lib/engine/config";
+
+import { GeoMap, type GeoPoint } from "../geo-map";
 
 import {
   Banner,
@@ -10,7 +12,6 @@ import {
   Card,
   ConfirmPill,
   DataTable,
-  DotMap,
   EmailCard,
   EntityCard,
   Legend,
@@ -24,7 +25,6 @@ import {
   SourceBadge,
   cx,
   useCopy,
-  type MapPoint,
 } from "../ui";
 import { categoryLabel, mailto, paragraphs, pct, PROMOTER, two } from "./format";
 import type { RunView } from "./use-plan-stream";
@@ -202,32 +202,36 @@ export function CrossoverSection({
 }
 
 /* ---------- 02 City ---------- */
-function project(city: CityResult, chosenId: string | undefined): MapPoint[] {
-  // The table's cities only: more points than this collide on a world-spread box.
-  const pts = city.map.slice(0, city.table.length);
-  if (pts.length === 0) return [];
-  const lats = pts.map((p) => p.lat);
-  const lons = pts.map((p) => p.lon);
-  const [minLat, maxLat, minLon, maxLon] = [Math.min(...lats), Math.max(...lats), Math.min(...lons), Math.max(...lons)];
-  return pts.map((p) => {
-    const score = pct(p.combined);
-    return {
-      name: p.name,
-      score,
-      x: 16 + 68 * (maxLon > minLon ? (p.lon - minLon) / (maxLon - minLon) : 0.5),
-      y: 16 + 64 * (maxLat > minLat ? (maxLat - p.lat) / (maxLat - minLat) : 0.5),
-      size: Math.max(6, Math.round(10 + (score - 50) * 0.55)),
-      tone: p.id === chosenId ? "acc" : score >= 75 ? "mute" : "line",
-      ring: p.id === chosenId,
-    };
-  });
+function toPoint(p: { id: string; name: string; lat: number; lon: number; combined: number }, chosenId: string, label?: string): GeoPoint {
+  const score = pct(p.combined);
+  return {
+    id: p.id,
+    name: label ?? p.name,
+    lat: p.lat,
+    lon: p.lon,
+    value: String(score),
+    size: Math.max(7, Math.round(10 + (score - 50) * 0.55)),
+    tone: p.id === chosenId ? "acc" : score >= 75 ? "mute" : "line",
+    ring: p.id === chosenId,
+  };
 }
 
 export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (cityId: string) => void }) {
   const { city, fanbase, partners } = view;
+  const [mode, setMode] = useState<"cities" | "tour">("cities");
   const dim = view.replanFrom === "partners";
   const chosen = city?.chosen?.pick;
   const partnerName = partners?.picks.find((p) => p.pick.entity.id === partners.chosenId)?.pick.entity.name ?? "the partner";
+  const tour = city?.tour;
+  const hasTour = Boolean(tour && tour.stops.length > 1);
+  const showTour = mode === "tour" && hasTour;
+
+  const points =
+    city && chosen
+      ? showTour
+        ? tour!.stops.map((s, i) => toPoint({ ...s.city, combined: s.combined }, chosen.city.id, `${i + 1} · ${s.city.name}`))
+        : city.map.slice(0, city.table.length).map((p) => toPoint(p, chosen.city.id))
+      : [];
 
   return (
     <Panel className={cx("gap-[18px] print:hidden", fade, dim && DIM)}>
@@ -259,20 +263,45 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
             <Banner tone="warn">{city.reason} No city has heat for both audiences, so the plan stops here.</Banner>
           ) : (
             <>
-              <h2 className="t-display m-0 text-[clamp(28px,4vw,40px)] leading-[0.92]">{chosen.city.name}</h2>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h2 className="t-display m-0 text-[clamp(28px,4vw,40px)] leading-[0.92]">{chosen.city.name}</h2>
+                {hasTour && (
+                  <Segmented<"cities" | "tour">
+                    label="Map view"
+                    value={showTour ? "tour" : "cities"}
+                    onChange={setMode}
+                    options={[
+                      { value: "cities", label: "Top cities" },
+                      { value: "tour", label: "Tour route" },
+                    ]}
+                  />
+                )}
+              </div>
               <div className="grid items-start gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
                 <div className="flex flex-col gap-3">
-                  <DotMap
-                    aspect="aspect-[16/10]"
-                    points={project(city, chosen.city.id)}
-                    label={`Map of the top cities, ${chosen.city.name} highlighted`}
+                  <GeoMap
+                    points={points}
+                    route={showTour ? tour!.stops.map((s) => s.city) : undefined}
+                    label={
+                      showTour
+                        ? `Map of a ${tour!.stops.length}-stop tour route`
+                        : `Map of the top cities, ${chosen.city.name} highlighted`
+                    }
                   />
                   <Legend
-                    items={[
-                      { tone: "acc", label: "Chosen city" },
-                      { tone: "mute", label: "Score 75+" },
-                      { tone: "line", label: "Below 75" },
-                    ]}
+                    items={
+                      showTour
+                        ? [
+                            { tone: "acc", label: "Chosen city" },
+                            { tone: "mute", label: "Tour stop, score 75+" },
+                            { tone: "line", label: "Tour stop, below 75" },
+                          ]
+                        : [
+                            { tone: "acc", label: "Chosen city" },
+                            { tone: "mute", label: "Score 75+" },
+                            { tone: "line", label: "Below 75" },
+                          ]
+                    }
                   />
                   <p className="m-0 text-chip text-mute [text-wrap:pretty]">
                     Combined score, 0–100: how strongly {fanbase?.name} fans and {partnerName} fans show up together in a city. Each
@@ -280,32 +309,64 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
                     are strong. Dot size follows the score.
                   </p>
                 </div>
-                <div className="flex flex-col">
-                  {city.table.map(({ pick: c }, i) => (
-                    <div
-                      key={c.city.id}
-                      className="grid grid-cols-[2em_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 border-b border-line py-2.5"
-                    >
-                      <span className="tabular font-mono text-[11px] text-mute">{String(i + 1).padStart(2, "0")}</span>
-                      <div className="flex min-w-0 flex-col gap-1.5">
-                        <span className="font-medium">
-                          {c.city.name}
-                          <span className="text-chip text-mute">, {c.city.country}</span>
-                        </span>
-                        <ScoreBar value={pct(c.combined)} fill={c.city.id === chosen.city.id ? "acc" : "mute"} className="gap-2" />
+                {showTour ? (
+                  <div className="flex flex-col gap-2">
+                    <MonoLabel>
+                      Tour route · {tour!.stops.length} stops · {tour!.totalKm.toLocaleString("en-GB")} km
+                    </MonoLabel>
+                    {tour!.fallback && <Banner tone="warn">{tour!.reason}</Banner>}
+                    <DataTable
+                      columns={["Stop", "City", "Score", "Leg"]}
+                      template="3em minmax(0,1fr) 4.5em 6.5em"
+                      rows={tour!.stops.map((s, i) => [
+                        <Num key="n" mute>
+                          {String(i + 1).padStart(2, "0")}
+                        </Num>,
+                        <span key="c">
+                          {s.city.name}
+                          <span className="text-mute">, {s.city.country}</span>
+                        </span>,
+                        <Num key="s" top={s.city.id === chosen.city.id}>
+                          {pct(s.combined)}
+                        </Num>,
+                        <Num key="l" mute>
+                          {i === 0 ? "start" : `${s.legKm.toLocaleString("en-GB")} km`}
+                        </Num>,
+                      ])}
+                    />
+                    <p className="m-0 text-chip text-mute [text-wrap:pretty]">
+                      The best-scoring cities at least {ENGINE_CONFIG.tour.minSpacingKm} km apart, ordered by code to keep total travel shortest. Distances are
+                      straight-line; dates and routing are {PROMOTER}.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {city.table.map(({ pick: c }, i) => (
+                      <div
+                        key={c.city.id}
+                        className="grid grid-cols-[2em_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 border-b border-line py-2.5"
+                      >
+                        <span className="tabular font-mono text-[11px] text-mute">{String(i + 1).padStart(2, "0")}</span>
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                          <span className="font-medium">
+                            {c.city.name}
+                            <span className="text-chip text-mute">, {c.city.country}</span>
+                          </span>
+                          <ScoreBar value={pct(c.combined)} fill={c.city.id === chosen.city.id ? "acc" : "mute"} className="gap-2" />
+                        </div>
+                        {c.city.id === chosen.city.id ? (
+                          <span className="px-1.5 font-mono text-label uppercase tracking-[0.06em] text-acc-text">Chosen</span>
+                        ) : onUseCity ? (
+                          <Button variant="pick" disabled={view.phase === "running"} onClick={() => onUseCity(c.city.id)}>
+                            Use this city
+                          </Button>
+                        ) : (
+                          <span />
+                        )}
                       </div>
-                      {c.city.id === chosen.city.id ? (
-                        <span className="px-1.5 font-mono text-label uppercase tracking-[0.06em] text-acc-text">Chosen</span>
-                      ) : onUseCity ? (
-                        <Button variant="pick" disabled={view.phase === "running"} onClick={() => onUseCity(c.city.id)}>
-                          Use this city
-                        </Button>
-                      ) : (
-                        <span />
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 <MonoLabel>With Qloo rank vs population rank</MonoLabel>
