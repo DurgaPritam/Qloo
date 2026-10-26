@@ -760,6 +760,11 @@ const draftOutreach: ToolDef = {
   },
 };
 
+/** "A", "A and B", "A, B and C". */
+function naturalList(items: readonly string[]): string {
+  return items.length < 2 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
 function slotsFor(state: RunState): Slots {
   const room = state.room;
   return {
@@ -768,7 +773,7 @@ function slotsFor(state: RunState): Slots {
     city: room?.cityName ?? state.chosenCity?.name ?? "the city",
     venue: room?.venue?.pick.place.name ?? "the venue",
     format: (state.format?.label ?? "event").toLowerCase(),
-    sponsors: room?.sponsors.map((s) => s.pick.brand.name).join(", ") || "local brands",
+    sponsors: naturalList(room?.sponsors.map((s) => s.pick.brand.name) ?? []) || "local brands",
   };
 }
 

@@ -2,12 +2,12 @@
 
 > Work in progress. Feature code has not been written yet.
 
-A Next.js (App Router) app that combines the Qloo Taste AI API with a model-driven agent (Gemini by default) to build plans, alongside an LLM-only route for comparison.
+A Next.js (App Router) app that combines the Qloo Taste AI API with an agent that writes its plans with Gemini, alongside an LLM-only route for comparison.
 
 ## Built with
 
 - [Qloo Taste AI API](https://docs.qloo.com/): every partner, city, venue, opener and sponsor
-- Gemini (`gemini-3.6-flash`, falling back to `gemini-3.5-flash-lite` when overloaded) through the official [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai): the agent picks tools and writes the brief's prose; Claude is supported as an alternative (`LLM_PROVIDER=anthropic`)
+- Gemini (`gemini-3.6-flash`, falling back to other free Flash models when overloaded or out of quota) through the official [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai): code runs every step on Qloo data and makes every pick; one model call writes the brief and both outreach emails (`TAKEOVER_PLANNER=agent` lets the model choose every tool instead). Claude is supported as an alternative (`LLM_PROVIDER=anthropic`)
 - Next.js (App Router) + TypeScript, Tailwind CSS
 - Upstash Redis: Qloo cache, rate limits, the daily token budget and preloaded examples
 - Vitest and Playwright

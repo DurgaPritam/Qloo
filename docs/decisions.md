@@ -215,3 +215,23 @@ run, labelled. The plan route's `maxDuration` is raised from 60 to 300 s (Vercel
 Fluid compute). The plan records which model planned it. *Considered:* keeping 3.8 as the default
 (judges would wait 30 s or more per run while it is overloaded); a circuit breaker that skips 3.8
 for a while after a failure (state per serverless instance; more code for a temporary problem).
+
+**D40. Default planner: code runs the steps, the model writes the prose in one call.** The free
+Gemini tier allows 20 requests a day per model (Google's 429 names
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, value 20) and its Flash-Lite took 10–16 s a
+call, so the six-call agent gave about three fast runs a day and 100 s runs after that. The steps
+always run in the same order and every decision in them (match, widen, region, nearest city) was
+already code, so the scripted sequence runs them, and one call with only `write_brief` and
+`draft_outreach` writes the brief and both emails from names, kinds and Qloo's descriptions (no
+scores). A real run went from 103 s to 17–19 s. The full agent stays available with
+`TAKEOVER_PLANNER=agent`. Free-tier quotas are per model, so the fallback chain is now
+`gemini-3-flash-preview` (1.7 s), `gemini-3.1-flash-lite` (3.7 s), `gemini-3.5-flash-lite`
+(15.6 s); `gemini-2.5-*` return 404. A 429 moves to the next model without a retry. This changes
+what the README claims: the model writes the plan's words, code makes every pick. *Considered:*
+paying for Gemini (the user chose free); other free providers (new code, smaller limits, weaker
+tool calling); several Google projects to multiply quota (against the spirit of the free tier).
+
+**D41. Writing rules added after reading real Gemini drafts:** sponsors are suggestions, never "on
+board"; emails are written as the promoter and do not name Takeover. Gemini's first drafts said
+"We have Urban Outfitters, Dr. Martens, Free People onboard" and "on behalf of Takeover". Sponsor
+names are now joined as "A, B and C".

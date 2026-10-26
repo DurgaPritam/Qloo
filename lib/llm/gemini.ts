@@ -63,14 +63,16 @@ function visibleText(parts: readonly Part[]): string {
     .trim();
 }
 
-/** Overload and rate-limit answers: worth one retry, then the fallback model. */
-const RETRYABLE = new Set([429, 500, 503, 504]);
+/** Overload answers: worth one retry, then the fallback model. */
+const RETRYABLE = new Set([500, 503, 504]);
 const RETRY_MS = 1000;
 
-/** "retry": overloaded, try this model once more; "next": timed out, go straight to the next model. */
+/** "retry": overloaded, try this model once more; "next": rate limited or timed out, go straight to the next model. */
 function recovery(err: unknown): "retry" | "next" | null {
   const e = err as { status?: unknown; name?: unknown } | null;
   if (typeof e?.status === "number" && RETRYABLE.has(e.status)) return "retry";
+  // Rate limits (free tier: per model per day) do not clear in a second.
+  if (e?.status === 429) return "next";
   if (e?.name === "TimeoutError" || e?.name === "AbortError") return "next";
   return null;
 }

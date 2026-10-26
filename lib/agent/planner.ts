@@ -26,6 +26,8 @@ Rules:
 - You may call choose_format and find_partners in the same turn. Otherwise call one tool per turn.
 - In write_brief and draft_outreach, write prose only and use the placeholders {fanbase}, {partner}, {city}, {venue}, {format} and {sponsors} instead of names. Never mention capacity, dates, prices or availability; the app shows them as "to confirm with the promoter".
 - Outreach emails are drafts a person will review and send. Make them warm, brief and specific about why the two audiences overlap.
+- Sponsors are suggestions from taste data, not confirmed. Never say a sponsor is on board, signed or involved; say they could be a fit.
+- Write as the promoter planning the event. Do not name Takeover.
 - Keep any text outside tool calls to one sentence.`;
 
 /** The model chooses the tools; the loop runs them. */
@@ -43,6 +45,64 @@ export class LlmPlanner implements Planner {
       this.chat = this.provider.chat({ system: SYSTEM_PROMPT, tools: toolSpecs(), maxOutputTokens: MAX_OUTPUT_TOKENS.planner });
     }
     return this.chat.send(input);
+  }
+}
+
+export const WRITER_PROMPT = `You write the prose for an event plan made by Takeover, a market-entry agent. Code has already chosen the partner, city, venue and sponsors from Qloo taste data. Call write_brief and draft_outreach, both in this one reply.
+
+Rules:
+- Use the placeholders {fanbase}, {partner}, {city}, {venue}, {format} and {sponsors} instead of names. The app fills them in.
+- Never state a number. Never mention capacity, dates, prices or availability; the app shows them as "to confirm with the promoter".
+- Explain why the two audiences overlap, using what the descriptions say about each. Be specific, not generic.
+- Outreach emails are drafts a person will review and send. Make them warm and brief.
+- Sponsors are suggestions from taste data, not confirmed. Never say a sponsor is on board, signed or involved; say they could be a fit.
+- Write as the promoter planning the event. Do not name Takeover.`;
+
+const PROSE_TOOLS = ["write_brief", "draft_outreach"];
+
+/** What the writer sees: names, kinds and Qloo's descriptions; no scores. */
+export function writerContext(state: RunState): string {
+  const room = state.room;
+  const short = (text: string | undefined) => (text ? text.slice(0, 300) : undefined);
+  return JSON.stringify({
+    format: state.format?.label,
+    fanbase: { name: state.fanbase?.name, kind: state.fanbase?.category, about: short(state.fanbase?.description) },
+    partner: { name: state.partner?.name, kind: state.partner?.category, about: short(state.partner?.description) },
+    city: room?.cityName,
+    venue: room?.venue ? { name: room.venue.pick.place.name, about: short(room.venue.pick.place.description) } : null,
+    opener: room?.opener?.pick.entity.name ?? null,
+    sponsors: room?.sponsors.map((s) => s.pick.brand.name) ?? [],
+  });
+}
+
+/**
+ * Code runs the steps in order, as the scripted planner does; the model is called once, to write
+ * the brief and both emails. Six model calls per run become one, which keeps free-tier quotas
+ * and latency workable (decisions D40).
+ */
+export class WriterPlanner implements Planner {
+  readonly kind: ProviderName;
+  private readonly scripted = new ScriptedPlanner();
+
+  constructor(private readonly provider: LLMProvider) {
+    this.kind = provider.name;
+  }
+
+  async next(input: PlannerInput, state: RunState): Promise<ChatTurn> {
+    const turn = await this.scripted.next(input, state);
+    if (!turn.calls.some((c) => c.name === "write_brief")) return turn;
+
+    const chat = this.provider.chat({
+      system: WRITER_PROMPT,
+      tools: toolSpecs().filter((t) => PROSE_TOOLS.includes(t.name)),
+      maxOutputTokens: MAX_OUTPUT_TOKENS.planner,
+    });
+    const written = await chat.send(`Write the brief and the two emails for this plan: ${writerContext(state)}`);
+    // Both tools, brief first; one the model skipped runs with template prose.
+    const calls = PROSE_TOOLS.map(
+      (name, i) => written.calls.find((c) => c.name === name) ?? { id: `writer_${i}`, name, input: {} },
+    );
+    return { ...written, stopReason: "tool_use", calls };
   }
 }
 
@@ -85,9 +145,14 @@ export class PlannerConfigError extends Error {
   readonly name = "PlannerConfigError";
 }
 
+/**
+ * TAKEOVER_PLANNER=agent lets the model choose every tool (about six calls a run); the default,
+ * writer, calls it once for the prose (decisions D40).
+ */
 export function createPlanner(env: Record<string, string | undefined> = process.env): Planner {
   const status = plannerStatus(env);
   if (!status.ok) throw new PlannerConfigError(status.reason);
   if (status.kind === "scripted") return new ScriptedPlanner();
-  return new LlmPlanner(createProvider(env)!);
+  const provider = createProvider(env)!;
+  return env.TAKEOVER_PLANNER?.trim() === "agent" ? new LlmPlanner(provider) : new WriterPlanner(provider);
 }

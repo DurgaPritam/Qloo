@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/plan/route";
 import { MAX_TURNS, runAgent } from "@/lib/agent/loop";
-import { LlmPlanner } from "@/lib/agent/planner";
+import { createPlanner, LlmPlanner, WriterPlanner, type Planner } from "@/lib/agent/planner";
 import { TO_CONFIRM_SENTENCE } from "@/lib/agent/sanitize";
 import { toolSpecs } from "@/lib/agent/tools";
 import type { AgentEvent } from "@/lib/agent/types";
@@ -65,7 +65,7 @@ const SEVEN: Call[][] = [
   [{ name: "draft_outreach", args: { partnerSubject: "{fanbase} × {partner}", partnerBody: "Hi {partner}, tickets at $45." } }],
 ];
 
-async function run(planner: LlmPlanner, budget?: number) {
+async function run(planner: Planner, budget?: number) {
   const events: AgentEvent[] = [];
   const plan = await runAgent(
     { query: "John Mulaney" },
@@ -197,6 +197,57 @@ describe("GeminiProvider tool-call loop", () => {
   });
 });
 
+describe("WriterPlanner", () => {
+  const PROSE = SEVEN.slice(4).flat();
+
+  it("runs the Qloo steps by code and calls the model once, for the brief and both emails", async () => {
+    const { provider, generateContent, seen } = fakeGemini([PROSE]);
+    const { plan } = await run(new WriterPlanner(provider));
+
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(plan).toMatchObject({ status: "complete", planner: "gemini", model: "gemini-test-flash" });
+    expect(plan.brief?.templated).toBe(false);
+    const partner = plan.partners!.picks[0].pick.entity.name;
+    expect(plan.brief?.headline).toBe(`John Mulaney meets ${partner} in ${plan.room!.cityName}. ${TO_CONFIRM_SENTENCE}`);
+    expect(plan.outreach?.[0].body).not.toMatch(/\$|45/);
+
+    const sent = seen[0];
+    expect((sent.config?.tools?.[0] as { functionDeclarations?: Array<{ name: string }> }).functionDeclarations?.map((d) => d.name)).toEqual([
+      "write_brief",
+      "draft_outreach",
+    ]);
+    const prompt = JSON.stringify(sent.contents);
+    expect(prompt).toContain(partner);
+    expect(prompt).not.toMatch(/affinity|popularity/);
+  });
+
+  it("uses template prose for an email the model skipped", async () => {
+    const { provider } = fakeGemini([[PROSE[0]]]);
+    const { plan } = await run(new WriterPlanner(provider));
+
+    expect(plan.status).toBe("complete");
+    expect(plan.brief?.templated).toBe(false);
+    expect(plan.outreach?.[0].body).toMatch(/^Hi .+ team,/);
+  });
+
+  it("finishes with template prose, labelled, when the model is unavailable", async () => {
+    const generateContent = vi.fn(async () => {
+      throw Object.assign(new Error("quota"), { status: 429 });
+    });
+    const client = { models: { generateContent } } as unknown as Pick<GoogleGenAI, "models">;
+    const { plan } = await run(new WriterPlanner(new GeminiProvider("m", () => client)));
+
+    expect(plan.status).toBe("complete");
+    expect(plan.brief?.templated).toBe(true);
+    expect(plan.notes.some((n) => n.startsWith("The planning model was unavailable."))).toBe(true);
+  });
+
+  it("is the default; TAKEOVER_PLANNER=agent lets the model choose every tool", () => {
+    expect(createPlanner({ GEMINI_API_KEY: "k" })).toBeInstanceOf(WriterPlanner);
+    expect(createPlanner({ GEMINI_API_KEY: "k", TAKEOVER_PLANNER: "agent" })).toBeInstanceOf(LlmPlanner);
+  });
+});
+
 describe("overloaded models", () => {
   const overloaded = () => Object.assign(new Error("high demand"), { status: 503 });
   const answer = (name: string) => ({
@@ -248,6 +299,18 @@ describe("overloaded models", () => {
     const provider = new GeminiProvider("main", () => api, { fallbacks: ["backup"], sleep: async () => {} });
     expect(await provider.complete("hi", { maxOutputTokens: 10 })).toMatchObject({ model: "backup" });
     expect(generateContent.mock.calls.map((c) => c[0].model)).toEqual(["main", "backup"]);
+  });
+
+  it("moves past a model that is out of quota without retrying it", async () => {
+    const { generateContent, api } = client((model) => {
+      if (model !== "third") throw Object.assign(new Error("quota"), { status: 429 });
+      return answer("resolve_fanbase");
+    });
+    const sleep = vi.fn(async () => {});
+    const provider = new GeminiProvider("main", () => api, { fallbacks: ["second", "third"], sleep });
+    expect(await provider.complete("hi", { maxOutputTokens: 10 })).toMatchObject({ model: "third" });
+    expect(generateContent.mock.calls.map((c) => c[0].model)).toEqual(["main", "second", "third"]);
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("does not retry other errors", async () => {

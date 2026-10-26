@@ -15,8 +15,11 @@ export type * from "./types";
  * (decisions D39). Set GEMINI_MODEL=gemini-3.8-flash to switch.
  */
 export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
-/** Used when the main model is overloaded at the start of a run. */
-export const DEFAULT_GEMINI_FALLBACK = "gemini-3.5-flash-lite";
+/**
+ * Tried in order when the main model is overloaded or out of quota at the start of a call. Free
+ * tier quotas are per model per day, so each one adds capacity; fastest first (decisions D40).
+ */
+export const DEFAULT_GEMINI_FALLBACKS = ["gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 
 /** Per-call timeout: an overloaded model can hang instead of answering 503. */
 export const GEMINI_TIMEOUT_MS = 30_000;
@@ -53,8 +56,14 @@ export function createProvider(env: Env = process.env): LLMProvider | null {
   const provider =
     status.provider === "gemini"
       ? new GeminiProvider(status.model, () => new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: GEMINI_TIMEOUT_MS } }), {
-          fallbacks: [env.GEMINI_FALLBACK_MODEL?.trim() || DEFAULT_GEMINI_FALLBACK],
+          fallbacks: list(env.GEMINI_FALLBACK_MODELS) ?? DEFAULT_GEMINI_FALLBACKS,
         })
       : new AnthropicProvider();
   return withTokenBudget(provider, getTokenBudget(env));
+}
+
+/** A comma-separated env list, or undefined when unset or empty. */
+function list(raw: string | undefined): string[] | undefined {
+  const items = raw?.split(",").map((m) => m.trim()).filter(Boolean);
+  return items?.length ? items : undefined;
 }
