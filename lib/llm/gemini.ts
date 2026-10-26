@@ -94,10 +94,15 @@ async function generate(
   let last: unknown;
   for (const model of models) {
     for (let attempt = 0; attempt < 2; attempt++) {
+      const started = Date.now();
       try {
-        return { res: await client.models.generateContent({ ...params, model }), model };
+        const res = await client.models.generateContent({ ...params, model });
+        console.info(`[llm] ${model} answered in ${Date.now() - started} ms`);
+        return { res, model };
       } catch (err) {
         const how = recovery(err);
+        const status = (err as { status?: unknown } | null)?.status ?? (err as Error | null)?.name ?? "error";
+        console.warn(`[llm] ${model} failed after ${Date.now() - started} ms (${String(status)})`);
         if (!how) throw err;
         last = err;
         if (how === "next") break;

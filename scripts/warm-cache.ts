@@ -41,6 +41,8 @@ async function main() {
   } catch {
     // Env may come from the shell instead.
   }
+  // From a home connection, uploading large Qloo responses takes longer than the app's 1.5 s.
+  process.env.TAKEOVER_REDIS_TIMEOUT_MS ??= "20000";
   if (isMockMode()) throw new Error("TAKEOVER_MOCK=1 is set: sample data must never be cached.");
   if (!getRedis()) throw new Error("UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are needed: nothing would persist.");
   const planner = createPlanner();

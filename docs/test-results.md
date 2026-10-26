@@ -56,7 +56,7 @@ server's cache).
 | Non-English | अरिजीत सिंह (Hindi) | Resolves to Arijit Singh · India market · Delhi · Sangeet Natak Akademi · Rolex, Bose, Sennheiser | ✅ |
 | Rate limit | 6 fresh runs | Runs 1–5 allowed; 6th: "You've used your 5 live runs this hour. Try a cached example…" | ✅ |
 | Swap partner / city | Use this partner, Use this city | Only steps 3–7 (partner) or 4–7 (city) rerun; steps before stay done | ✅ |
-| LLM-only toggle | John Mulaney | HTTP 503 "not configured": needs `ANTHROPIC_API_KEY` | ⏸ blocked |
+| LLM-only toggle | John Mulaney | HTTP 503 "not configured": needs a model key | ⏸ blocked (passed in the Gemini pass below) |
 | Mobile | 380 px, Arsenal | No horizontal scroll; log collapses into the progress bar | ✅ |
 | Brief export | Copy as text, print, Copy link | Text has no numbers next to capacity/price/date; print shows only the brief; link opens in a private window | ✅ |
 
@@ -73,3 +73,33 @@ Known oddity, not fixed: "Selena" (the film) gets a Japanese politician as a per
 Qloo's person category includes politicians and the engine has no basis to exclude them by name.
 
 Calls: first pass ~180, second pass ~70 (cache). Monthly quota after step 6: 49,538.
+
+## Matrix with Gemini (26 Oct 2026)
+
+Same API rows (`scripts/matrix.mts`) against a local production build, planner Gemini
+(`gemini-3.6-flash`, falling back to `gemini-3.5-flash-lite`). Every pick, city, venue and sponsor
+matched the scripted pass above, as expected: they come from the engine. The brief and emails
+were written by the model (`templated: false`) and passed through the same sanitiser.
+
+| Row | Result | Time | Pass |
+|---|---|---|---|
+| John Mulaney | Mythic Quest · Seattle · The Rendezvous (Qloo responses cached) | 17.8 s | ✅ |
+| Sabrina Carpenter | Anne with an E · New York City · Pier 36 NYC | 131 s | ✅ |
+| Sinners | Outcast · Los Angeles · Dolby Theatre | 183 s | ✅ |
+| Call Her Daddy | Hannah Ann Sluss · Boston · Leader Bank Pavilion | 151 s | ✅ |
+| Arsenal | All or Nothing: Arsenal · London · Greenwood | 165 s | ✅ |
+| Golden State Warriors | Winning Time · Los Angeles · 1212 Santa Monica | 138 s | ✅ |
+| Kevn Hart, Billie Elish | Did-you-mean, then resumed → Atlanta, Phoenix | 38 s, 68 s | ✅ |
+| Selena, Mercury, أم كلثوم | Picker, then resumed → Columbus, St. Louis, New York City (regional) | 21–24 s | ✅ |
+| asdfgh | "We couldn't find a fanbase called …" | 18 s | ✅ |
+| Black Country, New Road | Joe Pera Talks with You · London · The Shacklewell Arms | 95 s | ✅ |
+| अरिजीत सिंह | Coke Studio Pakistan · Delhi · Sangeet Natak Akademi | 106 s | ✅ |
+| Rate limit | 6th run: "You've used your 5 live runs this hour…" | — | ✅ |
+| LLM-only toggle | HTTP 200: "Curb Your Enthusiasm" in Chicago, no sources | — | ✅ |
+
+**Problem found: the free tier is too small and too slow for judging.** Google's 429 for
+`gemini-3.6-flash` names the quota `GenerateRequestsPerDayPerProjectPerModel-FreeTier` with a value
+of 20 requests a day, about three runs. After it ran out, runs moved to `gemini-3.5-flash-lite`,
+which answered in 10–16 s per call (10 s for "Say ok."), so a run took about 100 s.
+`gemini-3.8-flash` returned 503 all day. A run uses about 9,000 tokens (207,078 for this matrix
+and the smoke tests). Qloo quota after this pass: 49,304.
