@@ -4,7 +4,7 @@ import { POST } from "@/app/api/llm-only/route";
 import { stripUnknownFacts, TO_CONFIRM_SENTENCE } from "@/lib/agent/sanitize";
 import { TokenBudget, TokenBudgetExceededError, withTokenBudget } from "@/lib/llm/budget";
 import type { LLMProvider } from "@/lib/llm/types";
-import { llmOnlyAnswer } from "@/lib/server/llm-only";
+import { llmOnlyAnswer, plainText } from "@/lib/server/llm-only";
 
 import { postJson } from "./sse";
 
@@ -77,6 +77,15 @@ describe("llmOnlyAnswer", () => {
     expect(complete).toHaveBeenCalledTimes(1);
     // Cached answers still come back.
     expect(await llmOnlyAnswer("Unique query six", { mock: false, provider: capped, env })).toMatchObject({ cached: true });
+  });
+});
+
+describe("plainText", () => {
+  it("removes Markdown the page would show raw", () => {
+    expect(plainText("**Crossover Partner: A24 (Film Studio)**\nBoth share an *indie* look.\n\n## City\n- Los Angeles")).toBe(
+      "Crossover Partner: A24 (Film Studio)\nBoth share an indie look.\n\nCity\nLos Angeles",
+    );
+    expect(plainText("2 * 3 stays")).toBe("2 * 3 stays");
   });
 });
 

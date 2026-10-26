@@ -24,7 +24,18 @@ export const LLM_ONLY_PROMPT = (query: string) =>
   `I want to plan a crossover event for fans of ${JSON.stringify(query)}. Suggest one crossover ` +
   `partner from a different category (artist, comedian, film, podcast, TV show or brand) and the ` +
   `best city for the event. Give one or two sentences of reasoning for each. Do not give ` +
-  `capacity, dates or prices.`;
+  `capacity, dates or prices. Write plain text, no Markdown.`;
+
+/** Drops Markdown emphasis, headings and bullets; the page shows plain paragraphs. */
+export function plainText(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,;:!?]|$)/gm, "$1$2")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .trim();
+}
 
 const SAMPLE_ANSWER =
   "SAMPLE ANSWER (no model key configured): a plain chatbot typically suggests a famous " +
@@ -44,7 +55,7 @@ export async function llmOnlyAnswer(
     env = process.env,
   }: { mock: boolean; provider?: LLMProvider | null; env?: Record<string, string | undefined> },
 ): Promise<LlmOnlyAnswer | null> {
-  const key = `takeover:llm:v1:${createHash("sha256").update(query.trim().toLowerCase()).digest("hex").slice(0, 32)}`;
+  const key = `takeover:llm:v2:${createHash("sha256").update(query.trim().toLowerCase()).digest("hex").slice(0, 32)}`;
 
   const local = memory.get(key);
   if (local) return { ...local, cached: true };
@@ -65,7 +76,7 @@ export async function llmOnlyAnswer(
 
   const res = await model.complete(LLM_ONLY_PROMPT(query), { maxOutputTokens: MAX_OUTPUT_TOKENS.completion });
   const answer = {
-    text: res.refused || !res.text ? "The model gave no answer." : stripUnknownFacts(res.text),
+    text: res.refused || !res.text ? "The model gave no answer." : stripUnknownFacts(plainText(res.text)),
     noSources: true as const,
     model: res.model ?? model.model,
     mock,
