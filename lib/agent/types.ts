@@ -163,6 +163,8 @@ export interface Plan {
   query: string;
   mock: boolean;
   planner: "gemini" | "anthropic" | "scripted";
+  /** The model that planned this run; absent for the scripted planner. */
+  model?: string;
   status: "complete" | "needs_input" | "incomplete";
   fanbase: Entity | null;
   needsInput: NeedsInput | null;

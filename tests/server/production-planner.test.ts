@@ -22,7 +22,7 @@ describe("planner in production", () => {
     expect(plannerStatus({ VERCEL_ENV: "production", GEMINI_API_KEY: "k" })).toMatchObject({
       ok: true,
       kind: "gemini",
-      model: "gemini-3.8-flash",
+      model: "gemini-3.6-flash",
     });
   });
 

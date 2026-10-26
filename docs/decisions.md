@@ -201,3 +201,17 @@ checked before the per-visitor limit so a refused run costs the visitor nothing.
 the line mid-way makes no further model calls and is finished by code, labelled, rather than
 discarded after its Qloo calls were spent. *Considered:* stopping the run outright (wastes the Qloo
 calls already made); estimating tokens before each call (inexact; the metadata is exact).
+
+**D39. Default model `gemini-3.6-flash` for now; per-call timeout and fallback.** On 26 Oct 2026
+`gemini-3.8-flash` answered every call with 503 ("high demand") or 504 across about ten attempts,
+on a free-tier key; `gemini-3.6-flash` and `gemini-3.5-flash-lite` answered. A real run starting
+on 3.8 took 68.6 s (timeouts before falling back); on 3.6 it took 25.1 s. So the default is 3.6
+(also stable, the previous generation), with 3.5 Flash-Lite as the fallback, and
+`GEMINI_MODEL=gemini-3.8-flash` switches back with no code change. Each call has a 30 s timeout;
+a 429/5xx is retried once after 1 s, then the next model is tried; a timeout goes straight to the
+next model. The model is only switched before a run's first answer, since thought signatures
+belong to the model that wrote them; a later failure ends the model's part and code finishes the
+run, labelled. The plan route's `maxDuration` is raised from 60 to 300 s (Vercel's limit with
+Fluid compute). The plan records which model planned it. *Considered:* keeping 3.8 as the default
+(judges would wait 30 s or more per run while it is overloaded); a circuit breaker that skips 3.8
+for a while after a failure (state per serverless instance; more code for a temporary problem).

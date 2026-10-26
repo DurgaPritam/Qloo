@@ -41,6 +41,8 @@ export interface ChatTurn {
   text: string;
   calls: ToolCall[];
   usage: Usage;
+  /** The model that answered, when it can differ from the provider's main model. */
+  model?: string;
 }
 
 /** One conversation with tools. The provider keeps its own transcript, unchanged between turns. */
@@ -53,6 +55,7 @@ export interface Completion {
   text: string;
   refused: boolean;
   usage: Usage;
+  model?: string;
 }
 
 export interface ChatOptions {

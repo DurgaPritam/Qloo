@@ -67,7 +67,7 @@ export async function llmOnlyAnswer(
   const answer = {
     text: res.refused || !res.text ? "The model gave no answer." : stripUnknownFacts(res.text),
     noSources: true as const,
-    model: model.model,
+    model: res.model ?? model.model,
     mock,
   };
 

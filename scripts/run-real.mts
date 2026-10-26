@@ -31,7 +31,7 @@ export async function runOnce(query: string, overrides = {}): Promise<Plan> {
     },
   );
   console.log(
-    `  -> ${plan.status} · ${plan.qlooCalls} Qloo calls · ${((Date.now() - started) / 1000).toFixed(1)}s · quota left ${lastQuota.remaining ?? "?"}`,
+    `  -> ${plan.status} · ${plan.model ?? plan.planner} · ${plan.qlooCalls} Qloo calls · ${((Date.now() - started) / 1000).toFixed(1)}s · quota left ${lastQuota.remaining ?? "?"}`,
   );
   return plan;
 }

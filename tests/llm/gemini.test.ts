@@ -105,7 +105,7 @@ describe("GeminiProvider tool-call loop", () => {
     const { provider, generateContent, seen } = fakeGemini(SEVEN);
     const { plan } = await run(new LlmPlanner(provider));
 
-    expect(plan).toMatchObject({ status: "complete", planner: "gemini", turns: 6 });
+    expect(plan).toMatchObject({ status: "complete", planner: "gemini", model: "gemini-test-flash", turns: 6 });
     expect(generateContent).toHaveBeenCalledTimes(6);
     const first = seen[0];
     expect(first.model).toBe("gemini-test-flash");
@@ -194,6 +194,69 @@ describe("GeminiProvider tool-call loop", () => {
     await run(planner);
     await run(planner);
     expect(seen[6].contents as Content[]).toHaveLength(1);
+  });
+});
+
+describe("overloaded models", () => {
+  const overloaded = () => Object.assign(new Error("high demand"), { status: 503 });
+  const answer = (name: string) => ({
+    candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ functionCall: { id: "a", name, args: {} } }] } }],
+    usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
+  });
+
+  function client(fn: (model: string) => unknown) {
+    const generateContent = vi.fn(async (p: GenerateContentParameters) => fn(p.model));
+    return { generateContent, api: { models: { generateContent } } as unknown as Pick<GoogleGenAI, "models"> };
+  }
+
+  it("retries once, then moves the run to the fallback model and stays on it", async () => {
+    const { generateContent, api } = client((model) => {
+      if (model === "main") throw overloaded();
+      return answer("resolve_fanbase");
+    });
+    const sleep = vi.fn(async () => {});
+    const chat = new GeminiProvider("main", () => api, { fallbacks: ["backup"], sleep }).chat({ system: "s", tools: [], maxOutputTokens: 10 });
+
+    const first = await chat.send("start");
+    expect(first).toMatchObject({ stopReason: "tool_use", model: "backup" });
+    expect(generateContent.mock.calls.map((c) => c[0].model)).toEqual(["main", "main", "backup"]);
+    expect(sleep).toHaveBeenCalledWith(1000);
+
+    await chat.send([{ id: "a", name: "resolve_fanbase", content: {}, isError: false }]);
+    expect(generateContent.mock.calls.at(-1)![0].model).toBe("backup");
+  });
+
+  it("does not switch models mid-run; the error reaches the loop, which finishes by code", async () => {
+    let calls = 0;
+    const { api } = client(() => {
+      if (calls++ > 0) throw overloaded();
+      return answer("resolve_fanbase");
+    });
+    const provider = new GeminiProvider("main", () => api, { fallbacks: ["backup"], sleep: async () => {} });
+    const { plan } = await run(new LlmPlanner(provider));
+
+    expect(calls).toBe(3);
+    expect(plan).toMatchObject({ model: "main", status: "complete" });
+    expect(plan.notes.some((n) => n.startsWith("The planning model was unavailable."))).toBe(true);
+  });
+
+  it("moves straight to the fallback when a call times out", async () => {
+    const { generateContent, api } = client((model) => {
+      if (model === "main") throw new DOMException("timed out", "TimeoutError");
+      return answer("resolve_fanbase");
+    });
+    const provider = new GeminiProvider("main", () => api, { fallbacks: ["backup"], sleep: async () => {} });
+    expect(await provider.complete("hi", { maxOutputTokens: 10 })).toMatchObject({ model: "backup" });
+    expect(generateContent.mock.calls.map((c) => c[0].model)).toEqual(["main", "backup"]);
+  });
+
+  it("does not retry other errors", async () => {
+    const { generateContent, api } = client(() => {
+      throw Object.assign(new Error("bad request"), { status: 400 });
+    });
+    const provider = new GeminiProvider("main", () => api, { fallbacks: ["backup"], sleep: async () => {} });
+    await expect(provider.complete("hi", { maxOutputTokens: 10 })).rejects.toThrow("bad request");
+    expect(generateContent).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -9,8 +9,17 @@ import type { LLMProvider, ProviderName } from "./types";
 
 export type * from "./types";
 
-/** Newest stable Gemini Flash on Google's models page, 22 Oct 2026 (decisions D35). */
-export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+/**
+ * Stable Gemini Flash. Google recommends 3.8 Flash for new projects (decisions D35), but on
+ * 26 Oct 2026 it answered every call with 503/504, so 3.6 is the default until it settles
+ * (decisions D39). Set GEMINI_MODEL=gemini-3.8-flash to switch.
+ */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+/** Used when the main model is overloaded at the start of a run. */
+export const DEFAULT_GEMINI_FALLBACK = "gemini-3.5-flash-lite";
+
+/** Per-call timeout: an overloaded model can hang instead of answering 503. */
+export const GEMINI_TIMEOUT_MS = 30_000;
 
 /** Output cap for each call, including thinking tokens. */
 export const MAX_OUTPUT_TOKENS = { planner: 8192, completion: 2048 } as const;
@@ -43,7 +52,9 @@ export function createProvider(env: Env = process.env): LLMProvider | null {
   if (!status.ok || !status.configured) return null;
   const provider =
     status.provider === "gemini"
-      ? new GeminiProvider(status.model, () => new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }))
+      ? new GeminiProvider(status.model, () => new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: GEMINI_TIMEOUT_MS } }), {
+          fallbacks: [env.GEMINI_FALLBACK_MODEL?.trim() || DEFAULT_GEMINI_FALLBACK],
+        })
       : new AnthropicProvider();
   return withTokenBudget(provider, getTokenBudget(env));
 }

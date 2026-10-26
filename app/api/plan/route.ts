@@ -8,7 +8,8 @@ import { DAILY_ID, getLimiters, isE2eRequest, LIMITS, visitorId, type LimitResul
 import { loadRecording, replay } from "@/lib/server/replay";
 import { SSE_HEADERS, sseStream } from "@/lib/server/sse";
 
-export const maxDuration = 60;
+/** A run makes about six model calls; on a slow day Gemini takes 10–15 s each (decisions D39). */
+export const maxDuration = 300;
 
 const MAX_QUERY = 100;
 const MAX_ID = 200;

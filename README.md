@@ -7,7 +7,7 @@ A Next.js (App Router) app that combines the Qloo Taste AI API with a model-driv
 ## Built with
 
 - [Qloo Taste AI API](https://docs.qloo.com/): every partner, city, venue, opener and sponsor
-- Gemini (`gemini-3.8-flash`) through the official [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai): the agent picks tools and writes the brief's prose; Claude is supported as an alternative (`LLM_PROVIDER=anthropic`)
+- Gemini (`gemini-3.6-flash`, falling back to `gemini-3.5-flash-lite` when overloaded) through the official [Google Gen AI SDK](https://www.npmjs.com/package/@google/genai): the agent picks tools and writes the brief's prose; Claude is supported as an alternative (`LLM_PROVIDER=anthropic`)
 - Next.js (App Router) + TypeScript, Tailwind CSS
 - Upstash Redis: Qloo cache, rate limits, the daily token budget and preloaded examples
 - Vitest and Playwright

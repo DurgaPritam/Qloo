@@ -14,6 +14,14 @@ describe("scanText", () => {
     ]);
   });
 
+  it("recognises both Google API key formats", () => {
+    const text = ["AIza" + "B".repeat(35), "key=AQ." + "Ab3_-".repeat(10)].join("\n");
+    expect(scanText(text, "chunk.js", { ...rules, values: [] }).map((f) => f.rule)).toEqual([
+      "Google API key",
+      "Google API key (AQ.)",
+    ]);
+  });
+
   it("passes clean text and ignores short values", () => {
     expect(scanText("const a = 1;", "a.js", { ...rules, values: ["abc"] })).toEqual([]);
   });

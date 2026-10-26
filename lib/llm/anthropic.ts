@@ -66,7 +66,7 @@ class AnthropicChat implements ToolChat {
     if (res.stop_reason === "tool_use" || res.stop_reason === "end_turn" || res.stop_reason === "refusal") {
       stopReason = res.stop_reason;
     }
-    return { stopReason, text: text.join(" "), calls, usage: anthropicUsage(res.usage) };
+    return { stopReason, text: text.join(" "), calls, usage: anthropicUsage(res.usage), model: ANTHROPIC_MODEL };
   }
 }
 

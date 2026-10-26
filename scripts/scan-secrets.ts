@@ -33,6 +33,8 @@ export const CLIENT_FORBIDDEN = [...SECRET_ENV, "X-Api-Key"];
 export const KEY_PATTERNS = [
   { name: "Anthropic key", re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: "Google API key", re: /AIza[0-9A-Za-z_-]{35}/ },
+  // AI Studio's newer key format.
+  { name: "Google API key (AQ.)", re: /\bAQ\.[0-9A-Za-z_-]{40,}/ },
 ];
 
 export function scanText(text: string, file: string, rules: Rules): Finding[] {

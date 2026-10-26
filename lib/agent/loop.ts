@@ -54,6 +54,7 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
 
   let next: PlannerInput = userPrompt(input.query, state);
   let turns = 0;
+  let model: string | undefined;
   let stopNote: string | null = null;
 
   while (!finished(state)) {
@@ -78,6 +79,7 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
           : "The planning model was unavailable.";
       break;
     }
+    model = reply.model ?? model;
     if (reply.stopReason === "refusal") {
       stopNote = "The planning model declined to continue.";
       break;
@@ -99,7 +101,7 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
 
   if (!finished(state) && !signal?.aborted) await finishByCode(ctx, stopNote);
 
-  const plan = buildPlan(runId, planner.kind, ctx, turns);
+  const plan = buildPlan(runId, planner.kind, ctx, turns, model);
   await ctx.emit({
     step: "final",
     status: plan.status === "complete" ? "done" : plan.status === "needs_input" ? "needs_input" : "fallback",
@@ -222,7 +224,7 @@ function progress(state: RunState): string {
   ].join("|");
 }
 
-function buildPlan(runId: string, planner: Planner["kind"], ctx: Ctx, turns: number): Plan {
+function buildPlan(runId: string, planner: Planner["kind"], ctx: Ctx, turns: number, model?: string): Plan {
   const { state } = ctx;
   let status: Plan["status"] = "incomplete";
   if (state.outreach) status = "complete";
@@ -232,6 +234,7 @@ function buildPlan(runId: string, planner: Planner["kind"], ctx: Ctx, turns: num
     query: state.query,
     mock: ctx.source.mock,
     planner,
+    ...(model ? { model } : {}),
     status,
     fanbase: state.fanbase,
     needsInput: state.fanbase ? null : state.needsInput,

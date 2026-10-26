@@ -38,7 +38,7 @@ describe("health", () => {
       mock: true,
       qloo: { reachable: null },
       redis: { configured: false },
-      llm: { provider: "gemini", model: "gemini-3.8-flash", configured: true, planner: "gemini", ok: true, tokenBudget: 2_000_000 },
+      llm: { provider: "gemini", model: "gemini-3.6-flash", configured: true, planner: "gemini", ok: true, tokenBudget: 2_000_000 },
       limits: { runsPerVisitorPerHour: LIMITS.runsPerHour, dailyRuns: LIMITS.dailyRuns },
     });
     const json = JSON.stringify(h);
