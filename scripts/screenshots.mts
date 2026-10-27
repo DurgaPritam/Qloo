@@ -26,6 +26,7 @@ async function runExample(page: Page, name: string) {
 
 const desktop = await open(1280, 860);
 await desktop.goto(BASE);
+await desktop.getByText("Takeovers planned with Qloo").waitFor({ timeout: 30_000 });
 await desktop.waitForTimeout(800);
 await desktop.screenshot({ path: `${OUT}/landing.png` });
 
@@ -48,9 +49,20 @@ await answered;
 await desktop.waitForTimeout(800);
 await desktop.screenshot({ path: `${OUT}/llm-only.png` });
 
+async function tool(path: string, ready: string, name: string) {
+  await desktop.goto(BASE + path);
+  await desktop.getByText(ready).first().waitFor({ timeout: 90_000 });
+  await desktop.waitForTimeout(1200);
+  await desktop.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+}
+await tool("/brand?brand=Patagonia", "Where its customers are", "brand-match");
+await tool("/venue?city=Austin", "Local favourites", "venue-booker");
+await tool("/cities?q=Arsenal", "home market", "city-explorer");
+await tool("/explore", "Takeovers planned with Qloo", "explore");
+
 const mobile = await open(380, 800);
 await runExample(mobile, "Arsenal");
 await mobile.screenshot({ path: `${OUT}/mobile.png` });
 
 await browser.close();
-console.log("Saved landing, plan, city, brief, llm-only and mobile screenshots.");
+console.log("Saved landing, plan, city, brief, llm-only, tool, explore and mobile screenshots.");

@@ -116,7 +116,7 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
 
       <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
         <MonoLabel>Who it&apos;s for</MonoLabel>
-        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))]">
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))]">
           {AUDIENCES.map((a) => (
             <Link
               key={a.title}

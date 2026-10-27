@@ -1,14 +1,28 @@
 # Takeover
 
-Type any fanbase: a comedian, a band, a film, a podcast, a football club. Takeover finds the
-crossover partner whose fans overlap most, the city where both audiences are strongest, a venue,
-an opener and sponsors, then writes a one-page brief and two outreach drafts.
+Event planning for anyone with a fanbase. Type a comedian, a band, a film, a podcast or a football
+club and Takeover finds the crossover partner whose fans overlap most, the city where both
+audiences are strongest, a venue, an opener and sponsors, then writes a one-page brief and two
+outreach drafts. Brands, venues and tour planners each get their own way in.
 
 Every pick comes from the [Qloo Taste AI API](https://docs.qloo.com/), scored by code you can read
 in `lib/engine/`. The model writes the words. It never produces a number, and anything Qloo can't
 know (capacity, dates, prices, availability) is shown as "to confirm with the promoter".
 
 ![Takeover landing page](docs/screenshots/landing.png)
+
+## Four ways in
+
+| For | Tool | You enter | You get |
+| --- | --- | --- | --- |
+| Promoters & talent teams | **Plan a takeover** (`/`) | A fanbase | Partner, city, venue, opener, sponsors, brief, two emails |
+| Brands & agencies | **Brand match** (`/brand`) | A brand | The artists, people, podcasts and shows its customers over-index on, and its strongest cities |
+| Venues & festivals | **Venue booker** (`/venue`) | A city | The artists, stand-up comedians and podcasts people there over-index on |
+| Tour planners & fan clubs | **City explorer** (`/cities`) | A fanbase | Its strongest cities at home and in three more countries, on one map |
+
+Every result links to a full takeover plan. **Explore** (`/explore`) shows every preloaded plan,
+**My plans** (`/plans`) keeps the plans you made in your browser (no account) and compares any two,
+and **How it works** (`/method`) explains the scoring with the numbers the code uses.
 
 ## What a run looks like
 
@@ -36,6 +50,20 @@ PEN15 and Seattle, and shows why.
 
 ![LLM-only comparison](docs/screenshots/llm-only.png)
 
+### Brand match, Venue booker and City explorer
+
+Patagonia's customers over-index on Alex Honnold, Lord Huron and The Rich Roll Podcast:
+
+![Brand match for Patagonia](docs/screenshots/brand-match.png)
+
+Austin's favourites, ready to book:
+
+![Venue booker for Austin](docs/screenshots/venue-booker.png)
+
+Arsenal's strongest cities in four countries:
+
+![City explorer for Arsenal](docs/screenshots/city-explorer.png)
+
 It works on a phone too.
 
 <img src="docs/screenshots/mobile.png" alt="Run screen on a phone" width="300">
@@ -55,7 +83,8 @@ It works on a phone too.
 Each step has a fallback that says what happened and carries on with the best result, labelled:
 widening to more categories, regional overlap when city data is thin, the nearest city when no
 venue is tagged, finishing by code when the model is unavailable. Hard caps: 25 Qloo calls and 8
-turns per run, 5 live runs per visitor per hour, 120 runs and 2,000,000 model tokens a day.
+turns per run, 5 live runs and 30 lookups per visitor per hour, 120 runs and 2,000,000 model
+tokens a day.
 Preloaded examples replay instantly and count against nothing.
 
 ## Built with
@@ -116,6 +145,9 @@ All values are server-side only; see `.env.example`.
 | --- | --- |
 | `POST /api/plan` | `{query, overrides?}` → a stream of step events (SSE) and the final plan |
 | `POST /api/llm-only` | `{query}` → the same model's answer with no tools or Qloo data |
+| `POST /api/tools/brand` | `{brand, entityId?}` → partner lists and cities for a brand (6 Qloo calls) |
+| `POST /api/tools/venue` | `{city, kinds?}` → artists, comedians and podcasts for a city (3 Qloo calls) |
+| `POST /api/tools/cities` | `{fanbase, entityId?}` → strongest cities in four markets (5 Qloo calls) |
 | `GET /api/health` | Qloo, Redis, the model, today's token use against the budget and the run limits; no secrets |
 
 ## Project layout
@@ -126,6 +158,7 @@ All values are server-side only; see `.env.example`.
 | `lib/engine/` | Scoring: partners, cities, venues, sponsors, tours (pure functions) |
 | `lib/agent/` | The run loop, tools, planners and the prose sanitiser |
 | `lib/llm/` | Model providers (Gemini, Anthropic) and the daily token budget |
+| `lib/tools/` | Brand match, Venue booker and City explorer |
 | `app/`, `components/` | Pages, API routes and UI |
 | `docs/` | Decisions log, Qloo response shapes, tuning notes, test results |
 
