@@ -8,3 +8,20 @@ export const EXAMPLES = [
   { kind: "Film", name: "Sinners" },
   { kind: "Sports team", name: "Arsenal" },
 ] as const;
+
+/** Likely judge inputs beyond the four chips (playbook Step 6), also preloaded. */
+export const JUDGE_INPUTS = [
+  "Kevin Hart",
+  "Ali Wong",
+  "Taylor Swift",
+  "Bad Bunny",
+  "Billie Eilish",
+  "Manchester United",
+  "Golden State Warriors",
+  "Call Her Daddy",
+  "Dune: Part Two",
+  "Black Country, New Road",
+] as const;
+
+/** Every preloaded run, in the order shown on Explore. */
+export const SHOWCASE: readonly string[] = [...EXAMPLES.map((e) => e.name), ...JUDGE_INPUTS];

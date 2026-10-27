@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Overrides, StepId } from "@/lib/agent/types";
+import { summarise } from "@/lib/plan-summary";
+import { savePlanLocally } from "@/lib/saved-plans";
 import { STEPS } from "@/lib/agent/types";
 
 import { AppHeader, Banner, Button, InputBar, MonoLabel, OutlineChip, Page, Sk, StepCard, cx, type StepData } from "../ui";
@@ -57,6 +60,18 @@ export function RunScreen() {
   useEffect(() => {
     if (query) run();
   }, [query, run]);
+
+  // Every finished plan goes to My plans (this browser only).
+  const [saved, setSaved] = useState<string | null>(null);
+  useEffect(() => {
+    const plan = view.plan;
+    if (!plan || plan.status !== "complete") return;
+    const summary = summarise(plan, plan.cachedRun?.recordedAt ?? new Date().toISOString());
+    if (!summary) return;
+    savePlanLocally({ ...summary, savedAt: new Date().toISOString(), mock: plan.mock });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- marks the save that just happened
+    setSaved(plan.runId);
+  }, [view.plan]);
 
   const goTo = (q: string) => router.push(`/run?q=${encodeURIComponent(q)}`);
 
@@ -189,6 +204,11 @@ export function RunScreen() {
               {fanbase && <OutlineChip>{categoryLabel(fanbase.category)}</OutlineChip>}
               {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
               {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
+              {saved && saved === view.plan?.runId && (
+                <Link href="/plans" className="rounded-pill border border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
+                  Saved to My plans
+                </Link>
+              )}
               {view.plan?.cachedRun && (
                 <OutlineChip>
                   Cached run · recorded{" "}

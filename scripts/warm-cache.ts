@@ -13,27 +13,13 @@ import path from "node:path";
 
 import { runAgent } from "@/lib/agent/loop";
 import { createPlanner } from "@/lib/agent/planner";
-import { EXAMPLES } from "@/lib/examples";
+import { EXAMPLES, JUDGE_INPUTS } from "@/lib/examples";
 import { isMockMode } from "@/lib/mock-mode";
 import { QlooApiSource } from "@/lib/qloo/api";
 import { createQlooClient, lastQuota } from "@/lib/qloo/client";
 import { savePlan } from "@/lib/server/plan-store";
 import { getRedis } from "@/lib/server/redis";
 import { createRecorder, saveRecording } from "@/lib/server/replay";
-
-/** Likely judge inputs beyond the four chips (playbook Step 6). */
-export const JUDGE_INPUTS = [
-  "Kevin Hart",
-  "Ali Wong",
-  "Taylor Swift",
-  "Bad Bunny",
-  "Billie Eilish",
-  "Manchester United",
-  "Golden State Warriors",
-  "Call Her Daddy",
-  "Dune: Part Two",
-  "Black Country, New Road",
-];
 
 async function main() {
   try {

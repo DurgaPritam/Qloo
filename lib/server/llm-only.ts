@@ -47,6 +47,22 @@ const SAMPLE_ANSWER =
  * Cached by normalised query. Without a model key, mock mode gets a labelled sample. Throws
  * TokenBudgetExceededError once today's token budget is spent (cached answers still return).
  */
+const cacheKey = (query: string) =>
+  `takeover:llm:v2:${createHash("sha256").update(query.trim().toLowerCase()).digest("hex").slice(0, 32)}`;
+
+/** A stored answer only; never calls the model. For the landing page's comparison strip. */
+export async function cachedLlmOnly(query: string, env: Record<string, string | undefined> = process.env) {
+  const key = cacheKey(query);
+  const local = memory.get(key);
+  if (local) return { ...local, cached: true };
+  try {
+    const hit = await getRedis(env)?.get<Omit<LlmOnlyAnswer, "cached">>(key);
+    return hit ? { ...hit, cached: true } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function llmOnlyAnswer(
   query: string,
   {
@@ -55,7 +71,7 @@ export async function llmOnlyAnswer(
     env = process.env,
   }: { mock: boolean; provider?: LLMProvider | null; env?: Record<string, string | undefined> },
 ): Promise<LlmOnlyAnswer | null> {
-  const key = `takeover:llm:v2:${createHash("sha256").update(query.trim().toLowerCase()).digest("hex").slice(0, 32)}`;
+  const key = cacheKey(query);
 
   const local = memory.get(key);
   if (local) return { ...local, cached: true };

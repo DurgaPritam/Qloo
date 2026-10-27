@@ -6,7 +6,10 @@
  * Qloo call, and buttons take a `loading` state.
  */
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
+
+import { NAV } from "@/lib/site";
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -19,14 +22,40 @@ export const Wordmark = () => <div className="t-display text-[22px] leading-none
 
 export function AppHeader({ context, right }: { context?: string; right?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-center gap-x-[18px] gap-y-3 border-b border-line pb-[18px] print:hidden">
-      <Link href="/" className="text-ink no-underline" aria-label="Takeover home">
-        <Wordmark />
-      </Link>
-      {context && <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-mute">{context}</div>}
-      <div className="flex-1" />
-      {right}
+    <header className="flex flex-col gap-3 border-b border-line pb-3 print:hidden">
+      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-3">
+        <Link href="/" className="text-ink no-underline" aria-label="Takeover home">
+          <Wordmark />
+        </Link>
+        {context && <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-mute">{context}</div>}
+        <div className="flex-1" />
+        {right}
+      </div>
+      <SiteNav />
     </header>
+  );
+}
+
+/** Scrolls sideways on a phone rather than wrapping. */
+function SiteNav() {
+  const path = usePathname();
+  const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/run") : path.startsWith(href));
+  return (
+    <nav aria-label="Main" className="-mx-1 flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+      {NAV.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          aria-current={active(item.href) ? "page" : undefined}
+          className={cx(
+            "whitespace-nowrap rounded-btn px-2.5 py-1 text-chip no-underline",
+            active(item.href) ? "bg-acc-soft font-medium text-ink" : "text-mute hover:bg-acc-soft hover:text-ink",
+          )}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -546,10 +575,36 @@ export function StepCard({
 
 /* ---------- Page shell ---------- */
 export const Page = ({ children, max = "max-w-[880px]" }: { children: ReactNode; max?: string }) => (
-  <div className="min-h-screen bg-bg font-body text-body text-ink print:bg-paper">
-    <main className={cx("mx-auto box-border flex flex-col gap-[22px] p-panel", max)}>{children}</main>
+  <div className="flex min-h-screen flex-col bg-bg font-body text-body text-ink print:bg-paper">
+    <main className={cx("mx-auto box-border flex w-full flex-1 flex-col gap-[22px] p-panel", max)}>{children}</main>
+    <SiteFooter max={max} />
   </div>
 );
+
+function SiteFooter({ max }: { max: string }) {
+  return (
+    <footer className="border-t border-line print:hidden">
+      <div className={cx("mx-auto box-border flex flex-wrap items-start gap-x-10 gap-y-4 px-panel py-6 text-chip text-mute", max)}>
+        <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">
+          <Wordmark />
+          <span className="[text-wrap:pretty]">Event plans for anyone with a fanbase, backed by Qloo taste data.</span>
+        </div>
+        <nav aria-label="Footer" className="flex flex-col gap-1">
+          {NAV.map((item) => (
+            <Link key={item.href} href={item.href} className="text-mute no-underline hover:text-ink">
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex max-w-[320px] flex-col gap-1 [text-wrap:pretty]">
+          <MonoLabel>Data</MonoLabel>
+          <span>Taste data from Qloo. Cities from GeoNames (CC BY 4.0). Map outlines from Natural Earth.</span>
+          <span>Capacity, dates and prices are always to confirm with the promoter.</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 /* ---------- Clipboard helper ---------- */
 export function useCopy() {
