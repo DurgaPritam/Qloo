@@ -196,3 +196,26 @@
     color-scheme: light;
   }
 }
+
+/* "Gen Z" style from the design (Landing.dc.html, mode genz): thicker ink borders and hard offset
+   shadows on surfaces and controls. Existing tokens only; the brief's paper page and print stay plain. */
+@media screen {
+  [data-style="genz"] .bg-surf,
+  [data-style="genz"] .border.border-line {
+    border: 2px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  [data-style="genz"] .bg-acc {
+    border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  [data-style="genz"] .bg-paper,
+  [data-style="genz"] .bg-paper .bg-surf {
+    box-shadow: none;
+  }
+  [data-style="genz"] a.bg-surf:hover,
+  [data-style="genz"] button.border:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+}

@@ -24,8 +24,9 @@ export const viewport: Viewport = {
   ],
 };
 
-// Dark is the default; follow a light system preference before first paint.
-const THEME_SCRIPT = `try{if(matchMedia("(prefers-color-scheme: light)").matches)document.documentElement.dataset.theme="light"}catch(e){}`;
+// Before first paint: the saved theme (components/appearance.tsx), else a light system
+// preference, else dark; and the saved "Gen Z" style.
+const THEME_SCRIPT = `try{var d=document.documentElement,t=localStorage.getItem("takeover:theme");if(t==="light"||t==="dark")d.dataset.theme=t;else if(matchMedia("(prefers-color-scheme: light)").matches)d.dataset.theme="light";if(localStorage.getItem("takeover:style")==="genz")d.dataset.style="genz"}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -35,7 +36,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${anton.variable} ${inter.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
-      <body>
+      {/* Browser extensions add attributes to <body> before React loads; that mismatch is not ours. */}
+      <body suppressHydrationWarning>
         <Script id="theme" strategy="beforeInteractive">
           {THEME_SCRIPT}
         </Script>

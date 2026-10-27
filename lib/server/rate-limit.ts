@@ -121,16 +121,16 @@ function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): Rate
   return new UpstashLimiter(ratelimit, memory);
 }
 
-let limiters: { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; daily: RateLimiter } | undefined;
+type Limiters = { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; daily: RateLimiter };
+const limiters: Partial<Limiters> = {};
 
-export function getLimiters() {
-  limiters ??= {
-    runs: build("runs", LIMITS.runsPerHour),
-    replans: build("replans", LIMITS.replansPerHour),
-    tools: build("tools", LIMITS.toolsPerHour),
-    daily: build("daily", LIMITS.dailyRuns, "1 d"),
-  };
-  return limiters;
+/** Each limiter is built on first use, so one added later is never missing (a dev hot reload kept the old set). */
+export function getLimiters(): Limiters {
+  limiters.runs ??= build("runs", LIMITS.runsPerHour);
+  limiters.replans ??= build("replans", LIMITS.replansPerHour);
+  limiters.tools ??= build("tools", LIMITS.toolsPerHour);
+  limiters.daily ??= build("daily", LIMITS.dailyRuns, "1 d");
+  return limiters as Limiters;
 }
 
 /** The daily ceiling is one shared bucket for every visitor. */

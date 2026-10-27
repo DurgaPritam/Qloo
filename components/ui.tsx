@@ -11,6 +11,8 @@ import { useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type R
 
 import { NAV } from "@/lib/site";
 
+import { AppearanceControls } from "./appearance";
+
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 /* ---------- Type ---------- */
@@ -31,7 +33,10 @@ export function AppHeader({ context, right }: { context?: string; right?: ReactN
         <div className="flex-1" />
         {right}
       </div>
-      <SiteNav />
+      <div className="flex items-center gap-3">
+        <SiteNav />
+        <AppearanceControls />
+      </div>
     </header>
   );
 }
@@ -41,7 +46,7 @@ function SiteNav() {
   const path = usePathname();
   const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/run") : path.startsWith(href));
   return (
-    <nav aria-label="Main" className="-mx-1 flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+    <nav aria-label="Main" className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
       {NAV.map((item) => (
         <Link
           key={item.href}

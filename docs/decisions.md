@@ -267,3 +267,10 @@ country, which the page says. Every result links to a full takeover plan.
 **D46. Heatmap calls get a 20 s timeout and Redis reads 4 s.** Cold heatmaps for big fanbases
 (Taylor Swift, US) took longer than 8 s, and reading a cached 400 KB heatmap from Upstash took
 longer than 1.5 s from a home connection, which then fell back to the slow live call.
+
+**D47. Theme switch and the design's "Gen Z" style, saved per browser.** Dark stays the default
+(a light system preference still wins until the visitor picks). Gen Z mode is the design's
+`mode: genz` (Landing.dc.html): 2px ink borders and a hard 4px ink shadow on surfaces and
+controls, existing tokens only; the brief's paper page and print are unchanged. Both are applied
+by the first-paint script, so there is no flash. `<body>` gets `suppressHydrationWarning`, like
+`<html>`: a browser extension was adding an attribute to it before React loaded.
