@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { EXAMPLES } from "../lib/examples";
 
+/** An example chip ("Music artist Phoebe Bridgers"), not the overlap chips that also name it. */
+const chip = (e: { kind: string; name: string }) => new RegExp(`^${e.kind}\\s*${e.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 const complete = (page: Page) => expect(page.getByText("Complete · 7 / 7")).toBeVisible({ timeout: 45_000 });
 const run = (page: Page, q: string) => page.goto(`/run?q=${encodeURIComponent(q)}`);
 
@@ -18,7 +20,7 @@ test.describe("landing examples", () => {
   for (const example of EXAMPLES) {
     test(`"${example.name}" completes from one click`, async ({ page }) => {
       await page.goto("/");
-      await page.getByRole("button", { name: new RegExp(example.name) }).click();
+      await page.getByRole("button", { name: chip(example) }).click();
       await expect(page).toHaveURL(/\/run\?q=/);
       await complete(page);
       await expect(page.getByRole("heading", { level: 1 })).toContainText(example.name, { ignoreCase: true });
@@ -135,13 +137,13 @@ test("@mobile the log collapses into a progress bar at 380px", async ({ page }) 
 
 test("going Back to the landing page leaves Plan takeover usable", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: new RegExp(EXAMPLES[3].name) }).click();
+  await page.getByRole("button", { name: chip(EXAMPLES[3]) }).click();
   await expect(page).toHaveURL(/\/run\?q=/);
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
   const submit = page.getByRole("button", { name: "Plan takeover" }).filter({ visible: true });
   await expect(submit).toBeEnabled();
-  await page.getByRole("textbox", { name: "Plan a takeover for…" }).filter({ visible: true }).fill(EXAMPLES[0].name);
+  await page.getByRole("combobox", { name: "Plan a takeover for…" }).filter({ visible: true }).fill(EXAMPLES[0].name);
   await submit.click();
   await expect(page).toHaveURL(new RegExp(`q=${encodeURIComponent(EXAMPLES[0].name).replace(/%20/g, "(\\\\+|%20)")}`));
 });
@@ -175,4 +177,33 @@ test("the shortlist comparison and both downloads work", async ({ page }) => {
   const bytes = await (await deck.createReadStream()).toArray().then((c) => Buffer.concat(c));
   expect(bytes.subarray(0, 2).toString()).toBe("PK"); // a .pptx is a zip archive
   expect(bytes.length).toBeGreaterThan(20_000);
+});
+
+test("fan overlap scores a pair and links to both takeovers", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "First fanbase" }).fill("John Mulaney");
+  await page.getByRole("textbox", { name: "Second fanbase" }).fill("Succession");
+  await page.getByRole("button", { name: "Check overlap" }).click();
+  await expect(page).toHaveURL(/\/overlap\?a=John/);
+  await expect(page.getByText(/among John Mulaney fans/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Who the fans are", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Plan a takeover for John Mulaney/ })).toBeVisible();
+});
+
+test("search suggestions open a plan with the picked name", async ({ page }) => {
+  await page.goto("/");
+  const box = page.getByRole("combobox", { name: "Plan a takeover for…" }).filter({ visible: true });
+  // Two sample matches, so the list opens.
+  await box.fill("Mercury");
+  const option = page.getByRole("option").first();
+  await expect(option).toBeVisible({ timeout: 10_000 });
+  await option.click();
+  await expect(page).toHaveURL(/\/run\?q=/);
+});
+
+test("the tour planner draws a route with every leg", async ({ page }) => {
+  await page.goto("/tour?q=John%20Mulaney");
+  await expect(page.getByText("Plan the opening takeover →")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("start", { exact: true })).toBeVisible();
+  await expect(page.locator("svg path[stroke-dasharray]")).toHaveCount(1);
 });

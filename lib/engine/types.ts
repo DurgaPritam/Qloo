@@ -176,3 +176,10 @@ export interface TourPlan {
 }
 
 export type Pick = PartnerPick | PlacePick | BrandPick | CityScore;
+
+/** Qloo's audience skew for a fanbase: each value is -1..1 against the general population. */
+export interface Demographics {
+  entityId: string;
+  age: Record<string, number>;
+  gender: Record<string, number>;
+}

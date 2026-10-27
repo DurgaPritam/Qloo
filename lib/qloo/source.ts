@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Brand, Candidate, Category, Entity, HeatCell, Place } from "@/lib/engine/types";
+import type { Brand, Candidate, Category, Demographics, Entity, HeatCell, Place } from "@/lib/engine/types";
 import { assertMockAllowed, isMockMode } from "@/lib/mock-mode";
 
 import { QlooApiSource } from "./api";
@@ -47,6 +47,18 @@ export interface QlooSource {
     location: string | undefined,
     opts: QlooCallOptions,
   ): Promise<SourceResult<HeatCell[]>>;
+  /** Age and gender skew of the fans of `entityIds`. */
+  demographics(entityIds: readonly string[], opts: QlooCallOptions): Promise<SourceResult<Demographics[]>>;
+  /**
+   * How strongly fans of `signalIds` over-index on one entity (`target`, of `category`).
+   * Null when Qloo does not return it for this signal.
+   */
+  affinityOf(
+    signalIds: readonly string[],
+    target: string,
+    category: Category,
+    opts: QlooCallOptions,
+  ): Promise<SourceResult<Candidate | null>>;
   places(
     entityIds: readonly string[],
     cityQuery: string,

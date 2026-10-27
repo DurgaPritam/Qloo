@@ -58,6 +58,14 @@ export const ENGINE_CONFIG = {
     maxPopularity: 0.999,
     minPopularity: 0.5,
   },
+  /**
+   * Overlap checker: Qloo affinity of one entity among the other's fans. Among the top 20
+   * partner candidates of real fanbases, affinity ran 0.81–0.99 with a median of 0.92
+   * (docs/tuning.md), so 0.92+ is as strong as a typical top crossover.
+   */
+  overlap: { strong: 0.92, clear: 0.85 },
+  /** Audience profile: a skew below this (either way) reads as "balanced". */
+  audience: { lean: 0.1 },
   places: {
     /** Venues considered for the main room. */
     count: 5,

@@ -11,7 +11,11 @@ const anton = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains" });
 
+/** Absolute URLs for share images: the production domain on Vercel, else localhost. */
+const SITE = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: "Takeover",
   description:
     "The market-entry agent for anyone with a fanbase: a crossover partner, the city where both audiences are strongest, the room, sponsors, a brief and outreach drafts. Backed by Qloo taste data.",

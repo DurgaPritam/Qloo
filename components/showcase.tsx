@@ -8,10 +8,10 @@ import { MonoLabel, NoSourceBadge, OutlineChip, SourceBadge } from "./ui";
 export const planHref = (query: string) => `/run?q=${encodeURIComponent(query)}`;
 
 /** One finished plan: fanbase × partner, then city and venue. Opens the run (a cached replay). */
-export function PlanCard({ plan }: { plan: PlanSummary }) {
+export function PlanCard({ plan, href }: { plan: PlanSummary; href?: string }) {
   return (
     <Link
-      href={planHref(plan.query)}
+      href={href ?? planHref(plan.query)}
       className="flex min-w-0 flex-col gap-2 rounded-md bg-surf p-[18px] text-ink no-underline outline-offset-2 hover:bg-acc-soft"
     >
       <div className="flex flex-wrap items-center gap-1.5">
@@ -34,11 +34,12 @@ export function PlanCard({ plan }: { plan: PlanSummary }) {
   );
 }
 
-export function PlanGrid({ plans }: { plans: readonly PlanSummary[] }) {
+/** `shared` links each card to its stored plan (/plan/<runId>) instead of replaying the query. */
+export function PlanGrid({ plans, shared }: { plans: readonly PlanSummary[]; shared?: boolean }) {
   return (
     <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr))]">
       {plans.map((p) => (
-        <PlanCard key={p.query} plan={p} />
+        <PlanCard key={shared ? p.runId : p.query} plan={p} href={shared ? `/plan/${p.runId}` : undefined} />
       ))}
     </div>
   );

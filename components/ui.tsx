@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 
 import { NAV } from "@/lib/site";
 
@@ -153,6 +153,7 @@ export function InputBar({
   size = "lg",
   buttonLabel = "Plan takeover",
   busy,
+  onPick,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -161,43 +162,142 @@ export function InputBar({
   size?: "lg" | "md";
   buttonLabel?: string;
   busy?: boolean;
+  /** Turns on Qloo search suggestions; called with the picked name. */
+  onPick?: (name: string) => void;
 }) {
+  const s = useSuggestions(onPick ? value : "");
+  const pick = (name: string) => {
+    s.close();
+    onChange(name);
+    onPick?.(name);
+  };
   return (
-    <form
-      role="search"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit?.();
-      }}
-      className={cx(
-        "flex items-center gap-2 rounded-md border border-line bg-surf",
-        size === "lg" ? "py-2 pl-[18px] pr-2" : "py-1.5 pl-3.5 pr-1.5",
-      )}
-    >
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        aria-label={placeholder ?? "Plan a takeover for"}
-        maxLength={100}
+    <div className="relative">
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          // Only a suggestion the visitor moved to with the arrow keys replaces what they typed.
+          const chosen = s.open && s.active >= 0 ? s.items[s.active] : undefined;
+          if (chosen) return pick(chosen.name);
+          s.close();
+          onSubmit?.();
+        }}
         className={cx(
-          "min-w-0 flex-1 border-0 bg-transparent font-body text-ink outline-none",
-          size === "lg" ? "py-3 text-[20px] leading-[1.3]" : "py-1.5 text-[16px]",
-        )}
-      />
-      <button
-        type="submit"
-        disabled={busy}
-        aria-busy={busy || undefined}
-        className={cx(
-          "flex-none cursor-pointer rounded-btn bg-acc font-medium text-on-acc hover:brightness-110 disabled:cursor-default disabled:opacity-55",
-          size === "lg" ? "px-5 py-3.5 text-body" : "px-3.5 py-2 text-chip",
+          "flex items-center gap-2 rounded-md border border-line bg-surf",
+          size === "lg" ? "py-2 pl-[18px] pr-2" : "py-1.5 pl-3.5 pr-1.5",
         )}
       >
-        {buttonLabel}
-      </button>
-    </form>
+        <input
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            s.reopen();
+          }}
+          onKeyDown={(e) => {
+            if (!s.open) return;
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              s.move(e.key === "ArrowDown" ? 1 : -1);
+            } else if (e.key === "Escape") s.close();
+          }}
+          onBlur={() => setTimeout(s.close, 150)}
+          role={onPick ? "combobox" : undefined}
+          aria-expanded={onPick ? s.open : undefined}
+          aria-controls={onPick ? "search-suggestions" : undefined}
+          aria-autocomplete={onPick ? "list" : undefined}
+          autoComplete="off"
+          placeholder={placeholder}
+          aria-label={placeholder ?? "Plan a takeover for"}
+          maxLength={100}
+          className={cx(
+            "min-w-0 flex-1 border-0 bg-transparent font-body text-ink outline-none",
+            size === "lg" ? "py-3 text-[20px] leading-[1.3]" : "py-1.5 text-[16px]",
+          )}
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          className={cx(
+            "flex-none cursor-pointer rounded-btn bg-acc font-medium text-on-acc hover:brightness-110 disabled:cursor-default disabled:opacity-55",
+            size === "lg" ? "px-5 py-3.5 text-body" : "px-3.5 py-2 text-chip",
+          )}
+        >
+          {buttonLabel}
+        </button>
+      </form>
+      {s.open && (
+        <ul
+          id="search-suggestions"
+          role="listbox"
+          className="absolute inset-x-0 top-full z-20 m-0 mt-1 flex list-none flex-col rounded-md border border-line bg-surf p-1"
+        >
+          {s.items.map((item, i) => (
+            <li
+              key={`${item.name}-${item.category}`}
+              role="option"
+              aria-selected={i === s.active}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(item.name);
+              }}
+              className={cx("flex cursor-pointer flex-col rounded-btn px-3 py-2", i === s.active && "bg-acc-soft")}
+            >
+              <span className="text-body text-ink">{item.name}</span>
+              <span className="text-chip text-mute">
+                {item.category.replace("_", " ")}
+                {item.detail ? ` · ${item.detail}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
+}
+
+interface Suggestion {
+  name: string;
+  category: string;
+  detail?: string;
+}
+
+/** Qloo search suggestions for the input, 300 ms after typing stops; 3+ characters. */
+function useSuggestions(value: string) {
+  // Kept with the text they were fetched for, so a slow answer never shows for newer text.
+  const [found, setFound] = useState<{ q: string; items: Suggestion[] }>({ q: "", items: [] });
+  const [active, setActive] = useState(-1);
+  const [hidden, setHidden] = useState(false);
+  const q = value.trim();
+  const items = found.q === q ? found.items : [];
+  useEffect(() => {
+    if (q.length < 3) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/suggest?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? r.json() : { suggestions: [] }))
+        .then((b: { suggestions?: Suggestion[] }) => {
+          setFound({ q, items: b.suggestions ?? [] });
+          setActive(-1);
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q]);
+  // Nothing to suggest when the only result is what was typed.
+  const shown = q.length >= 3 && !(items.length === 1 && items[0].name.toLowerCase() === q.toLowerCase()) ? items : [];
+  return {
+    items: shown,
+    active: Math.min(active, shown.length - 1),
+    open: !hidden && shown.length > 0,
+    move: (d: number) => setActive((a) => (a < 0 ? (d > 0 ? 0 : shown.length - 1) : (a + d + shown.length) % shown.length)),
+    close: () => setHidden(true),
+    reopen: () => setHidden(false),
+  };
 }
 
 /* ---------- Chips, badges, pills ---------- */

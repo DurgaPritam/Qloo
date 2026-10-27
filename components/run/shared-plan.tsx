@@ -5,6 +5,8 @@ import type { Plan } from "@/lib/agent/types";
 import { AppHeader, Banner, Page } from "../ui";
 import { BriefSection, CitySection, CrossoverSection, OutreachSection, RoomSection } from "./sections";
 import { viewFromPlan } from "./use-plan-stream";
+import { AudiencePanel } from "../audience";
+import { audiencePeople } from "./run-screen";
 
 /** Read-only view of a finished plan, opened from a "Copy link" share URL. */
 export function SharedPlan({ plan }: { plan: Plan }) {
@@ -16,6 +18,7 @@ export function SharedPlan({ plan }: { plan: Plan }) {
       {plan.status !== "complete" && <Banner tone="warn">This plan is partial: some steps could not finish.</Banner>}
       {plan.notes.length > 0 && <Banner tone="neutral">{plan.notes.join(" ")}</Banner>}
       <CrossoverSection view={view} />
+      {plan.status === "complete" && !plan.mock && <AudiencePanel people={audiencePeople(view)} />}
       <CitySection view={view} />
       <RoomSection view={view} />
       <BriefSection view={view} shareUrl={typeof window !== "undefined" ? window.location.href : undefined} />

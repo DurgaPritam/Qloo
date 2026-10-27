@@ -2,6 +2,7 @@
 
 import type { BrandResult } from "@/lib/tools/brand";
 
+import { AudiencePanel } from "../audience";
 import { categoryLabel, pct } from "../run/format";
 import { Banner, Button, MonoLabel, OutlineChip, Panel, Sk, SourceBadge } from "../ui";
 import { CityMap, CityTable } from "./city-table";
@@ -104,6 +105,7 @@ export function BrandMatch() {
               city&apos;s rank by population.
             </p>
           </Panel>
+          <AudiencePanel people={[{ id: r.brand.id, name: `${r.brand.name} customers` }]} />
           <p className="m-0 text-chip text-mute [text-wrap:pretty]">
             Matches are people {r.brand.name}&apos;s customers like, not existing deals. Fees and availability are to confirm with
             each partner.

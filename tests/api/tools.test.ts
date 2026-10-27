@@ -2,9 +2,15 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { POST as brand } from "@/app/api/tools/brand/route";
 import { POST as cities } from "@/app/api/tools/cities/route";
+import { GET as suggest } from "@/app/api/suggest/route";
+import { POST as audience } from "@/app/api/tools/audience/route";
+import { POST as overlap } from "@/app/api/tools/overlap/route";
+import { POST as tour } from "@/app/api/tools/tour/route";
 import { POST as venue } from "@/app/api/tools/venue/route";
 
 import { postJson } from "./sse";
+
+vi.mock("next/server", () => ({ connection: async () => {} }));
 
 beforeAll(() => {
   vi.stubEnv("TAKEOVER_MOCK", "1");
@@ -53,5 +59,46 @@ describe("POST /api/tools/cities", () => {
     expect(body.status).toBe("done");
     expect(body.markets).toHaveLength(4);
     expect(body.markets[0].home).toBe(true);
+  });
+});
+
+describe("POST /api/tools/overlap", () => {
+  it("scores both directions, finds shared cities and profiles both audiences", async () => {
+    const res = await overlap(postJson("http://localhost/api/tools/overlap", { a: "John Mulaney", b: "Succession" }, "192.0.2.80"));
+    const body = await res.json();
+    expect(body).toMatchObject({ status: "done", mock: true });
+    expect(typeof body.bAmongA).toBe("number");
+    expect(["strong", "clear", "some"]).toContain(body.level);
+    expect(body.audiences).toHaveLength(2);
+    expect(body.calls.length).toBeLessThanOrEqual(8);
+  });
+
+  it("needs two names", async () => {
+    expect((await overlap(postJson("http://localhost/api/tools/overlap", { a: "x" }, "192.0.2.81"))).status).toBe(400);
+  });
+});
+
+describe("POST /api/tools/tour", () => {
+  it("routes the requested number of stops at most", async () => {
+    const body = await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 4 }, "192.0.2.90"))).json();
+    expect(body.status).toBe("done");
+    expect(body.tour.stops.length).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("POST /api/tools/audience", () => {
+  it("returns a profile per id, at most two", async () => {
+    const body = await (await audience(postJson("http://localhost/api/tools/audience", { entityIds: ["a", "b", "c"] }, "192.0.2.95"))).json();
+    expect(body.profiles.map((p: { entityId: string }) => p.entityId)).toEqual(["a", "b"]);
+  });
+});
+
+describe("GET /api/suggest", () => {
+  it("suggests from three characters and stays quiet below", async () => {
+    const short = await (await suggest(new Request("http://localhost/api/suggest?q=jo"))).json();
+    expect(short.suggestions).toEqual([]);
+    const body = await (await suggest(new Request("http://localhost/api/suggest?q=John Mulaney", { headers: { "x-forwarded-for": "192.0.2.99" } }))).json();
+    expect(body.suggestions.length).toBeGreaterThan(0);
+    expect(body.suggestions[0]).toHaveProperty("name");
   });
 });

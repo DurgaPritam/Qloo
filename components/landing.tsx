@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
-import { EXAMPLES } from "@/lib/examples";
+import { EXAMPLES, SHOWCASE } from "@/lib/examples";
+
+import { OverlapForm, overlapHref, PAIRS } from "./tools/fan-overlap";
 
 import { AppHeader, Chip, InputBar, MonoLabel, Page, SourceBadge } from "./ui";
 
@@ -23,6 +25,13 @@ const AUDIENCES = [
     body: "A crossover partner, the city, the room, sponsors, a brief and the outreach for any fanbase.",
     href: "/run?q=John%20Mulaney",
     cta: "See John Mulaney's plan",
+  },
+  {
+    who: "Anyone curious",
+    title: "Fan overlap",
+    body: "Any two names. How much their fans overlap, where, and who those fans are.",
+    href: "/overlap?a=Phoebe%20Bridgers&b=PEN15",
+    cta: "Try Phoebe Bridgers × PEN15",
   },
   {
     who: "Brands & agencies",
@@ -45,6 +54,13 @@ const AUDIENCES = [
     href: "/cities?q=Taylor%20Swift",
     cta: "Try Taylor Swift",
   },
+  {
+    who: "Artists & agents",
+    title: "Tour planner",
+    body: "A tour through a fanbase's strongest cities, in driving order, with every leg's distance.",
+    href: "/tour?q=Phoebe%20Bridgers",
+    cta: "Try Phoebe Bridgers",
+  },
 ];
 
 const FAQ = [
@@ -65,8 +81,8 @@ const FAQ = [
     a: "No. The emails are drafts. Open one in your mail app, edit it and send it yourself.",
   },
   {
-    q: "What are Brand match, Venue booker and City explorer?",
-    a: "Three more ways in. Start from a brand, a city or a fanbase's map, and every result links straight to a full takeover plan.",
+    q: "What are the other tools?",
+    a: "More ways in: check two fanbases' overlap, start from a brand, a city, a fanbase's map or a tour route. Every result links straight to a full takeover plan.",
   },
   {
     q: "Is it free?",
@@ -98,7 +114,7 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
           Type a comedian, a band, a film, a podcast or a team. Takeover finds the crossover partner, the city, the room
           and the sponsors, then writes the brief and the outreach.
         </p>
-        <InputBar value={query} onChange={setQuery} onSubmit={() => plan(query)} placeholder="Plan a takeover for…" busy={busy} />
+        <InputBar value={query} onChange={setQuery} onSubmit={() => plan(query)} onPick={plan} placeholder="Plan a takeover for…" busy={busy} />
         <div className="flex flex-wrap items-center gap-2">
           {EXAMPLES.map((e) => (
             <Chip
@@ -111,12 +127,22 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
               }}
             />
           ))}
+          <Chip
+            kind="🎲"
+            label="Surprise me"
+            onClick={() => {
+              // A preloaded run, so it opens instantly and costs nothing.
+              const pick = SHOWCASE[Math.floor(Math.random() * SHOWCASE.length)];
+              setQuery(pick);
+              plan(pick);
+            }}
+          />
         </div>
       </section>
 
       <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
         <MonoLabel>Who it&apos;s for</MonoLabel>
-        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))]">
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))]">
           {AUDIENCES.map((a) => (
             <Link
               key={a.title}
@@ -128,6 +154,20 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
               <div className="text-chip text-mute [text-wrap:pretty]">{a.body}</div>
               <div className="mt-auto pt-1 text-chip font-medium">{a.cta} →</div>
             </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3 border-t border-line pt-[18px]">
+        <div className="flex flex-col gap-1.5">
+          <MonoLabel>Fan overlap</MonoLabel>
+          <h2 className="t-display m-0 text-[clamp(24px,3.5vw,32px)] leading-[0.95]">Would these fans mix?</h2>
+          <p className="m-0 text-body text-mute">Any two names. Qloo says how much their fans overlap and where.</p>
+        </div>
+        <OverlapForm onSubmit={(a, b) => startNavigation(() => router.push(overlapHref(a, b)))} />
+        <div className="flex flex-wrap items-center gap-2">
+          {PAIRS.slice(0, 3).map(([a, b]) => (
+            <Chip key={a + b} label={`${a} × ${b}`} onClick={() => startNavigation(() => router.push(overlapHref(a, b)))} />
           ))}
         </div>
       </section>

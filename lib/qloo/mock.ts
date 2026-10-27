@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Brand, Candidate, Category, Entity, HeatCell, Place } from "@/lib/engine/types";
+import type { Brand, Candidate, Category, Demographics, Entity, HeatCell, Place } from "@/lib/engine/types";
 
 import type { QlooParams } from "./cache";
 import { normalizeParams } from "./cache";
@@ -89,6 +89,34 @@ export class MockQlooSource implements QlooSource {
       "filter.type": "urn:heatmap",
       "signal.interests.entities": entityIds,
       "filter.location.query": location,
+    });
+  }
+
+  async demographics(entityIds: readonly string[]): Promise<SourceResult<Demographics[]>> {
+    const buckets = ["24_and_younger", "25_to_29", "30_to_34", "35_to_44", "45_to_54", "55_and_older"];
+    const data = entityIds.map((id) => {
+      const g = Math.round((unit(`${id}|g`) * 2 - 1) * 100) / 100;
+      return {
+        entityId: id,
+        age: Object.fromEntries(buckets.map((b) => [b, Math.round((unit(`${id}|${b}`) * 2 - 1) * 100) / 100])),
+        gender: { male: -g, female: g },
+      };
+    });
+    return result(data, "/v2/insights", { "filter.type": "urn:demographics", "signal.interests.entities": entityIds });
+  }
+
+  async affinityOf(signalIds: readonly string[], target: string, category: Category): Promise<SourceResult<Candidate | null>> {
+    const data: Candidate = {
+      id: target,
+      name: target.replace(/^mock:seed:/, "").replace(/[-:]/g, " "),
+      category,
+      affinity: 0.8 + 0.19 * unit(`${signalIds.join(",")}|${target}`),
+      popularity: 0.9,
+    };
+    return result(data, "/v2/insights", {
+      "filter.type": `urn:entity:${category}`,
+      "signal.interests.entities": signalIds,
+      "filter.results.entities": target,
     });
   }
 

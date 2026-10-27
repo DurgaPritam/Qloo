@@ -4,6 +4,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import { Ratelimit } from "@upstash/ratelimit";
 
+import { isMockMode } from "@/lib/mock-mode";
+
 import { getRedis } from "./redis";
 
 export const LIMITS = {
@@ -13,6 +15,8 @@ export const LIMITS = {
   replansPerHour: 20,
   /** Venue booker, Brand match and City explorer lookups per visitor per hour (a few Qloo calls each). */
   toolsPerHour: 30,
+  /** Search suggestions per visitor per hour (one Qloo search each, cached for a week). */
+  suggestPerHour: 300,
   /** Live runs per day across all visitors. Size it to the Qloo plan with TAKEOVER_DAILY_RUNS. */
   dailyRuns: dailyCeiling(process.env.TAKEOVER_DAILY_RUNS),
 } as const;
@@ -110,7 +114,8 @@ class UpstashLimiter implements RateLimiter {
 
 function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): RateLimiter {
   const memory = new MemoryLimiter(limit, window === "1 h" ? HOUR_MS : DAY_MS);
-  const redis = getRedis();
+  // Sample-data runs (local, tests) never count against the shared limits in Redis (decisions D48).
+  const redis = isMockMode() ? null : getRedis();
   if (!redis) return memory;
   const ratelimit = new Ratelimit({
     redis,
@@ -121,7 +126,7 @@ function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): Rate
   return new UpstashLimiter(ratelimit, memory);
 }
 
-type Limiters = { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; daily: RateLimiter };
+type Limiters = { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; suggest: RateLimiter; daily: RateLimiter };
 const limiters: Partial<Limiters> = {};
 
 /** Each limiter is built on first use, so one added later is never missing (a dev hot reload kept the old set). */
@@ -129,6 +134,7 @@ export function getLimiters(): Limiters {
   limiters.runs ??= build("runs", LIMITS.runsPerHour);
   limiters.replans ??= build("replans", LIMITS.replansPerHour);
   limiters.tools ??= build("tools", LIMITS.toolsPerHour);
+  limiters.suggest ??= build("suggest", LIMITS.suggestPerHour);
   limiters.daily ??= build("daily", LIMITS.dailyRuns, "1 d");
   return limiters as Limiters;
 }

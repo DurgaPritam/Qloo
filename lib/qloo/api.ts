@@ -86,6 +86,29 @@ export class QlooApiSource implements QlooSource {
     return { data: compact(cells.map(toHeatCell)), meta: live(res.meta) };
   }
 
+  async demographics(entityIds: readonly string[], opts: { runId: string }) {
+    type Raw = { results?: { demographics?: Array<{ entity_id?: string; query?: { age?: Record<string, number>; gender?: Record<string, number> } }> } };
+    const res = await this.client.get<Raw>(
+      "/v2/insights",
+      { "filter.type": "urn:demographics", "signal.interests.entities": entityIds },
+      opts,
+    );
+    const data = (res.data.results?.demographics ?? []).flatMap((d) =>
+      d.entity_id && d.query?.age && d.query.gender ? [{ entityId: d.entity_id, age: d.query.age, gender: d.query.gender }] : [],
+    );
+    return { data, meta: live(res.meta) };
+  }
+
+  async affinityOf(signalIds: readonly string[], target: string, category: Category, opts: { runId: string }) {
+    const res = await this.client.get<RawList>(
+      "/v2/insights",
+      { "filter.type": urn(category), "signal.interests.entities": signalIds, "filter.results.entities": target },
+      opts,
+    );
+    const hit = entities(res.data).map((e) => toCandidate(e, category)).find((c) => c?.id === target) ?? null;
+    return { data: hit, meta: live(res.meta) };
+  }
+
   async places(entityIds: readonly string[], cityQuery: string, tags: readonly string[] | undefined, opts: { runId: string }) {
     const res = await this.client.get<RawList>(
       "/v2/insights",

@@ -10,10 +10,17 @@ import { savePlanLocally } from "@/lib/saved-plans";
 import { STEPS } from "@/lib/agent/types";
 
 import { AppHeader, Banner, Button, InputBar, MonoLabel, OutlineChip, Page, Sk, StepCard, cx, type StepData } from "../ui";
+import { AudiencePanel } from "../audience";
 import { categoryLabel } from "./format";
 import { BriefSection, CitySection, CrossoverSection, OutreachSection, RoomSection, type LlmOnly } from "./sections";
 import { ApiBusy, EntityPicker, NoMatch } from "./states";
 import { usePlanStream, type RunView } from "./use-plan-stream";
+
+/** The fanbase and the chosen partner, for the audience profile. */
+export function audiencePeople(view: Pick<RunView, "fanbase" | "partners">): Array<{ id: string; name: string }> {
+  const partner = view.partners?.picks.find((p) => p.pick.entity.id === view.partners?.chosenId)?.pick.entity;
+  return [view.fanbase, partner].flatMap((e) => (e ? [{ id: e.id, name: e.name }] : []));
+}
 
 function stepData(view: RunView, id: StepId, i: number, title: string): StepData & { showBranch: boolean } {
   const s = view.steps[id];
@@ -245,6 +252,11 @@ export function RunScreen() {
                 </div>
               )}
               <CrossoverSection view={view} llm={llm} onToggle={toggleLlm} onUsePartner={usePartner} />
+              {finished && fanbase && view.plan?.status === "complete" && (
+                <div className="print:hidden">
+                  <AudiencePanel people={audiencePeople(view)} />
+                </div>
+              )}
               <CitySection view={view} onUseCity={useCity} />
               <RoomSection view={view} />
               <BriefSection view={view} shareUrl={shareUrl} />

@@ -274,3 +274,25 @@ longer than 1.5 s from a home connection, which then fell back to the slow live 
 controls, existing tokens only; the brief's paper page and print are unchanged. Both are applied
 by the first-paint script, so there is no flash. `<body>` gets `suppressHydrationWarning`, like
 `<html>`: a browser extension was adding an attribute to it before React loaded.
+
+**D48. Sample-data mode never uses Redis for rate limits.** The Playwright suite runs in mock
+mode with `.env.local`, so its runs were counted against the shared daily ceiling in Upstash and
+used up the day's 120 live runs. Mock-mode limiters now live in memory.
+
+**D49. Six more features (27 Oct), all on Qloo data already probed.**
+- *Fan overlap* (`/overlap`): Qloo affinity of each side among the other's fans via
+  `filter.results.entities` (probed: PEN15 among Phoebe Bridgers fans 0.98; Taylor Swift →
+  Formula One 0.74; one direction can come back empty), two heatmaps in A's home market scored
+  together, and both audiences' demographics. Levels: strong ≥ 0.92 (the median affinity of the top
+  20 partner candidates in tuning), clear ≥ 0.85, else some. Up to 8 calls.
+- *Audience profile*: Qloo `urn:demographics` skews (−1..1) per age band and gender, shown as
+  diverging bars on plans, Fan overlap and Brand match; "balanced" below ±0.1. One call per entity:
+  a combined signal would blend the two audiences.
+- *Share images*: `/plan/<runId>` gets an Open Graph image and title from the stored plan; the site
+  a default card.
+- *Recent plans and Surprise me*: live plans (never mock, never preloaded) are pushed to a capped
+  Redis list of plan summaries only; Surprise me opens a random preloaded plan (instant, free).
+- *Tour planner* (`/tour`): the takeover's tour routing on the fanbase's own heatmap; 4, 6 or 8 stops.
+- *Search suggestions*: Qloo `/search` after 300 ms and 3+ characters, cached, 300 an hour per
+  visitor; Enter keeps what was typed unless a suggestion was chosen with the arrow keys (a slow
+  answer for earlier text was replacing the typed name).

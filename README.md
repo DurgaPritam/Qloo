@@ -15,12 +15,16 @@ know (capacity, dates, prices, availability) is shown as "to confirm with the pr
 
 | For | Tool | You enter | You get |
 | --- | --- | --- | --- |
-| Promoters & talent teams | **Plan a takeover** (`/`) | A fanbase | Partner, city, venue, opener, sponsors, brief, two emails |
+| Promoters & talent teams | **Plan a takeover** (`/`) | A fanbase | Partner, city, venue, opener, sponsors, who the fans are, brief, two emails |
+| Anyone curious | **Fan overlap** (`/overlap`) | Two names | How strongly each side's fans over-index on the other, where both are strong, both audiences' age and gender skew |
 | Brands & agencies | **Brand match** (`/brand`) | A brand | The artists, people, podcasts and shows its customers over-index on, and its strongest cities |
 | Venues & festivals | **Venue booker** (`/venue`) | A city | The artists, stand-up comedians and podcasts people there over-index on |
 | Tour planners & fan clubs | **City explorer** (`/cities`) | A fanbase | Its strongest cities at home and in three more countries, on one map |
+| Artists & agents | **Tour planner** (`/tour`) | A fanbase | A 4–8 stop route through its strongest cities with every leg's distance |
 
-Every result links to a full takeover plan. **Explore** (`/explore`) shows every preloaded plan,
+Every result links to a full takeover plan. The search box suggests Qloo matches as you type,
+"Surprise me" opens a random example, shared plan links get a preview card, and the landing page
+shows plans visitors made recently. Dark/light and the design's Gen Z style are a click away. **Explore** (`/explore`) shows every preloaded plan,
 **My plans** (`/plans`) keeps the plans you made in your browser (no account) and compares any two,
 and **How it works** (`/method`) explains the scoring with the numbers the code uses.
 
@@ -148,6 +152,10 @@ All values are server-side only; see `.env.example`.
 | `POST /api/tools/brand` | `{brand, entityId?}` → partner lists and cities for a brand (6 Qloo calls) |
 | `POST /api/tools/venue` | `{city, kinds?}` → artists, comedians and podcasts for a city (3 Qloo calls) |
 | `POST /api/tools/cities` | `{fanbase, entityId?}` → strongest cities in four markets (5 Qloo calls) |
+| `POST /api/tools/overlap` | `{a, b, aId?, bId?}` → affinity both ways, shared cities, both audiences (up to 8 Qloo calls) |
+| `POST /api/tools/tour` | `{fanbase, entityId?, country?, stops?}` → a tour route (2 Qloo calls) |
+| `POST /api/tools/audience` | `{entityIds}` → age and gender skew for up to two entities |
+| `GET /api/suggest?q=` | Up to six Qloo search matches for the search box |
 | `GET /api/health` | Qloo, Redis, the model, today's token use against the budget and the run limits; no secrets |
 
 ## Project layout
