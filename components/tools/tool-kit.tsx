@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import type { Category } from "@/lib/engine/types";
+
+import { categoryLabel } from "../run/format";
 import { planHref } from "../showcase";
-import { Banner, Button, Chip, InputBar, MonoLabel, cx } from "../ui";
+import { Banner, Button, Chip, InputBar, MonoLabel, Panel, cx } from "../ui";
 
 /** One Qloo call as the API reports it. */
 export interface CallView {
@@ -18,21 +21,25 @@ export interface CallView {
  * Fetches a tool's JSON for the `param` in the URL, so every result has a link that can be shared
  * or opened from the landing page. Errors come back as the API's own message.
  */
-export function useToolQuery<T>(endpoint: string, param: string, body: (value: string) => Record<string, unknown>) {
+export function useToolQuery<T>(endpoint: string, param: string, body: (value: string, entityId?: string) => Record<string, unknown>) {
   const params = useSearchParams();
   const router = useRouter();
   const value = (params.get(param) ?? "").trim();
+  const id = params.get("id") ?? undefined;
+  const key = `${value}|${id ?? ""}`;
   const [state, setState] = useState<{ for: string; data?: T; error?: string; loading: boolean }>({ for: "", loading: false });
 
   const load = useCallback(
-    async (v: string) => {
-      setState({ for: v, loading: true });
+    async (v: string, entityId?: string) => {
+      const k = `${v}|${entityId ?? ""}`;
+      setState({ for: k, loading: true });
+      const done = (next: { data?: T; error?: string }) => setState({ for: k, loading: false, ...next });
       try {
-        const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body(v)) });
+        const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body(v, entityId)) });
         const json = (await res.json()) as T & { error?: string };
-        setState(res.ok ? { for: v, data: json, loading: false } : { for: v, error: json.error ?? "Something went wrong.", loading: false });
+        done(res.ok ? { data: json } : { error: json.error ?? "Something went wrong." });
       } catch {
-        setState({ for: v, error: "Network error. Check your connection and try again.", loading: false });
+        done({ error: "Network error. Check your connection and try again." });
       }
     },
     // body is a stable formatter supplied by each tool
@@ -42,16 +49,24 @@ export function useToolQuery<T>(endpoint: string, param: string, body: (value: s
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch for the value in the URL
-    if (value && value !== state.for) void load(value);
-  }, [value, state.for, load]);
+    if (value && key !== state.for) void load(value, id);
+  }, [value, id, key, state.for, load]);
 
   const submit = (v: string) => {
     const t = v.trim();
     if (!t) return;
-    if (t === value) void load(t);
+    if (t === value && !id) void load(t);
     else router.push(`?${param}=${encodeURIComponent(t)}`);
   };
-  return { value, state: state.for === value ? state : { for: value, loading: Boolean(value) }, submit, retry: () => load(value) };
+  /** Picks one of several matches; the pick goes in the URL too. */
+  const pick = (entityId: string) => router.push(`?${param}=${encodeURIComponent(value)}&id=${encodeURIComponent(entityId)}`);
+  return {
+    value,
+    state: state.for === key ? state : { for: key, loading: Boolean(value) },
+    submit,
+    pick,
+    retry: () => load(value, id),
+  };
 }
 
 export function ToolIntro({ label, title, body }: { label: string; title: string; body: string }) {
@@ -132,6 +147,39 @@ export function CallsUsed({ calls }: { calls: CallView[] }) {
         ))}
       </div>
     </details>
+  );
+}
+
+/** Several matches for the typed name: one button each, with Qloo's description. */
+export function ChoicePicker({
+  question,
+  choices,
+  onPick,
+}: {
+  question: string;
+  choices: { entityId: string; name: string; category: string; detail?: string }[];
+  onPick: (entityId: string) => void;
+}) {
+  return (
+    <Panel>
+      <h2 className="m-0 text-[20px] font-semibold leading-[1.2]">{question}</h2>
+      <div className="flex flex-col gap-2">
+        {choices.map((c) => (
+          <button
+            key={c.entityId}
+            type="button"
+            onClick={() => onPick(c.entityId)}
+            className="flex cursor-pointer flex-col items-start gap-0.5 rounded-md border border-line bg-bg px-3.5 py-2.5 text-left font-body text-ink hover:bg-acc-soft"
+          >
+            <span className="text-body font-medium">{c.name}</span>
+            <span className="text-chip text-mute">
+              {categoryLabel(c.category as Category)}
+              {c.detail ? ` · ${c.detail}` : ""}
+            </span>
+          </button>
+        ))}
+      </div>
+    </Panel>
   );
 }
 

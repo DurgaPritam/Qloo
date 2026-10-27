@@ -15,6 +15,38 @@ const STEPS = [
   { n: "04", title: "Brief & outreach", body: "A one-page brief with every source, and two emails ready to review and send." },
 ];
 
+/** One door per kind of user, each into its own tool, with a real example to open. */
+const AUDIENCES = [
+  {
+    who: "Promoters & talent teams",
+    title: "Plan a takeover",
+    body: "A crossover partner, the city, the room, sponsors, a brief and the outreach for any fanbase.",
+    href: "/run?q=John%20Mulaney",
+    cta: "See John Mulaney's plan",
+  },
+  {
+    who: "Brands & agencies",
+    title: "Brand match",
+    body: "The artists, people, podcasts and shows your customers over-index on, and where they are.",
+    href: "/brand?brand=Patagonia",
+    cta: "Try Patagonia",
+  },
+  {
+    who: "Venues & festivals",
+    title: "Venue booker",
+    body: "The artists, stand-up comedians and podcasts your city loves, ready to book.",
+    href: "/venue?city=Austin",
+    cta: "Try Austin",
+  },
+  {
+    who: "Tour planners & fan clubs",
+    title: "City explorer",
+    body: "A fanbase's strongest cities at home and in three more countries, on one map.",
+    href: "/cities?q=Taylor%20Swift",
+    cta: "Try Taylor Swift",
+  },
+];
+
 const FAQ = [
   {
     q: "Where do the picks come from?",
@@ -33,8 +65,12 @@ const FAQ = [
     a: "No. The emails are drafts. Open one in your mail app, edit it and send it yourself.",
   },
   {
+    q: "What are Brand match, Venue booker and City explorer?",
+    a: "Three more ways in. Start from a brand, a city or a fanbase's map, and every result links straight to a full takeover plan.",
+  },
+  {
     q: "Is it free?",
-    a: "Yes. Each visitor gets five live plans an hour; the example plans are always instant.",
+    a: "Yes. Each visitor gets five live plans and thirty lookups an hour; the example plans are always instant.",
   },
 ];
 
@@ -74,6 +110,24 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
                 plan(e.name);
               }}
             />
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
+        <MonoLabel>Who it&apos;s for</MonoLabel>
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))]">
+          {AUDIENCES.map((a) => (
+            <Link
+              key={a.title}
+              href={a.href}
+              className="flex flex-col gap-1.5 rounded-md bg-surf p-panel text-ink no-underline hover:bg-acc-soft"
+            >
+              <div className="font-mono text-label uppercase tracking-[0.08em] text-acc-text">{a.who}</div>
+              <div className="t-display text-[22px] leading-[1.05]">{a.title}</div>
+              <div className="text-chip text-mute [text-wrap:pretty]">{a.body}</div>
+              <div className="mt-auto pt-1 text-chip font-medium">{a.cta} →</div>
+            </Link>
           ))}
         </div>
       </section>

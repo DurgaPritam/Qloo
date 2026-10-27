@@ -85,7 +85,8 @@ export async function llmOnlyAnswer(
     }
   }
 
-  const model = provider === undefined ? createProvider(env) : provider;
+  // Sample data never spends model quota (decisions D42); tests pass a fake provider explicitly.
+  const model = provider === undefined ? (mock ? null : createProvider(env)) : provider;
   if (!model) {
     return mock ? { text: SAMPLE_ANSWER, noSources: true, model: "sample", cached: false, mock } : null;
   }

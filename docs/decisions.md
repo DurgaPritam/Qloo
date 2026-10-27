@@ -235,3 +235,35 @@ tool calling); several Google projects to multiply quota (against the spirit of 
 board"; emails are written as the promoter and do not name Takeover. Gemini's first drafts said
 "We have Urban Outfitters, Dr. Martens, Free People onboard" and "on behalf of Takeover". Sponsor
 names are now joined as "A, B and C".
+
+**D42. Mock mode never calls the model.** The Playwright suite runs in mock mode but loads
+`.env.local`, so every sample run asked Gemini to write prose for sample data and used up a day of
+free quota on two models. Mock mode now always uses the scripted planner and the labelled sample
+LLM-only answer. *Considered:* keeping model prose in mock mode (it spends real quota on
+sample data and makes tests depend on Google's availability).
+
+## 2026-10-27 · From one tool to a site
+
+**D43. Four ways in, one place to keep work, no accounts.** Navigation and a footer on every page;
+the landing page gains "Who it's for", real plan cards and the with/without Qloo comparison from
+stored runs; `/explore` (every preloaded plan), `/plans` (finished plans in localStorage: no
+sign-up, nothing about the visitor on our server), `/compare`, `/method` (numbers read from the
+engine config). *Considered:* accounts and saved plans on the server (need an auth provider and
+a privacy story; out of scope before judging).
+
+**D44. Venue booker uses Qloo insights with a location as the only signal.** Probed on 27 Oct: for
+a city, Qloo returns artists, podcasts and people that over-index there (Seattle: Macklemore,
+Tacocat; Nashville: Kacey Musgraves; Atlanta: T.I.). Affinity is ~1.000 for most results, so
+Qloo's order is kept after the partner popularity band. "People" mixes in politicians and
+athletes, so comedians use Qloo's `urn:tag:occupation:person:stand_up_comedian` tag (Atlanta:
+Kountry Wayne, DC Young Fly, Druski); `urn:tag:genre:media:comedy` returned nothing.
+
+**D45. Brand match and City explorer reuse the takeover engine.** Brand match: `scorePartners`
+per category with `minCategories: 1`, and the brand's heatmap in its home market scored by
+`scoreCities` with the brand on both sides (cities of 300,000+). City explorer: four heatmaps (the
+fanbase's home market, then US, GB, CA, AU), cities of 150,000+; heat is relative within a
+country, which the page says. Every result links to a full takeover plan.
+
+**D46. Heatmap calls get a 20 s timeout and Redis reads 4 s.** Cold heatmaps for big fanbases
+(Taylor Swift, US) took longer than 8 s, and reading a cached 400 KB heatmap from Upstash took
+longer than 1.5 s from a home connection, which then fell back to the slow live call.

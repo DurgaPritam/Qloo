@@ -205,6 +205,22 @@ describe("error mapping", () => {
     expect(err.message).toMatch(/timed out after 10ms/);
   });
 
+  it("gives heatmaps a longer timeout than other calls", async () => {
+    const slow = (ms: number) => (_url: unknown, init?: RequestInit) =>
+      new Promise<Response>((resolve, reject) => {
+        const t = setTimeout(() => resolve(json({ results: { heatmap: [] } })), ms);
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(t);
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    const { client } = setup([], { timeoutMs: 10, fetch: slow(40) as typeof fetch });
+
+    await expect(client.get("/v2/insights", { "filter.type": "urn:heatmap" }, run)).resolves.toBeDefined();
+    const err = await catchError(client.get("/v2/insights", { "filter.type": "urn:entity:artist" }, run));
+    expect(err.message).toMatch(/timed out after 10ms/);
+  });
+
   it("maps network failures and invalid JSON to Upstream", async () => {
     const network = setup([], { fetch: async () => Promise.reject(new TypeError("fetch failed")) });
     expect(await catchError(network.client.get("/search", { q: "1" }, run))).toBeInstanceOf(

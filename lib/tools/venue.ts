@@ -6,6 +6,8 @@ import { findCity, rankLocal, type LocalPick } from "@/lib/engine/local";
 import type { Category, City } from "@/lib/engine/types";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
+import { describeFailure } from "./shared";
+
 export type BookingKind = "music" | "comedy" | "podcast";
 
 const KINDS: Record<BookingKind, { label: string; category: Category; tags?: string[]; note: string }> = {
@@ -57,7 +59,7 @@ export async function bookFor(
         calls.push({ endpoint: res.meta.endpoint, params: res.meta.params, cached: res.meta.cached, ms: res.meta.ms });
         return { kind, label: k.label, note: k.note, ...rankLocal(res.data) };
       } catch (err) {
-        console.warn(`[tools/venue] ${kind} failed:`, err instanceof Error ? `${err.name}: ${err.message.slice(0, 120)}` : "unknown");
+        console.warn(`[tools/venue] ${kind} failed:`, describeFailure(err));
         return { kind, label: k.label, note: k.note, picks: [], dropped: 0, error: "Qloo had no answer for this list; try again shortly." };
       }
     }),

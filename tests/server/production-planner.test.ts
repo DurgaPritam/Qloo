@@ -19,6 +19,7 @@ describe("planner in production", () => {
     expect(() => createPlanner({ VERCEL_ENV: "production" })).toThrow(PlannerConfigError);
     expect(plannerStatus({ VERCEL_ENV: "preview" })).toMatchObject({ ok: true, kind: "scripted" });
     expect(plannerStatus({})).toMatchObject({ ok: true, kind: "scripted" });
+    expect(plannerStatus({ TAKEOVER_MOCK: "1", GEMINI_API_KEY: "k" })).toMatchObject({ ok: true, kind: "scripted" });
     expect(plannerStatus({ VERCEL_ENV: "production", GEMINI_API_KEY: "k" })).toMatchObject({
       ok: true,
       kind: "gemini",

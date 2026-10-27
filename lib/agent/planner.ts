@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createProvider, keyEnvName, MAX_OUTPUT_TOKENS, providerStatus } from "@/lib/llm";
+import { isMockMode } from "@/lib/mock-mode";
 import type { ChatTurn, LLMProvider, ProviderName, ToolChat, ToolResult } from "@/lib/llm/types";
 
 import { nextScriptedCalls } from "./script";
@@ -132,6 +133,8 @@ export type PlannerStatus =
  */
 export function plannerStatus(env: Record<string, string | undefined> = process.env): PlannerStatus {
   const p = providerStatus(env);
+  // Sample data never spends model quota (decisions D42).
+  if (isMockMode(env)) return { ok: true, kind: "scripted", provider: p.provider, model: null };
   if (!p.ok) return { ok: false, kind: "unavailable", provider: p.provider, model: null, reason: p.reason };
   if (p.configured) return { ok: true, kind: p.provider, provider: p.provider, model: p.model };
   if (env.VERCEL_ENV === "production") {

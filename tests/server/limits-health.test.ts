@@ -33,10 +33,11 @@ describe("health", () => {
 
   it("reports status and limits without secrets", async () => {
     const GEMINI = "gemini-test-value-not-a-key";
-    const h = await getHealth({ TAKEOVER_MOCK: "1", QLOO_API_KEY: SECRET, GEMINI_API_KEY: GEMINI });
+    // No QLOO_BASE_URL, so Qloo is reported unconfigured and never called.
+    const h = await getHealth({ QLOO_API_KEY: SECRET, GEMINI_API_KEY: GEMINI });
     expect(h).toMatchObject({
-      mock: true,
-      qloo: { reachable: null },
+      mock: false,
+      qloo: { configured: false },
       redis: { configured: false },
       llm: { provider: "gemini", model: "gemini-3.6-flash", configured: true, planner: "gemini", ok: true, tokenBudget: 2_000_000 },
       limits: { runsPerVisitorPerHour: LIMITS.runsPerHour, dailyRuns: LIMITS.dailyRuns },

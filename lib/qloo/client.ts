@@ -10,6 +10,8 @@ import {
 import { BudgetExceededError, NotFoundError, RateLimitedError, UpstreamError } from "./errors";
 
 export const QLOO_TIMEOUT_MS = 8_000;
+/** Heatmaps for big fanbases (Taylor Swift in the US) take longer than 8 s on a cold cache. */
+export const QLOO_HEATMAP_TIMEOUT_MS = 20_000;
 export const QLOO_RUN_BUDGET = 25;
 export const QLOO_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -90,7 +92,8 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
 
   async function attempt(req: HttpRequest): Promise<HttpResponse> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const ms = req.fail.params["filter.type"] === "urn:heatmap" ? Math.max(timeoutMs, QLOO_HEATMAP_TIMEOUT_MS) : timeoutMs;
+    const timer = setTimeout(() => controller.abort(), ms);
     try {
       const res = await doFetch(req.url, {
         headers: { "X-Api-Key": req.apiKey, Accept: "application/json" },
@@ -111,7 +114,7 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
       };
     } catch (err) {
       const message = controller.signal.aborted
-        ? `Qloo ${req.fail.endpoint} timed out after ${timeoutMs}ms`
+        ? `Qloo ${req.fail.endpoint} timed out after ${ms}ms`
         : `Qloo ${req.fail.endpoint} request failed`;
       throw new UpstreamError({ ...req.fail, message, cause: redactError(err, req.redact) });
     } finally {

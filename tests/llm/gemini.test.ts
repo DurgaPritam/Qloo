@@ -371,7 +371,10 @@ describe("daily token budget", () => {
 
   describe("POST /api/plan when the budget is spent", () => {
     beforeAll(() => {
-      vi.stubEnv("TAKEOVER_MOCK", "1");
+      // Real mode (mock mode never calls the model); Qloo is never reached, the budget stops the run first.
+      vi.stubEnv("TAKEOVER_MOCK", "");
+      vi.stubEnv("QLOO_API_KEY", "test-qloo-value");
+      vi.stubEnv("QLOO_BASE_URL", "https://qloo.test");
       vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
       vi.stubEnv("GEMINI_API_KEY", "test-gemini-value");
       vi.stubEnv("LLM_DAILY_TOKEN_BUDGET", "1000");
