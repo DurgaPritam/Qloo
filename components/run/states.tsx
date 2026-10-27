@@ -24,7 +24,7 @@ export function EntityPicker({ needs, onPick, busy }: { needs: NeedsInput; onPic
             aria-checked={i === picked}
             onClick={() => setPicked(i)}
             className={cx(
-              "grid cursor-pointer grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border bg-bg p-2 text-left font-body text-ink",
+              "grid cursor-pointer grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border-th bg-bg p-2 text-left font-body text-ink",
               i === picked ? "border-acc-line" : "border-line",
             )}
           >

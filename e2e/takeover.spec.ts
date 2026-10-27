@@ -43,7 +43,7 @@ test("a misspelling shows suggestions and resumes on click", async ({ page }) =>
 
 test("an ambiguous name shows the picker with category", async ({ page }) => {
   await run(page, "Mercury");
-  const picker = page.getByRole("radiogroup");
+  const picker = page.getByRole("radiogroup").filter({ hasText: "Mercury" });
   await expect(picker).toBeVisible();
   await expect(picker.getByRole("radio")).toHaveCount(2);
   await expect(picker.getByText("Film", { exact: true })).toBeVisible();
@@ -206,4 +206,15 @@ test("the tour planner draws a route with every leg", async ({ page }) => {
   await expect(page.getByText("Plan the opening takeover →")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("start", { exact: true })).toBeVisible();
   await expect(page.locator("svg path[stroke-dasharray]")).toHaveCount(1);
+});
+
+test("the Gen Z theme applies and survives a reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("radio", { name: "Gen Z" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "genz");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "genz");
+  await expect(page.getByRole("radio", { name: "Gen Z" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: "Dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

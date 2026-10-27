@@ -296,3 +296,10 @@ used up the day's 120 live runs. Mock-mode limiters now live in memory.
 - *Search suggestions*: Qloo `/search` after 300 ms and 3+ characters, cached, 300 an hour per
   visitor; Enter keeps what was typed unless a suggestion was chosen with the arrow keys (a slow
   answer for earlier text was replacing the typed name).
+
+**D50. Gen Z is a third theme, as the updated handoff specifies** (`data-theme="genz"`: warm paper
+palette, `--bw`/`--card-bw`/`--shadow` tokens). Hairline elements use `border-th` (2px ink in Gen
+Z), panels, cards, step cards, the primary button and segmented controls `border-card border-ink`,
+surfaces and the input bar `shadow-card`, the active tab `shadow-tab`; banners, dashed pills and
+table rules stay 1px. This replaces D47's Gen Z overlay on dark/light. The theme switch is one
+three-way control in the header's top row; a saved overlay setting migrates to the Gen Z theme.

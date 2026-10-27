@@ -41,14 +41,14 @@ export function OverlapForm({ initial = ["", ""] as const, onSubmit }: { initial
   useEffect(() => setA(ia), [ia]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setB(ib), [ib]);
-  const field = "min-w-0 flex-1 rounded-btn border border-line bg-bg px-3 py-2.5 font-body text-[17px] text-ink outline-none focus:border-acc-line";
+  const field = "min-w-0 flex-1 rounded-btn border-th border-line bg-bg px-3 py-2.5 font-body text-[17px] text-ink outline-none focus:border-acc-line";
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         if (a.trim() && b.trim()) onSubmit(a.trim(), b.trim());
       }}
-      className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surf p-2"
+      className="flex flex-wrap items-center gap-2 rounded-md border-th border-line bg-surf p-2 shadow-card"
     >
       <input value={a} onChange={(e) => setA(e.target.value)} placeholder="A fanbase, e.g. Taylor Swift" aria-label="First fanbase" maxLength={100} className={field} />
       <span className="t-display flex-none px-1 text-[22px] text-mute" aria-hidden>
@@ -137,7 +137,7 @@ export function FanOverlap() {
                 { who: r.b, among: r.a, value: r.bAmongA },
                 { who: r.a, among: r.b, value: r.aAmongB },
               ].map((d) => (
-                <div key={d.who.id} className="flex flex-col gap-1 rounded-md border border-line p-3.5">
+                <div key={d.who.id} className="flex flex-col gap-1 rounded-md border-th border-line p-3.5">
                   <MonoLabel>
                     {d.who.name} among {d.among.name} fans
                   </MonoLabel>

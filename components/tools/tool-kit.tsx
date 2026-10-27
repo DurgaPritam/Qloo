@@ -127,7 +127,7 @@ export function SampleBanner({ mock }: { mock?: boolean }) {
 export function CallsUsed({ calls }: { calls: CallView[] }) {
   if (!calls.length) return null;
   return (
-    <details className="rounded-md border border-line px-3.5 py-2.5 text-chip text-mute">
+    <details className="rounded-md border-th border-line px-3.5 py-2.5 text-chip text-mute">
       <summary className="cursor-pointer font-mono text-label uppercase tracking-[0.06em] text-acc-text">
         ◆ {calls.length} Qloo call{calls.length === 1 ? "" : "s"} behind this
       </summary>
@@ -169,7 +169,7 @@ export function ChoicePicker({
             key={c.entityId}
             type="button"
             onClick={() => onPick(c.entityId)}
-            className="flex cursor-pointer flex-col items-start gap-0.5 rounded-md border border-line bg-bg px-3.5 py-2.5 text-left font-body text-ink hover:bg-acc-soft"
+            className="flex cursor-pointer flex-col items-start gap-0.5 rounded-md border-th border-line bg-bg px-3.5 py-2.5 text-left font-body text-ink hover:bg-acc-soft"
           >
             <span className="text-body font-medium">{c.name}</span>
             <span className="text-chip text-mute">
@@ -197,7 +197,7 @@ export function RankRow({ rank, name, meta, extra }: { rank: number; name: strin
         href={planHref(name)}
         aria-label={`Plan a takeover for ${name}`}
         title="Plan a takeover"
-        className="flex-none whitespace-nowrap rounded-btn border border-line px-2.5 py-1 text-chip text-ink no-underline hover:bg-acc-soft"
+        className="flex-none whitespace-nowrap rounded-btn border-th border-line px-2.5 py-1 text-chip text-ink no-underline hover:bg-acc-soft"
       >
         Plan →
       </Link>

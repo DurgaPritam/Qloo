@@ -147,7 +147,7 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
             <Link
               key={a.title}
               href={a.href}
-              className="flex flex-col gap-1.5 rounded-md bg-surf p-panel text-ink no-underline hover:bg-acc-soft"
+              className="flex flex-col gap-1.5 rounded-md bg-surf p-panel border-card border-ink shadow-card text-ink no-underline hover:bg-acc-soft"
             >
               <div className="font-mono text-label uppercase tracking-[0.08em] text-acc-text">{a.who}</div>
               <div className="t-display text-[22px] leading-[1.05]">{a.title}</div>
@@ -178,7 +178,7 @@ export function Landing({ showcase }: { showcase?: ReactNode }) {
         <MonoLabel>What you get</MonoLabel>
         <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))]">
           {STEPS.map((s) => (
-            <div key={s.n} className="flex flex-col gap-1.5 rounded-md bg-surf p-panel">
+            <div key={s.n} className="flex flex-col gap-1.5 rounded-md bg-surf p-panel border-card border-ink shadow-card">
               <div className="font-mono text-label uppercase tracking-[0.08em] text-acc-text">Step {s.n}</div>
               <div className="text-body font-medium">{s.title}</div>
               <div className="text-chip text-mute [text-wrap:pretty]">{s.body}</div>

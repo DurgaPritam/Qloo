@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Takeover design tokens · accent set 1b (Lime / Anton), from design/design_handoff_takeover/tokens.css.
-   Theme: <html data-theme="dark | light">. No attribute = dark. Fonts come from next/font in app/layout.tsx. */
+   Theme: <html data-theme="dark | light | genz">. No attribute = dark. Fonts come from next/font in app/layout.tsx. */
 
 :root,
 [data-theme="dark"] {
@@ -35,6 +35,57 @@
   --acc-line: #6b8a00; /* thin accents: 3.9:1 on --surf, 3.2:1 on --track (non-text AA) */
   --acc-soft: #eef8c8;
   color-scheme: light;
+}
+
+/* Gen Z: warm paper, hard ink outlines, offset shadows. Same rules as light: --acc (lime) is
+   fill-only; text uses --acc-text, thin accents use --acc-line. From the handoff's tokens.css. */
+[data-theme="genz"] {
+  --bg: #f4eee0;
+  --surf: #fbf8f1;
+  --line: #1d1b26;
+  --ink: #1d1b26;
+  --mute: #4f4c5c;
+  --track: #e6dfcf;
+  --warn: #9a6500;
+  --err: #b3261e;
+  --acc: #d4ff3a; /* fill only */
+  --on-acc: #1d1b26;
+  --acc-text: #4d6300;
+  --acc-line: #6b8a00;
+  --acc-soft: #eef8c8;
+  color-scheme: light;
+}
+:root,
+[data-theme="dark"],
+[data-theme="light"] {
+  --bw: 1px;
+  --card-bw: 0px;
+  --shadow: none;
+  --shadow-tab: none;
+}
+/* After the reset above, which :root also matches. */
+[data-theme="genz"] {
+  --bw: 2px; /* hairlines on chips, inputs, secondary buttons and inset cards */
+  --card-bw: 2px; /* ink outline on panels, cards, step cards, the primary button, segmented control */
+  --shadow: 4px 4px 0 #1d1b26; /* panels, cards, input bar */
+  --shadow-tab: 2px 2px 0 #1d1b26; /* active segmented tab */
+}
+
+/* Theme-dependent widths and shadows (tailwind.config.js in the handoff: border-th, border-card,
+   shadow-card). Each sets the style too, so it replaces Tailwind's `border`. */
+@utility border-th {
+  border-style: solid;
+  border-width: var(--bw, 1px);
+}
+@utility border-card {
+  border-style: solid;
+  border-width: var(--card-bw, 0px);
+}
+@utility shadow-card {
+  box-shadow: var(--shadow, none);
+}
+@utility shadow-tab {
+  box-shadow: var(--shadow-tab, none);
 }
 
 :root {
@@ -194,28 +245,5 @@
   body {
     background: var(--paper);
     color-scheme: light;
-  }
-}
-
-/* "Gen Z" style from the design (Landing.dc.html, mode genz): thicker ink borders and hard offset
-   shadows on surfaces and controls. Existing tokens only; the brief's paper page and print stay plain. */
-@media screen {
-  [data-style="genz"] .bg-surf,
-  [data-style="genz"] .border.border-line {
-    border: 2px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--ink);
-  }
-  [data-style="genz"] .bg-acc {
-    border: 2px solid var(--ink);
-    box-shadow: 3px 3px 0 var(--ink);
-  }
-  [data-style="genz"] .bg-paper,
-  [data-style="genz"] .bg-paper .bg-surf {
-    box-shadow: none;
-  }
-  [data-style="genz"] a.bg-surf:hover,
-  [data-style="genz"] button.border:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: 5px 5px 0 var(--ink);
   }
 }

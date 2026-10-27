@@ -180,7 +180,7 @@ export function RunScreen() {
       />
 
       {/* Mobile: log collapses into a progress bar */}
-      <div className="flex flex-col gap-2.5 rounded-md bg-surf p-4 md:hidden print:hidden">
+      <div className="flex flex-col gap-2.5 rounded-md bg-surf p-4 border-card border-ink shadow-card md:hidden print:hidden">
         <div className="flex items-baseline gap-2">
           <div className="tabular font-mono text-label uppercase tracking-[0.08em] text-acc-text">{complete} / 7</div>
           <div className="min-w-0 flex-1 truncate text-body font-medium">{currentTitle}</div>
@@ -212,7 +212,7 @@ export function RunScreen() {
               {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
               {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
               {saved && saved === view.plan?.runId && (
-                <Link href="/plans" className="rounded-pill border border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
+                <Link href="/plans" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
                   Saved to My plans
                 </Link>
               )}

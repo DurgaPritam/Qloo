@@ -12,7 +12,7 @@ export function PlanCard({ plan, href }: { plan: PlanSummary; href?: string }) {
   return (
     <Link
       href={href ?? planHref(plan.query)}
-      className="flex min-w-0 flex-col gap-2 rounded-md bg-surf p-[18px] text-ink no-underline outline-offset-2 hover:bg-acc-soft"
+      className="flex min-w-0 flex-col gap-2 rounded-md bg-surf p-[18px] border-card border-ink shadow-card text-ink no-underline outline-offset-2 hover:bg-acc-soft"
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <MonoLabel className="text-acc-text">{categoryLabel(plan.category)}</MonoLabel>
@@ -50,7 +50,7 @@ export function Comparison({ plan, llmText }: { plan: PlanSummary; llmText: stri
   const llm = llmText.length > 420 ? `${llmText.slice(0, 419).trimEnd()}…` : llmText;
   return (
     <div className="grid gap-2 md:grid-cols-2">
-      <div className="flex flex-col gap-2 rounded-md bg-surf p-[18px]">
+      <div className="flex flex-col gap-2 rounded-md bg-surf p-[18px] border-card border-ink shadow-card">
         <div className="flex items-center justify-between gap-2">
           <MonoLabel className="text-acc-text">With Qloo</MonoLabel>
           <SourceBadge />
@@ -67,7 +67,7 @@ export function Comparison({ plan, llmText }: { plan: PlanSummary; llmText: stri
           Open the plan →
         </Link>
       </div>
-      <div className="flex flex-col gap-2 rounded-md border border-line p-[18px]">
+      <div className="flex flex-col gap-2 rounded-md border-th border-line p-[18px]">
         <div className="flex items-center justify-between gap-2">
           <MonoLabel>Same model, no taste data</MonoLabel>
           <NoSourceBadge />

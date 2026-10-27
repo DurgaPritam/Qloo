@@ -32,11 +32,9 @@ export function AppHeader({ context, right }: { context?: string; right?: ReactN
         {context && <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-mute">{context}</div>}
         <div className="flex-1" />
         {right}
-      </div>
-      <div className="flex items-center gap-3">
-        <SiteNav />
         <AppearanceControls />
       </div>
+      <SiteNav />
     </header>
   );
 }
@@ -46,7 +44,7 @@ function SiteNav() {
   const path = usePathname();
   const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/run") : path.startsWith(href));
   return (
-    <nav aria-label="Main" className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+    <nav aria-label="Main" className="-mx-1 flex min-w-0 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
       {NAV.map((item) => (
         <Link
           key={item.href}
@@ -66,13 +64,13 @@ function SiteNav() {
 
 /* ---------- Surfaces ---------- */
 export const Panel = ({ children, className, style }: { children: ReactNode; className?: string; style?: CSSProperties }) => (
-  <section className={cx("flex flex-col gap-4 rounded-lg bg-surf p-panel", className)} style={style}>
+  <section className={cx("flex flex-col gap-4 rounded-lg bg-surf p-panel border-card border-ink shadow-card", className)} style={style}>
     {children}
   </section>
 );
 
 export const Card = ({ children, className, inset }: { children: ReactNode; className?: string; inset?: boolean }) => (
-  <div className={cx("flex min-w-0 flex-col rounded-md", inset ? "border border-line bg-bg p-[18px]" : "bg-surf p-[18px]", className)}>
+  <div className={cx("flex min-w-0 flex-col rounded-md", inset ? "border-th border-line bg-bg p-[18px]" : "bg-surf p-[18px] border-card border-ink shadow-card", className)}>
     {children}
   </div>
 );
@@ -88,9 +86,9 @@ export function Button({
   ...p
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant; loading?: boolean }) {
   const v = {
-    primary: "bg-acc text-on-acc font-medium hover:brightness-110",
-    secondary: "bg-transparent text-ink border border-line hover:bg-acc-soft",
-    pick: "bg-transparent text-ink border border-line font-medium hover:bg-acc hover:text-on-acc hover:border-acc",
+    primary: "bg-acc text-on-acc font-medium hover:brightness-110 border-card border-ink",
+    secondary: "bg-transparent text-ink border-th border-line hover:bg-acc-soft",
+    pick: "bg-transparent text-ink border-th border-line font-medium hover:bg-acc hover:text-on-acc hover:border-acc",
   }[variant];
   return (
     <button
@@ -123,7 +121,7 @@ export function Segmented<T extends string>({
   label?: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-0.5 rounded-md bg-track p-[3px]">
+    <div role="tablist" aria-label={label} className="flex gap-0.5 rounded-md bg-track p-[3px] border-card border-ink">
       {options.map((o) => (
         <button
           key={o.value}
@@ -134,7 +132,7 @@ export function Segmented<T extends string>({
           className={cx(
             "cursor-pointer rounded-btn border-0 px-3.5 py-1.5",
             mono ? "font-mono text-label uppercase tracking-[0.06em]" : "font-body text-chip font-medium",
-            o.value === value ? "bg-surf text-ink" : "bg-transparent text-mute",
+            o.value === value ? "bg-surf text-ink shadow-tab" : "bg-transparent text-mute",
           )}
         >
           {o.label}
@@ -184,7 +182,7 @@ export function InputBar({
           onSubmit?.();
         }}
         className={cx(
-          "flex items-center gap-2 rounded-md border border-line bg-surf",
+          "flex items-center gap-2 rounded-md border-th border-line bg-surf shadow-card",
           size === "lg" ? "py-2 pl-[18px] pr-2" : "py-1.5 pl-3.5 pr-1.5",
         )}
       >
@@ -220,7 +218,7 @@ export function InputBar({
           disabled={busy}
           aria-busy={busy || undefined}
           className={cx(
-            "flex-none cursor-pointer rounded-btn bg-acc font-medium text-on-acc hover:brightness-110 disabled:cursor-default disabled:opacity-55",
+            "flex-none cursor-pointer rounded-btn border-card border-ink bg-acc font-medium text-on-acc hover:brightness-110 disabled:cursor-default disabled:opacity-55",
             size === "lg" ? "px-5 py-3.5 text-body" : "px-3.5 py-2 text-chip",
           )}
         >
@@ -231,7 +229,7 @@ export function InputBar({
         <ul
           id="search-suggestions"
           role="listbox"
-          className="absolute inset-x-0 top-full z-20 m-0 mt-1 flex list-none flex-col rounded-md border border-line bg-surf p-1"
+          className="absolute inset-x-0 top-full z-20 m-0 mt-1 flex list-none flex-col rounded-md border-th border-line bg-surf p-1 shadow-card"
         >
           {s.items.map((item, i) => (
             <li
@@ -305,7 +303,7 @@ export const Chip = ({ kind, label, onClick }: { kind?: string; label: string; o
   <button
     type="button"
     onClick={onClick}
-    className="flex cursor-pointer items-baseline gap-1.5 rounded-pill border border-line bg-transparent px-3 py-[5px] font-body text-chip text-mute hover:border-acc-soft hover:bg-acc-soft hover:text-ink"
+    className="flex cursor-pointer items-baseline gap-1.5 rounded-pill border-th border-line bg-transparent px-3 py-[5px] font-body text-chip text-mute hover:border-acc-soft hover:bg-acc-soft hover:text-ink"
   >
     {kind && <span className="font-mono text-label uppercase tracking-[0.06em]">{kind}</span>}
     <span>{label}</span>
@@ -319,7 +317,7 @@ export const SourceBadge = ({ children = "Qloo signal" }: { children?: ReactNode
 );
 
 export const NoSourceBadge = () => (
-  <span className="rounded-badge border border-line px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-mute">
+  <span className="rounded-badge border-th border-line px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-mute">
     No source
   </span>
 );
@@ -331,7 +329,7 @@ export const ConfirmPill = ({ children }: { children: ReactNode }) => (
 );
 
 export const OutlineChip = ({ children }: { children: ReactNode }) => (
-  <span className="rounded-pill border border-line px-2.5 py-0.5 text-chip text-mute">{children}</span>
+  <span className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute">{children}</span>
 );
 
 /* ---------- Score bar ---------- */
@@ -545,7 +543,7 @@ export function EmailCard({
       <div className="flex flex-wrap gap-2 pt-1">
         <Button onClick={onCopy}>{copied ? "Copied" : "Copy"}</Button>
         {showMailto && mailto && (
-          <a href={mailto} className="rounded-btn border border-line px-3 py-1.5 text-chip text-ink no-underline hover:bg-acc-soft">
+          <a href={mailto} className="rounded-btn border-th border-line px-3 py-1.5 text-chip text-ink no-underline hover:bg-acc-soft">
             Open in mail
           </a>
         )}
@@ -613,7 +611,7 @@ export function StepCard({
       data-step={s.n}
       data-status={s.status}
       className={cx(
-        "flex flex-col gap-2 rounded-md border bg-surf px-4 py-3.5 transition-[opacity,border-color] duration-300",
+        "flex flex-col gap-2 rounded-md border-th bg-surf px-4 py-3.5 shadow-card transition-[opacity,border-color] duration-300",
         stepBorder[s.status],
         s.status === "waiting" && "opacity-55",
       )}

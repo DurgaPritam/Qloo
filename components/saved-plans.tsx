@@ -56,7 +56,7 @@ export function SavedPlans() {
         {plans.map((p) => {
           const on = picked.includes(p.runId);
           return (
-            <article key={p.runId} className={cx("flex flex-col gap-2 rounded-md bg-surf p-[18px]", on && "outline outline-1 outline-acc-line")}>
+            <article key={p.runId} className={cx("flex flex-col gap-2 rounded-md bg-surf p-[18px] border-card border-ink shadow-card", on && "outline outline-1 outline-acc-line")}>
               <div className="flex flex-wrap items-start gap-3">
                 <div className="flex min-w-[220px] flex-1 flex-col gap-1">
                   {editing === p.runId ? (
@@ -74,7 +74,7 @@ export function SavedPlans() {
                         defaultValue={p.title ?? `${p.fanbase} × ${p.partner}`}
                         aria-label="Plan name"
                         autoFocus
-                        className="min-w-0 flex-1 rounded-btn border border-line bg-bg px-2.5 py-1.5 font-body text-body text-ink"
+                        className="min-w-0 flex-1 rounded-btn border-th border-line bg-bg px-2.5 py-1.5 font-body text-body text-ink"
                       />
                       <Button type="submit" variant="primary">
                         Save

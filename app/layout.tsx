@@ -29,8 +29,8 @@ export const viewport: Viewport = {
 };
 
 // Before first paint: the saved theme (components/appearance.tsx), else a light system
-// preference, else dark; and the saved "Gen Z" style.
-const THEME_SCRIPT = `try{var d=document.documentElement,t=localStorage.getItem("takeover:theme");if(t==="light"||t==="dark")d.dataset.theme=t;else if(matchMedia("(prefers-color-scheme: light)").matches)d.dataset.theme="light";if(localStorage.getItem("takeover:style")==="genz")d.dataset.style="genz"}catch(e){}`;
+// preference, else dark. The old separate "Gen Z" style setting becomes the Gen Z theme.
+const THEME_SCRIPT = `try{var d=document.documentElement,t=localStorage.getItem("takeover:theme");if(localStorage.getItem("takeover:style")==="genz"){t="genz";localStorage.setItem("takeover:theme",t);localStorage.removeItem("takeover:style")}if(t==="light"||t==="dark"||t==="genz")d.dataset.theme=t;else if(matchMedia("(prefers-color-scheme: light)").matches)d.dataset.theme="light"}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
