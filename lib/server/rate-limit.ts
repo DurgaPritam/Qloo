@@ -11,6 +11,8 @@ export const LIMITS = {
   runsPerHour: 5,
   /** Resumes and swaps ("Use this partner/city") per visitor per hour; cheap, mostly cached. */
   replansPerHour: 20,
+  /** Venue booker, Brand match and City explorer lookups per visitor per hour (a few Qloo calls each). */
+  toolsPerHour: 30,
   /** Live runs per day across all visitors. Size it to the Qloo plan with TAKEOVER_DAILY_RUNS. */
   dailyRuns: dailyCeiling(process.env.TAKEOVER_DAILY_RUNS),
 } as const;
@@ -119,12 +121,13 @@ function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): Rate
   return new UpstashLimiter(ratelimit, memory);
 }
 
-let limiters: { runs: RateLimiter; replans: RateLimiter; daily: RateLimiter } | undefined;
+let limiters: { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; daily: RateLimiter } | undefined;
 
 export function getLimiters() {
   limiters ??= {
     runs: build("runs", LIMITS.runsPerHour),
     replans: build("replans", LIMITS.replansPerHour),
+    tools: build("tools", LIMITS.toolsPerHour),
     daily: build("daily", LIMITS.dailyRuns, "1 d"),
   };
   return limiters;

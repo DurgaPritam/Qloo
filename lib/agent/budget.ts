@@ -35,6 +35,7 @@ export function withBudget(source: QlooSource, runId: string, limit = QLOO_RUN_B
     used: () => used,
     searchEntities: (...a) => guard("/search", () => source.searchEntities(...a)),
     candidates: (...a) => guard("/v2/insights", () => source.candidates(...a)),
+    local: (...a) => guard("/v2/insights", () => source.local(...a)),
     heatmap: (...a) => guard("/v2/insights", () => source.heatmap(...a)),
     places: (...a) => guard("/v2/insights", () => source.places(...a)),
     brands: (...a) => guard("/v2/insights", () => source.brands(...a)),

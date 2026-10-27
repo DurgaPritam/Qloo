@@ -65,6 +65,15 @@ export class QlooApiSource implements QlooSource {
     return { data: compact(entities(res.data).map((e) => toCandidate(e, category))), meta: live(res.meta) };
   }
 
+  async local(category: Category, location: string, tags: readonly string[] | undefined, opts: { runId: string }) {
+    const res = await this.client.get<RawList>(
+      "/v2/insights",
+      { "filter.type": urn(category), "signal.location.query": location, "filter.tags": tags?.length ? [...tags] : undefined, take: 20 },
+      opts,
+    );
+    return { data: compact(entities(res.data).map((e) => toCandidate(e, category))), meta: live(res.meta) };
+  }
+
   async heatmap(entityIds: readonly string[], location: string | undefined, opts: { runId: string }) {
     // Qloo requires a location for heatmaps (docs/qloo-shapes.md); callers pass the market.
     if (!location) throw new Error("A heatmap needs a location (a country name).");

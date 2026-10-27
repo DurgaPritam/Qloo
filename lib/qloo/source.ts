@@ -32,6 +32,16 @@ export interface QlooSource {
     location: string | undefined,
     opts: QlooCallOptions,
   ): Promise<SourceResult<Candidate[]>>;
+  /**
+   * Entities of one category that people in a place over-index on, with no fanbase signal
+   * (Venue booker). `tags` narrows the results, e.g. to stand-up comedians.
+   */
+  local(
+    category: Category,
+    location: string,
+    tags: readonly string[] | undefined,
+    opts: QlooCallOptions,
+  ): Promise<SourceResult<Candidate[]>>;
   heatmap(
     entityIds: readonly string[],
     location: string | undefined,

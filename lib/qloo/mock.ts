@@ -58,6 +58,21 @@ export class MockQlooSource implements QlooSource {
     });
   }
 
+  async local(category: Category, location: string, tags: readonly string[] | undefined): Promise<SourceResult<Candidate[]>> {
+    const data = (MOCK_CANDIDATES[category] ?? []).map((item, i) => ({
+      id: `mock:local:${category}:${i}`,
+      name: item.name,
+      category,
+      affinity: jitter(item.affinity, `${location}|${category}|${i}`),
+      popularity: item.popularity,
+    }));
+    return result(data, "/v2/insights", {
+      "filter.type": `urn:entity:${category}`,
+      "signal.location.query": location,
+      "filter.tags": tags?.length ? [...tags] : undefined,
+    });
+  }
+
   async heatmap(
     entityIds: readonly string[],
     location: string | undefined,

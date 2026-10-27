@@ -51,6 +51,13 @@ export const ENGINE_CONFIG = {
     /** The radius around the chosen city used when the country alone is too thin. */
     widenKm: 2500,
   },
+  /** Venue booker: who people in a city over-index on, with no fanbase signal. */
+  local: {
+    count: 8,
+    /** Same band as partners: no mega-stars, nothing too obscure to sell tickets. */
+    maxPopularity: 0.999,
+    minPopularity: 0.5,
+  },
   places: {
     /** Venues considered for the main room. */
     count: 5,
