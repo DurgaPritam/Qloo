@@ -211,6 +211,14 @@ export function RunScreen() {
               {fanbase && <OutlineChip>{categoryLabel(fanbase.category)}</OutlineChip>}
               {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
               {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
+              {finished && view.plan?.status === "complete" && (
+                <Link
+                  href={`/plan/${view.plan.runId}#vote`}
+                  className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink"
+                >
+                  Ask your team to vote
+                </Link>
+              )}
               {saved && saved === view.plan?.runId && (
                 <Link href="/plans" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
                   Saved to My plans

@@ -4,6 +4,7 @@ import type { AgentEvent, Overrides } from "@/lib/agent/types";
 import { getTokenBudget } from "@/lib/llm/budget";
 import { getQlooSource } from "@/lib/qloo/source";
 import { savePlan } from "@/lib/server/plan-store";
+import { recordTrend } from "@/lib/server/trending";
 import { DAILY_ID, getLimiters, isE2eRequest, LIMITS, visitorId, type LimitResult } from "@/lib/server/rate-limit";
 import { loadRecording, replay } from "@/lib/server/replay";
 import { SSE_HEADERS, sseStream } from "@/lib/server/sse";
@@ -101,6 +102,12 @@ export async function POST(req: Request): Promise<Response> {
         { runId, overrides, source, planner: createPlanner(), emit: send, signal: req.signal },
       );
       await savePlan(plan);
+      if (!plan.mock && plan.status === "complete" && plan.fanbase) {
+        await Promise.all([
+          recordTrend("fanbase", plan.fanbase.name),
+          plan.room ? recordTrend("city", `${plan.room.cityName}|${plan.city?.chosen?.pick.city.country ?? ""}`) : null,
+        ]);
+      }
     } catch (err) {
       console.error("[api/plan] run failed:", err instanceof Error ? err.name : "unknown");
       send({

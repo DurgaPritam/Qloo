@@ -22,6 +22,15 @@ know (capacity, dates, prices, availability) is shown as "to confirm with the pr
 | Tour planners & fan clubs | **City explorer** (`/cities`) | A fanbase | Its strongest cities at home and in three more countries, on one map |
 | Artists & agents | **Tour planner** (`/tour`) | A fanbase | A 4–8 stop route through its strongest cities with every leg's distance |
 
+More ways to play and share, all on Qloo data:
+
+- **Takeover Daily** (`/daily`): a new fanbase every day; guess Qloo's partner, city and sponsor in three rounds, keep a streak, share your grid.
+- **Lineup builder** (`/lineup`): a headliner in; Qloo's support acts, host, city and venue out, with a live crowd fit and a festival poster to download and share.
+- **Meet the fan** (`/fan/<name>`): who a fanbase's fans are and what else they love, as a shareable card.
+- **City pages** (`/city/<name>`): what each city over-indexes on, ready for search engines.
+- **Team vote**: share a plan and let teammates vote on the partner and city, no sign-up.
+- **Trending**: the overlaps people checked and the cities plans landed in this week.
+
 Every result links to a full takeover plan. The search box suggests Qloo matches as you type,
 "Surprise me" opens a random example, shared plan links get a preview card, and the landing page
 shows plans visitors made recently. Dark/light and the design's Gen Z style are a click away. **Explore** (`/explore`) shows every preloaded plan,
@@ -179,6 +188,9 @@ City names, regions, coordinates and populations come from [GeoNames](https://ww
 (`cities15000`), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). We keep
 cities with population of 100,000 or more in `lib/engine/data/cities.json`; regenerate it with
 `npx tsx scripts/build-cities.ts`.
+
+Posters use [Anton](https://github.com/googlefonts/AntonFont) under the SIL Open Font License
+(`lib/fonts/OFL-Anton.txt`).
 
 Map outlines come from [Natural Earth](https://www.naturalearthdata.com/) (public domain) via
 [world-atlas](https://github.com/topojson/world-atlas) (ISC), served from `public/geo/`.

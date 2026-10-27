@@ -303,3 +303,39 @@ Z), panels, cards, step cards, the primary button and segmented controls `border
 surfaces and the input bar `shadow-card`, the active tab `shadow-tab`; banners, dashed pills and
 table rules stay 1px. This replaces D47's Gen Z overlay on dark/light. The theme switch is one
 three-way control in the header's top row; a saved overlay setting migrates to the Gen Z theme.
+
+## 2026-10-27 · New ideas on Qloo data
+
+**D51. Takeover Daily** (`/daily`): one preloaded plan a day (seeded by the UTC date; the first in
+the day's order that fills all three rounds), so it costs no Qloo or model calls. Rounds: the
+partner (the plan's shortlist plus another plan's partner), the city (Qloo's top cities, the
+biggest by population, then the plan's map list), the sponsor (the plan's top brand plus other
+plans' sponsors). Answers stay on the server and are checked per guess; reveals are the plan's own
+numbers. Streak and stats live in the browser. Puzzle #1 is 27 Oct 2026.
+
+**D52. Lineup builder** (`/lineup`): support acts (artists) and hosts (people) scored by the
+partner engine on the headliner's signal, its strongest city in its home market and a venue
+there; 5 Qloo calls. "Crowd fit" is the mean Qloo affinity of the picks among the headliner's fans,
+×100, and the page says so. Suggestions are stored for a day and a saved poster may only use them,
+so a poster cannot carry names Qloo did not return (only the event name is free text, 40
+characters). Posters are rendered by `next/og` with Anton (SIL OFL, bundled in `lib/fonts/`), saved
+for 30 days, shareable with a preview card. Support acts are not offered again as hosts.
+
+**D53. Meet the fan** (`/fan/<name>`): demographics plus the top three per category (artist, TV,
+film, podcast, brand, book) by the partner score; the intro sentence is built by code from that
+data, no model call. Cached a day per name (`"use cache"`), which also serves its share image.
+
+**D54. City pages** (`/city/<slug>`): the Venue booker lists, now including brands (location-only
+Qloo insights); cached a day so crawlers cost nothing after the first visit.
+
+**D55. Trending** counts real use per UTC week in Redis sorted sets: fanbases and cities of
+completed live plans, and Fan overlap pairs. Names only; never in mock mode. Shown on the landing
+page as counts of use, never as Qloo scores.
+
+**D56. Team voting** on shared plans: one vote per visitor (hashed IP) per question (partner, city),
+changeable, stored as a hash per plan for 30 days; only the plan's own options are accepted.
+Upstash returns numeric strings as numbers, so values are normalised to strings.
+
+**D57. Navigation regrouped** to Plan · Daily · Tools · Explore · My plans · How it works; `/tools`
+lists every tool and the footer links them all. The nav is in a Suspense boundary because dynamic
+routes cannot read the path while prerendering.

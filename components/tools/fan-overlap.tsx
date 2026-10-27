@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import type { OverlapLevel } from "@/lib/engine/overlap";
+import { overlapHref } from "@/lib/site";
 import type { OverlapResult } from "@/lib/tools/overlap";
 
 import { AudienceGrid } from "../audience";
@@ -29,7 +30,7 @@ const LEVEL: Record<OverlapLevel, { title: string; body: string }> = {
   unknown: { title: "No direct score", body: "Qloo returned no score for this pair; the cities below still show where both are strong." },
 };
 
-export const overlapHref = (a: string, b: string) => `/overlap?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`;
+export { overlapHref };
 
 /** Two names in one form; used here and on the landing page. */
 export function OverlapForm({ initial = ["", ""] as const, onSubmit }: { initial?: readonly [string, string]; onSubmit: (a: string, b: string) => void }) {

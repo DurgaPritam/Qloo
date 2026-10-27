@@ -8,13 +8,21 @@ import { MonoLabel, Skeleton } from "@/components/ui";
 import { cachedLlmOnly } from "@/lib/server/llm-only";
 import { loadRecent } from "@/lib/server/plan-store";
 import { loadShowcase } from "@/lib/server/showcase";
+import { PAIR_SEP, topTrends } from "@/lib/server/trending";
+import { TrendingStrip } from "@/components/trending";
 
 /** The run shown in the "with Qloo vs without" strip. */
 const COMPARE = "Phoebe Bridgers";
 
 async function Showcase() {
   await connection();
-  const [plans, recent] = await Promise.all([loadShowcase(), loadRecent(3)]);
+  const [plans, recent, pairs, cities, fanbases] = await Promise.all([
+    loadShowcase(),
+    loadRecent(3),
+    topTrends("pair"),
+    topTrends("city"),
+    topTrends("fanbase"),
+  ]);
   if (plans.length === 0) return null;
   const compare = plans.find((p) => p.query === COMPARE);
   const llm = compare ? await cachedLlmOnly(compare.fanbase) : null;
@@ -29,6 +37,7 @@ async function Showcase() {
         </div>
         <PlanGrid plans={plans.slice(0, 6)} />
       </section>
+      <TrendingStrip pairs={pairs} cities={cities} fanbases={fanbases} sep={PAIR_SEP} />
       {recent.length > 0 && (
         <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
           <MonoLabel>Planned recently by visitors</MonoLabel>

@@ -7,9 +7,9 @@
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 
-import { NAV } from "@/lib/site";
+import { FOOTER_EXTRA, NAV, TOOLS } from "@/lib/site";
 
 import { AppearanceControls } from "./appearance";
 
@@ -34,15 +34,27 @@ export function AppHeader({ context, right }: { context?: string; right?: ReactN
         {right}
         <AppearanceControls />
       </div>
-      <SiteNav />
+      {/* The path is only known at request time; until then the links render without a highlight. */}
+      <Suspense fallback={<NavLinks active={() => false} />}>
+        <SiteNav />
+      </Suspense>
     </header>
   );
 }
 
-/** Scrolls sideways on a phone rather than wrapping. */
 function SiteNav() {
   const path = usePathname();
-  const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/run") : path.startsWith(href));
+  const active = (href: string) => {
+    if (href === "/") return path === "/" || path.startsWith("/run");
+    // Every tool page counts as "Tools"; /city must not match /cities.
+    if (href === "/tools") return path === "/tools" || TOOLS.some((t) => path === t.href || path.startsWith(`${t.href}/`));
+    return path === href || path.startsWith(`${href}/`);
+  };
+  return <NavLinks active={active} />;
+}
+
+/** Scrolls sideways on a phone rather than wrapping. */
+function NavLinks({ active }: { active: (href: string) => boolean }) {
   return (
     <nav aria-label="Main" className="-mx-1 flex min-w-0 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
       {NAV.map((item) => (
@@ -693,7 +705,7 @@ function SiteFooter({ max }: { max: string }) {
           <span className="[text-wrap:pretty]">Event plans for anyone with a fanbase, backed by Qloo taste data.</span>
         </div>
         <nav aria-label="Footer" className="flex flex-col gap-1">
-          {NAV.map((item) => (
+          {[...NAV, ...FOOTER_EXTRA].map((item) => (
             <Link key={item.href} href={item.href} className="text-mute no-underline hover:text-ink">
               {item.label}
             </Link>

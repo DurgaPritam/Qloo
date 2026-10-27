@@ -19,13 +19,13 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllEnvs());
 
 describe("POST /api/tools/venue", () => {
-  it("lists artists, comedians and podcasts for a known city, labelled as sample data", async () => {
+  it("lists artists, comedians, podcasts and brands for a known city, labelled as sample data", async () => {
     const res = await venue(postJson("http://localhost/api/tools/venue", { city: "Austin" }, "192.0.2.50"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ mock: true, city: { name: "Austin", country: "US" } });
-    expect(body.lists.map((l: { kind: string }) => l.kind)).toEqual(["music", "comedy", "podcast"]);
-    expect(body.calls).toHaveLength(3);
+    expect(body.lists.map((l: { kind: string }) => l.kind)).toEqual(["music", "comedy", "podcast", "brand"]);
+    expect(body.calls).toHaveLength(4);
     const comedy = body.calls.find((c: { params: Record<string, string> }) => c.params["filter.type"] === "urn:entity:person");
     expect(comedy.params["filter.tags"]).toBe("urn:tag:occupation:person:stand_up_comedian");
   });
@@ -100,5 +100,46 @@ describe("GET /api/suggest", () => {
     const body = await (await suggest(new Request("http://localhost/api/suggest?q=John Mulaney", { headers: { "x-forwarded-for": "192.0.2.99" } }))).json();
     expect(body.suggestions.length).toBeGreaterThan(0);
     expect(body.suggestions[0]).toHaveProperty("name");
+  });
+});
+
+describe("lineup", () => {
+  it("suggests acts and saves a poster only from its own suggestions", async () => {
+    const { POST: suggestLineup } = await import("@/app/api/tools/lineup/route");
+    const { POST: save } = await import("@/app/api/tools/lineup/save/route");
+    const draft = await (await suggestLineup(postJson("http://localhost/api/tools/lineup", { headliner: "John Mulaney" }, "192.0.2.110"))).json();
+    expect(draft.status).toBe("done");
+    expect(draft.acts.length).toBeGreaterThan(0);
+
+    const ok = await save(postJson("http://localhost/api/tools/lineup/save", { draftId: draft.draftId, actIds: [draft.acts[0].id], title: "Night One" }));
+    const saved = await ok.json();
+    expect(saved).toMatchObject({ title: "Night One", acts: [{ id: draft.acts[0].id }] });
+    expect(saved.crowdFit).toBe(Math.round(draft.acts[0].affinity * 100));
+
+    const forged = await save(postJson("http://localhost/api/tools/lineup/save", { draftId: draft.draftId, actIds: ["not-suggested"] }));
+    expect(forged.status).toBe(400);
+  });
+});
+
+describe("votes", () => {
+  it("counts one vote per visitor per question and refuses options the plan doesn't have", async () => {
+    const { POST: plan } = await import("@/app/api/plan/route");
+    const { GET: votes, POST: vote } = await import("@/app/api/votes/route");
+    const { readEvents } = await import("./sse");
+    const events = await readEvents(await plan(postJson("http://localhost/api/plan", { query: "John Mulaney" }, "192.0.2.120")));
+    const p = events.at(-1)!.data as { runId: string; partners: { picks: { pick: { entity: { id: string } } }[] } };
+    const [a, b] = p.partners.picks.map((x) => x.pick.entity.id);
+    const cast = (option: string, ip: string) =>
+      vote(postJson("http://localhost/api/votes", { runId: p.runId, question: "partner", option }, ip));
+
+    await cast(a, "192.0.2.121");
+    await cast(a, "192.0.2.122");
+    const changed = await (await cast(b, "192.0.2.122")).json();
+    expect(changed.partner.counts).toEqual({ [a]: 1, [b]: 1 });
+    expect(changed.partner.mine).toBe(b);
+    expect((await cast("nope", "192.0.2.123")).status).toBe(400);
+
+    const read = await (await votes(new Request(`http://localhost/api/votes?runId=${p.runId}`))).json();
+    expect(read.partner.counts).toEqual({ [a]: 1, [b]: 1 });
   });
 });

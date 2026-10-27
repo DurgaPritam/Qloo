@@ -1,4 +1,5 @@
 import { toolRequest, text } from "@/lib/server/tool-route";
+import { PAIR_SEP, recordTrend } from "@/lib/server/trending";
 import { checkOverlap } from "@/lib/tools/overlap";
 
 export const maxDuration = 30;
@@ -13,7 +14,9 @@ export async function POST(req: Request): Promise<Response> {
   if (!a || !b) return Response.json({ error: "Type two names (1–100 characters each).", mock: r.mock }, { status: 400 });
   try {
     const ids = { a: text(r.body.aId, 200) || undefined, b: text(r.body.bId, 200) || undefined };
-    return Response.json(await checkOverlap(a, b, ids, r.source, { runId: r.runId }));
+    const result = await checkOverlap(a, b, ids, r.source, { runId: r.runId });
+    if (result.status === "done" && !result.mock) await recordTrend("pair", `${result.a.name}${PAIR_SEP}${result.b.name}`);
+    return Response.json(result);
   } catch (err) {
     console.error("[api/tools/overlap] failed:", err instanceof Error ? err.name : "unknown");
     return Response.json({ error: "Qloo didn't answer. Try again.", mock: r.mock }, { status: 502 });

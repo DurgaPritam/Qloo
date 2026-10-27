@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { EXAMPLES, SHOWCASE } from "@/lib/examples";
+import { TOOLS } from "@/lib/site";
 
 import { OverlapForm, overlapHref, PAIRS } from "./tools/fan-overlap";
 
@@ -26,41 +27,8 @@ const AUDIENCES = [
     href: "/run?q=John%20Mulaney",
     cta: "See John Mulaney's plan",
   },
-  {
-    who: "Anyone curious",
-    title: "Fan overlap",
-    body: "Any two names. How much their fans overlap, where, and who those fans are.",
-    href: "/overlap?a=Phoebe%20Bridgers&b=PEN15",
-    cta: "Try Phoebe Bridgers × PEN15",
-  },
-  {
-    who: "Brands & agencies",
-    title: "Brand match",
-    body: "The artists, people, podcasts and shows your customers over-index on, and where they are.",
-    href: "/brand?brand=Patagonia",
-    cta: "Try Patagonia",
-  },
-  {
-    who: "Venues & festivals",
-    title: "Venue booker",
-    body: "The artists, stand-up comedians and podcasts your city loves, ready to book.",
-    href: "/venue?city=Austin",
-    cta: "Try Austin",
-  },
-  {
-    who: "Tour planners & fan clubs",
-    title: "City explorer",
-    body: "A fanbase's strongest cities at home and in three more countries, on one map.",
-    href: "/cities?q=Taylor%20Swift",
-    cta: "Try Taylor Swift",
-  },
-  {
-    who: "Artists & agents",
-    title: "Tour planner",
-    body: "A tour through a fanbase's strongest cities, in driving order, with every leg's distance.",
-    href: "/tour?q=Phoebe%20Bridgers",
-    cta: "Try Phoebe Bridgers",
-  },
+  { who: "Play daily", title: "Takeover Daily", body: "Guess what Qloo knows about today's fanbase in three rounds, then share your streak.", href: "/daily", cta: "Play today's puzzle" },
+  ...TOOLS.filter((t) => t.href !== "/city").map((t) => ({ who: t.who, title: t.label, body: t.body, href: t.example, cta: "See an example" })),
 ];
 
 const FAQ = [

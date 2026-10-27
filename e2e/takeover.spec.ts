@@ -218,3 +218,48 @@ test("the Gen Z theme applies and survives a reload", async ({ page }) => {
   await page.getByRole("radio", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
+
+test("the lineup builder saves a shareable poster", async ({ page }) => {
+  await page.goto("/lineup?h=John%20Mulaney");
+  await expect(page.getByText("Poster preview")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("textbox", { name: "Event name" }).fill("Night One");
+  await page.getByRole("button", { name: "Save and share the poster" }).click();
+  await expect(page).toHaveURL(/\/lineup\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "Night One" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Poster/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Download poster" })).toHaveAttribute("href", /\/poster$/);
+});
+
+test("meet the fan shows who they are and what else they love", async ({ page }) => {
+  await page.goto("/fan/John%20Mulaney");
+  await expect(page.getByRole("heading", { name: /The John Mulaney fan/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("What else they love")).toBeVisible();
+});
+
+test("a city page lists what the city over-indexes on", async ({ page }) => {
+  await page.goto("/city/austin");
+  await expect(page.getByRole("heading", { name: "Austin" })).toBeVisible({ timeout: 30_000 });
+  for (const list of ["Artists", "Stand-up comedians", "Podcasts", "Brands"]) await expect(page.getByText(list, { exact: true })).toBeVisible();
+});
+
+test("teammates vote on a shared plan", async ({ page }) => {
+  await run(page, EXAMPLES[0].name);
+  await page.getByRole("link", { name: "Ask your team to vote" }).click();
+  const panel = page.locator("section").filter({ hasText: "Team vote" }).first();
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: /\d+ votes?$/ }).first().click();
+  await expect(panel.getByText("Your vote")).toBeVisible();
+});
+
+test("takeover daily explains itself when there is no puzzle", async ({ page }) => {
+  // Mock mode has no preloaded runs, so there is no puzzle; the page says so instead of breaking.
+  await page.goto("/daily");
+  await expect(page.getByText(/puzzle isn't ready yet|Round 1/).first()).toBeVisible({ timeout: 15_000 });
+});
+
+test("the tools page lists every tool", async ({ page }) => {
+  await page.goto("/tools");
+  for (const t of ["Fan overlap", "Meet the fan", "Lineup builder", "Brand match", "Venue booker", "City explorer", "Tour planner", "City pages"]) {
+    await expect(page.getByRole("main").getByRole("link", { name: t, exact: true })).toBeVisible();
+  }
+});

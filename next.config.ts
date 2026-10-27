@@ -8,6 +8,8 @@ assertMockAllowed();
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
+  // The share-image routes read the bundled Anton font (lib/og.tsx).
+  outputFileTracingIncludes: { "/**/*": ["./lib/fonts/**"] },
   partialPrefetching: true,
   turbopack: {
     rules: {

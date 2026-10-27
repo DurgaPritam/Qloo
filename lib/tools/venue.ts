@@ -8,7 +8,7 @@ import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 import { describeFailure } from "./shared";
 
-export type BookingKind = "music" | "comedy" | "podcast";
+export type BookingKind = "music" | "comedy" | "podcast" | "brand";
 
 const KINDS: Record<BookingKind, { label: string; category: Category; tags?: string[]; note: string }> = {
   music: { label: "Artists", category: "artist", note: "Music acts people here over-index on." },
@@ -20,6 +20,7 @@ const KINDS: Record<BookingKind, { label: string; category: Category; tags?: str
     note: "Comedians people here over-index on.",
   },
   podcast: { label: "Podcasts", category: "podcast", note: "Podcasts that could bring a live show here." },
+  brand: { label: "Brands", category: "brand", note: "Brands and names people here over-index on: ask them about sponsorship." },
 };
 
 export const BOOKING_KINDS = Object.keys(KINDS) as BookingKind[];
