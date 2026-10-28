@@ -108,6 +108,9 @@ starts with it.
 | `dataset_rows` (*Built*) | raw city and country, matched GeoNames metro, match status (matched, manual, ambiguous, unmatched, skipped), metric values, `source = 'user'` | workspace |
 | `user_facts` | single facts typed in: fees, constraints | workspace |
 | `sponsor_matches` (*Built*) | a rights holder and a brand on the shortlist, with the engine's fit, evidence and pitch input | workspace |
+| `plan_predictions` (*Built*) | a plan's predictions (chosen city, partner, venue, sponsors with ranks and scores), frozen when the plan is saved | workspace |
+| `outcomes` (*Built*) | results logged after the event: attendance, tickets sold, capacity, gross, sponsor renewed, notes; `source = 'user'`, logged by, logged at | workspace |
+| `calibration_pairs` (*Built*) | predicted score and confidence beside sell-through, stored for later calibration, never used to change scores | workspace |
 | `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |
 | `watch_items` (*Built*) | a fanbase (Qloo entity) or city (GeoNames metro) to watch, last and next check, last note | workspace |

@@ -685,3 +685,45 @@ each figure comes from" and as a Sources slide. The deck builder is split from t
 test builds the real .pptx, unzips it, checks every part is well-formed XML, and checks that every
 number in the slides is one the engine produced or a digit of a recorded request; the e2e opens the
 file the browser downloaded the same way.
+
+## Outcomes (28 Oct, branch roadmap/foundation)
+
+**D114. Fields follow the brief, not the design's sample form.** Attendance, tickets sold, sellable
+capacity, gross (in the workspace's currency, as entered), sponsor renewed (yes, no or not known)
+and notes, all optional, stored in `outcomes` with `source = 'user'` and shown with the Your data
+label. The design's "partner promo-code sales" and "top sponsor by activation" are left for later:
+they need a field per partner and per sponsor.
+
+**D115. Predictions are frozen when a plan is saved.** `plan_predictions` is written in the same step
+as the plan (and on import) from the plan as the engine produced it: the chosen city with its rank,
+combined score and confidence; the chosen partner with its rank, score and confidence; the venue; the
+sponsors. Outcomes compare against that row only; nothing recomputes it. A plan saved before this
+existed has its predictions read from the plan as it was stored, dated when it was made, and frozen
+when results are first logged.
+
+**D116. No "Matched / Missed" verdicts from invented thresholds.** The design marks a prediction
+"matched" at, for example, 85% sell-through; nobody set that bar. Results are compared with the
+workspace's own median sell-through instead, and only once there are enough events
+(`ENGINE_CONFIG.outcomes.minSample`, 5): below it every view says "too few events to judge" with the
+count. "Above" is strict, so an event at the median is not counted as above it. Sell-through is
+computed (sold ÷ capacity) only when both are entered and capacity is positive.
+
+**D117. The report** groups logged events by the chosen city and by the chosen partner: events, how
+many sold through above the median, and whether that group has enough events to judge on its own.
+Exported as CSV (results labelled `_your_data`, predictions as frozen) and as the house deck
+(branded deck settings do not exist yet).
+
+**D118. Calibration hook, and how calibration could work later.** Each logged plan with a
+sell-through stores pairs in `calibration_pairs`: the frozen predicted score (the chosen city's
+combined score, the chosen partner's score), its confidence, and the sell-through. Nothing reads
+them to change a score. Later, with enough pairs:
+- Per workspace, a monotone fit (isotonic regression) of sell-through on predicted score would show
+  whether higher scores sold better for that workspace, and where the curve is flat.
+- The result would be shown beside a score ("for your events, scores like this sold through at
+  about…"), labelled as combining Qloo with Your data (rule 2), never folded into the Qloo score.
+- Confidence bands could be checked: do "high" picks sell through above the median more often than
+  "medium"? If not, the confidence thresholds in config are wrong for that workspace.
+- Engine thresholds would only change by a reviewed edit to config with the evidence attached,
+  never automatically, and never across workspaces without their consent.
+- Minimum before any of this: the same minSample per group, and a hold-out check that the fit
+  predicts better than the workspace median alone.

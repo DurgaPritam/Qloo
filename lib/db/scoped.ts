@@ -10,6 +10,8 @@ import type { Category } from "@/lib/engine/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 import type { EmailTheme } from "@/lib/email/digest-html";
 import type { PitchInput } from "@/lib/export/sponsor";
+import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
+import { predictionsFromPlan } from "@/lib/outcomes/predict";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -21,6 +23,7 @@ import {
   activityLog,
   comments,
   alerts,
+  calibrationPairs,
   datasetRows,
   datasets,
   digestSubscriptions,
@@ -29,6 +32,8 @@ import {
   jobRuns,
   memberships,
   notifications,
+  outcomes,
+  planPredictions,
   plans,
   rosterActs,
   rosters,
@@ -138,6 +143,8 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async create(input: { id: string; query: string; result: Plan }) {
         need("plan.create");
         await db.insert(plans).values({ id: input.id, workspaceId: ws, createdBy: ctx.userId, input: input.query, result: input.result });
+        // Frozen now: outcomes compare against what the plan predicted when it was made.
+        await db.insert(planPredictions).values({ planId: input.id, workspaceId: ws, predicted: predictionsFromPlan(input.result) });
         await log("plan.created", { type: "plan", id: input.id }, { input: input.query });
       },
       async setVisibility(id: string, visibility: Visibility) {
@@ -163,12 +170,12 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         const done = new Set(existing.map((e) => e.importedFrom));
         const fresh = found.filter((p) => !done.has(p.runId));
         if (fresh.length) {
-          await db.insert(plans).values(
-            fresh.map((p) => {
-              const id = crypto.randomUUID();
-              return { id, workspaceId: ws, createdBy: ctx.userId, input: p.query, result: { ...p, runId: id }, importedFrom: p.runId };
-            }),
-          );
+          const rows = fresh.map((p) => {
+            const id = crypto.randomUUID();
+            return { id, workspaceId: ws, createdBy: ctx.userId, input: p.query, result: { ...p, runId: id }, importedFrom: p.runId };
+          });
+          await db.insert(plans).values(rows);
+          await db.insert(planPredictions).values(rows.map((r) => ({ planId: r.id, workspaceId: ws, predicted: predictionsFromPlan(r.result) })));
           await log("plan.imported", { type: "workspace", id: ws }, { count: fresh.length });
         }
         return { imported: fresh.length, already: found.length - fresh.length };
@@ -714,6 +721,65 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async remove(id: string) {
         need("sponsor.edit");
         await db.delete(sponsorMatches).where(and(eq(sponsorMatches.workspaceId, ws), eq(sponsorMatches.id, id)));
+      },
+    },
+
+    /** Results logged after events (the user's data) and the predictions frozen when plans were made. */
+    outcomes: {
+      async prediction(planId: string) {
+        need("outcome.read");
+        return (await db.select().from(planPredictions).where(and(eq(planPredictions.workspaceId, ws), eq(planPredictions.planId, planId))).limit(1))[0] ?? null;
+      },
+      async get(planId: string) {
+        need("outcome.read");
+        return (await db.select().from(outcomes).where(and(eq(outcomes.workspaceId, ws), eq(outcomes.planId, planId))).limit(1))[0] ?? null;
+      },
+      /**
+       * Saves (or replaces) a plan's results, then its calibration pairs: the frozen predicted
+       * scores beside the sell-through, when both tickets sold and capacity were entered.
+       */
+      async save(planId: string, fields: { attendance: number | null; ticketsSold: number | null; capacity: number | null; gross: number | null; sponsorRenewed: boolean | null; notes: string | null }) {
+        need("outcome.log");
+        if (!(await planById(planId))) throw new InputError("That plan isn't in this workspace.");
+        const now = new Date();
+        await db
+          .insert(outcomes)
+          .values({ workspaceId: ws, planId, loggedBy: ctx.userId, loggedAt: now, ...fields })
+          .onConflictDoUpdate({ target: [outcomes.workspaceId, outcomes.planId], set: { ...fields, loggedBy: ctx.userId, loggedAt: now } });
+        await db.delete(calibrationPairs).where(and(eq(calibrationPairs.workspaceId, ws), eq(calibrationPairs.planId, planId)));
+        const st = sellThrough(fields.ticketsSold, fields.capacity);
+        const frozen = (await db.select().from(planPredictions).where(and(eq(planPredictions.workspaceId, ws), eq(planPredictions.planId, planId))).limit(1))[0];
+        if (st !== null && frozen) {
+          const p = frozen.predicted;
+          const pairs = [
+            ...(p.city ? [{ kind: "city" as const, predictedScore: p.city.combined, predictedConfidence: p.city.confidence }] : []),
+            ...(p.partner ? [{ kind: "partner" as const, predictedScore: p.partner.score, predictedConfidence: p.partner.confidence }] : []),
+          ];
+          if (pairs.length) {
+            await db.insert(calibrationPairs).values(pairs.map((x) => ({ ...x, workspaceId: ws, planId, outcomeMetric: "sell_through" as const, outcomeValue: st })));
+          }
+        }
+        await log("outcome.logged", { type: "plan", id: planId });
+      },
+      /** For a plan saved before Outcomes: freezes the predictions read from its stored result, dated when it was made. */
+      async freeze(planId: string, predicted: Prediction, at: Date) {
+        need("outcome.log");
+        await db.insert(planPredictions).values({ planId, workspaceId: ws, predicted, createdAt: at }).onConflictDoNothing();
+      },
+      /** Every plan with logged results, with its frozen predictions. */
+      async logged() {
+        need("outcome.read");
+        return db
+          .select({ planId: outcomes.planId, input: plans.input, outcome: outcomes, predicted: planPredictions.predicted, predictedAt: planPredictions.createdAt })
+          .from(outcomes)
+          .innerJoin(plans, and(eq(plans.id, outcomes.planId), eq(plans.workspaceId, ws)))
+          .leftJoin(planPredictions, and(eq(planPredictions.planId, outcomes.planId), eq(planPredictions.workspaceId, ws)))
+          .where(eq(outcomes.workspaceId, ws))
+          .orderBy(desc(outcomes.loggedAt));
+      },
+      async calibration() {
+        need("outcome.read");
+        return db.select().from(calibrationPairs).where(eq(calibrationPairs.workspaceId, ws)).orderBy(asc(calibrationPairs.recordedAt));
       },
     },
 

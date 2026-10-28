@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type { Plan } from "@/lib/agent/types";
 
 import { AppHeader, Banner, Page } from "../ui";
@@ -23,6 +25,11 @@ export function SharedPlan({ plan, member }: { plan: Plan; member?: MemberView }
     <Page max="max-w-[1040px]">
       <AppHeader context={`${plan.fanbase?.name ?? plan.query}${partner ? ` × ${partner}` : ""} · ${member ? member.workspaceName : "Shared plan"}`} />
       {member && <PlanSharing planId={plan.runId} member={member} />}
+      {member && plan.status === "complete" && (
+        <Banner tone="neutral" action={<Link href={`/workspace/outcomes/${plan.runId}`}>Log results →</Link>}>
+          Event done? Log what happened and compare it with this plan&apos;s predictions.
+        </Banner>
+      )}
       {plan.status !== "complete" && <Banner tone="warn">This plan is partial: some steps could not finish.</Banner>}
       {plan.notes.length > 0 && <Banner tone="neutral">{plan.notes.join(" ")}</Banner>}
       {plan.status === "complete" && <TeamVote plan={plan} />}

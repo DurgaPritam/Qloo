@@ -11,6 +11,7 @@ const TABS = [
   { href: "/workspace/data", label: "Data" },
   { href: "/workspace/watch", label: "Watch" },
   { href: "/workspace/sponsorship", label: "Sponsorship" },
+  { href: "/workspace/outcomes", label: "Outcomes" },
   { href: "/workspace/members", label: "Members" },
   { href: "/workspace/inbox", label: "Inbox" },
   { href: "/workspace/settings", label: "Settings" },

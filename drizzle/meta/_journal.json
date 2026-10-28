@@ -50,6 +50,13 @@
       "when": 1793189658847,
       "tag": "0006_sponsorship",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793191946851,
+      "tag": "0007_outcomes",
+      "breakpoints": true
     }
   ]
 }

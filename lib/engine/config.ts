@@ -76,6 +76,11 @@ export const ENGINE_CONFIG = {
     /** A change of this much or more (0.05 = 5 points on the 0–100 scale shown). */
     valueChange: 0.05,
   },
+  /**
+   * Outcomes: a city or partner needs this many logged events before the report says whether it
+   * beats the workspace's median sell-through; below it the report says "too few events to judge".
+   */
+  outcomes: { minSample: 5 },
   /** Audience profile: a skew below this (either way) reads as "balanced". */
   audience: { lean: 0.1 },
   places: {

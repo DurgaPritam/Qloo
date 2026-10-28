@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import type { Plan } from "@/lib/agent/types";
 import type { Category } from "@/lib/engine/types";
@@ -8,6 +8,7 @@ import type { CityOption, MetricDef } from "@/lib/data/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 import type { EmailTheme } from "@/lib/email/digest-html";
 import type { PitchInput } from "@/lib/export/sponsor";
+import type { Prediction } from "@/lib/engine/outcomes";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -516,6 +517,76 @@ export const sponsorMatches = pgTable(
   ],
 );
 
+/* ---------- Outcomes ---------- */
+
+/**
+ * What a plan predicted, written once when the plan is saved to the workspace and never updated:
+ * outcomes compare against this, not against a recomputation.
+ */
+export const planPredictions = pgTable("plan_predictions", {
+  planId: text("plan_id")
+    .primaryKey()
+    .references(() => plans.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  predicted: jsonb("predicted").$type<Prediction>().notNull(),
+  createdAt: createdAt(),
+});
+
+/** Results logged after an event: the user's data, every field optional. One row per plan. */
+export const outcomes = pgTable(
+  "outcomes",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => plans.id, { onDelete: "cascade" }),
+    source: text("source").$type<"user">().notNull().default("user"),
+    attendance: integer("attendance"),
+    ticketsSold: integer("tickets_sold"),
+    capacity: integer("capacity"),
+    gross: doublePrecision("gross"),
+    sponsorRenewed: boolean("sponsor_renewed"),
+    notes: text("notes"),
+    loggedBy: text("logged_by").references(() => users.id, { onDelete: "set null" }),
+    loggedAt: timestamp("logged_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("outcomes_plan_idx").on(t.workspaceId, t.planId),
+    check("outcomes_source_check", sql`${t.source} = 'user'`),
+  ],
+);
+
+/**
+ * For calibration later: each plan's predicted score next to what happened. Stored, never used to
+ * change scoring (docs/decisions.md describes how it could be).
+ */
+export const calibrationPairs = pgTable(
+  "calibration_pairs",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => plans.id, { onDelete: "cascade" }),
+    /** What was predicted: the chosen city's combined score or the chosen partner's score. */
+    kind: text("kind").$type<"city" | "partner">().notNull(),
+    predictedScore: doublePrecision("predicted_score").notNull(),
+    predictedConfidence: text("predicted_confidence").notNull(),
+    /** The outcome it is paired with; only sell-through for now. */
+    outcomeMetric: text("outcome_metric").$type<"sell_through">().notNull(),
+    outcomeValue: doublePrecision("outcome_value").notNull(),
+    recordedAt: createdAt(),
+  },
+  (t) => [index("calibration_pairs_workspace_idx").on(t.workspaceId, t.kind)],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -534,4 +605,7 @@ export const TENANT_TABLES = [
   "alerts",
   "digest_subscriptions",
   "sponsor_matches",
+  "plan_predictions",
+  "outcomes",
+  "calibration_pairs",
 ] as const;
