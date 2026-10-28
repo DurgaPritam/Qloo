@@ -929,3 +929,13 @@ scope) and reply detection (read scope) from the Pipeline prompt. Takeover keeps
 and "I sent it". The preferred future option, when sending is wanted, is a **per-workspace BCC
 logging address**: the user sends from their own mail as now, BCCs the workspace's address, and
 Takeover logs the message and moves the card, with no mailbox access and no send scope.
+
+**D140. Thin sponsor results get a labelled local fallback** (answer of 28 Oct). When fewer than 3
+brands pass the filters for an act or team (the live run gave the Golden State Warriors one), the
+rights view adds a separate group, "Fallback · brands {team} fans over-index on in {city}": one more
+Qloo brands call with the city as the location signal, ranked by the same `rankBrands` filters,
+minus brands already listed. The city is the home city Qloo's own description names ("… based in San
+Francisco …", matched to our city list inside the entity's country); when the description names
+none, it is the fans' strongest city from the heatmap, and the card says which. Fallback fits are
+one direction and say so; they are never ranked with the national list, but can be shortlisted and
+pitched, with the local request as their source. The act-or-team call estimate rises from 9 to 10.

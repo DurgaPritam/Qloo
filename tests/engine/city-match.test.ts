@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cityIndex, matchCity } from "@/lib/engine/city-match";
+import { cityIndex, cityNamedIn, matchCity } from "@/lib/engine/city-match";
 import { CITIES } from "@/lib/engine/data";
 import { countryCode } from "@/lib/engine/markets";
 import { metroCities } from "@/lib/engine/metro";
@@ -52,5 +52,15 @@ describe("matchCity", () => {
     expect(m("Zzxq").status).toBe("unmatched");
     expect(m("").status).toBe("unmatched");
     expect(m("Portland, Maine").status).toBe("unmatched");
+  });
+});
+
+describe("cityNamedIn", () => {
+  it("reads the home city from Qloo's description, longest name first, inside the country", () => {
+    expect(cityNamedIn("The Golden State Warriors are a professional NBA basketball team based in San Francisco, known for their play.", index, "US")?.name).toBe("San Francisco");
+    expect(cityNamedIn("A comedy club based in New York City.", index, "US")?.name).toBe("New York City");
+    expect(cityNamedIn("An English rock band from London.", index, "GB")?.name).toBe("London");
+    expect(cityNamedIn("An American actor and comedian.", index, "US")).toBeNull();
+    expect(cityNamedIn(undefined, index)).toBeNull();
   });
 });

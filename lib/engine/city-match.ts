@@ -122,3 +122,21 @@ export function matchCity(
   }
   return { status: "ambiguous", options: metros.slice(0, 5) };
 }
+
+/**
+ * The home city Qloo's own description names ("… a professional NBA basketball team based in San
+ * Francisco …"): the words after "based in", "from" or "located in", matched to one city of the
+ * entity's country. Null when the description names none or the name is ambiguous.
+ */
+export function cityNamedIn(description: string | undefined, index: CityIndex, country?: string | null): City | null {
+  if (!description) return null;
+  const m = description.match(/\b(?:based in|located in|hails from|from)\s+((?:[A-Z][\w'.-]*)(?:\s+[A-Z][\w'.-]*){0,3})/);
+  if (!m) return null;
+  const words = m[1].split(/\s+/);
+  // Longest run of capitalised words that is a city ("New York City" before "New York").
+  for (let n = words.length; n > 0; n--) {
+    const found = matchCity(words.slice(0, n).join(" "), index, { country });
+    if (found.status === "matched") return found.city;
+  }
+  return null;
+}

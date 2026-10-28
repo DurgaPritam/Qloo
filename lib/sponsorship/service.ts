@@ -339,6 +339,38 @@ export async function runRightsView(repo: WorkspaceRepo, input: HolderInput, sou
       },
     })),
   }));
+  // Too few brands passed the filters: a labelled fallback list, apart from the ranking above.
+  if (r.fallback) {
+    const f = r.fallback;
+    const where = f.basis === "home" ? `${f.city}, its home city in Qloo's description` : `${f.city}, where its fans are strongest`;
+    groups.push({
+      label: `Fallback · brands ${r.holder.name} fans over-index on in ${f.city}`,
+      matches: f.brands.map(
+        (b): MatchView => ({
+          key: b.id,
+          thisWeek: thisWeekLines(watched, { ids: r.holder.ids }, { id: b.id, name: b.name }, now),
+          kind: "Fallback · local",
+          name: b.name,
+          meta: `Only ${groups.reduce((n, g) => n + g.matches.length, 0)} brand${groups.reduce((n, g) => n + g.matches.length, 0) === 1 ? "" : "s"} passed the filters nationally, so these are brands its fans favour in ${where}. One direction, a local signal: not ranked with the list above.`,
+          fit: b.fit,
+          pitch: {
+            holder: r.holder.name,
+            brand: b.name,
+            sector: b.sector,
+            fit: b.fit,
+            audience,
+            cities,
+            sources: sources([
+              [`${b.name} among ${r.holder.name} fans in ${f.city} (fit, forward, local)`, f.call],
+              [`Cities: ${r.holder.name} fans' heat`, r.sourceCalls.heat],
+              [`Audience: ${r.holder.name} fans`, r.sourceCalls.audience],
+            ]),
+            mock: source.mock,
+          },
+        }),
+      ),
+    });
+  }
   const all = groups.flatMap((g) => g.matches);
   const draftId = await saveDraft({
     workspaceId: repo.context.workspaceId,

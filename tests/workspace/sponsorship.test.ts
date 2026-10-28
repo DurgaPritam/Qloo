@@ -208,6 +208,45 @@ describe("done when: a brand and a team, and a deck that opens with every figure
     expect(row.holderKey).toBe([plan.fanbase!.id, partner.id].sort((a, b) => a.localeCompare(b)).join(","));
   });
 
+  it("adds a labelled local fallback when fewer than 3 brands pass the filters, from the home city in Qloo's description", async () => {
+    const { repo } = await person("thin@sp.test");
+    const mock = new MockQlooSource();
+    const cities: (string | undefined)[] = [];
+    const thin = new Proxy(mock, {
+      get(target, prop, receiver) {
+        if (prop === "searchEntities") {
+          return async (...args: Parameters<QlooSource["searchEntities"]>) => {
+            const res = await (target as QlooSource).searchEntities(...args);
+            return { ...res, data: res.data.map((e) => ({ ...e, description: "A professional basketball team based in San Francisco, known for its play." })) };
+          };
+        }
+        if (prop === "brands") {
+          return async (...args: Parameters<QlooSource["brands"]>) => {
+            const res = await (target as QlooSource).brands(...args);
+            cities.push(args[1]);
+            // Nationally only one real brand survives (the rest are teams); locally there are more.
+            return args[1] ? res : { ...res, data: [res.data[0], { id: "rival", name: "Rival F.C.", affinity: 0.99, popularity: 0.9, tags: ["Sports Organization"] }] };
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+    const r = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, thin));
+    expect(cities).toContain("San Francisco");
+    const fallback = r.groups.find((g) => g.label.startsWith("Fallback"))!;
+    expect(fallback.label).toBe("Fallback · brands Golden State Warriors fans over-index on in San Francisco");
+    expect(fallback.matches.length).toBeGreaterThan(0);
+    const main = r.groups.filter((g) => g !== fallback).flatMap((g) => g.matches);
+    expect(main.length).toBeLessThan(3);
+    for (const m of fallback.matches) {
+      expect(m.meta).toMatch(/its home city in Qloo's description/);
+      expect(m.fit.backward).toBeNull();
+      expect(main.map((x) => x.key)).not.toContain(m.key);
+      expect(m.pitch.sources![0].params["signal.location.query"] ?? m.pitch.sources![0].params["filter.location.query"]).toBe("San Francisco");
+    }
+    expect(r.calls).toBeLessThanOrEqual(10);
+  });
+
   it("adds this week's Market watch lines when the workspace watches the act or a city where the brand ranks", async () => {
     const { repo } = await person("joy@sp.test");
     const first = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, new MockQlooSource()));

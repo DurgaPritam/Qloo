@@ -1,6 +1,8 @@
 import "server-only";
 
 import { scoreCities } from "@/lib/engine/cities";
+import { cityIndex, cityNamedIn, type CityIndex } from "@/lib/engine/city-match";
+import { CITIES } from "@/lib/engine/data";
 import { formatFor } from "@/lib/engine/formats";
 import { DEFAULT_MARKET, marketFor } from "@/lib/engine/markets";
 import { rankBrands } from "@/lib/engine/places";
@@ -32,9 +34,19 @@ export interface PitchBrand {
   backwardCall?: CallView;
 }
 
+/** When too few brands pass the filters: brands the fans over-index on in one city, kept apart. */
+export interface BrandFallback {
+  city: string;
+  /** "home": the city Qloo's description names; "fans": the fans' strongest city (no home city given). */
+  basis: "home" | "fans";
+  brands: PitchBrand[];
+  call: CallView;
+}
+
 export interface BrandsToPitch {
   holder: { kind: RightsHolder["kind"]; name: string; ids: string[]; category?: Category };
   groups: { sector: string; brands: PitchBrand[] }[];
+  fallback: BrandFallback | null;
   cities: CityScore[];
   audience: AudienceProfile | null;
   /** The requests behind the brand list, the cities and the audience. */
@@ -47,6 +59,10 @@ export interface BrandsToPitch {
 
 /** Brands ranked per holder, then the reverse direction for this many of the best. */
 export const REVERSE_CHECKS = 5;
+/** Fewer brands than this after the filters adds the local fallback list (one more call). */
+export const THIN_BRANDS = 3;
+
+let index: CityIndex | undefined;
 
 const holderName = (h: RightsHolder) => (h.kind === "entity" ? h.entity.name : h.name);
 const holderIds = (h: RightsHolder) => (h.kind === "entity" ? [h.entity.id] : h.ids);
@@ -123,9 +139,34 @@ export async function brandsToPitch(holder: RightsHolder, source: QlooSource, op
   } else if (holder.kind === "event") {
     cities = holder.cities.slice(0, 5);
   }
+  // Thin results (a team, once rival teams and leagues are dropped): brands its fans favour in its
+  // home city, labelled and kept apart from the ranked list. One direction, one more call.
+  let fallback: BrandFallback | null = null;
+  if (holder.kind === "entity" && brands.length < THIN_BRANDS) {
+    const home = cityNamedIn(holder.entity.description, (index ??= cityIndex(CITIES, metroPool())), holder.entity.homeCountry);
+    const place = home ? { name: home.name, basis: "home" as const } : cities[0] ? { name: cities[0].city.name, basis: "fans" as const } : null;
+    if (place) {
+      try {
+        const local = await source.brands(ids, place.name, opts);
+        calls.push(view(local.meta));
+        const seen = new Set(brands.map((b) => b.id));
+        const picks = rankBrands(local.data, 8).picks.filter((p) => !seen.has(p.brand.id));
+        const list = picks.flatMap((p): PitchBrand[] => {
+          const fit = scoreSponsorFit({ name }, p.brand, { forward: p.brand.affinity, backward: null });
+          return fit ? [{ id: p.brand.id, name: p.brand.name, sector: sectorOf(p.brand), description: p.brand.description, fit }] : [];
+        });
+        if (list.length) fallback = { city: place.name, basis: place.basis, brands: rankByFit(list), call: view(local.meta) };
+      } catch (err) {
+        if (err instanceof BudgetExceededError) throw err;
+        console.warn("[tools/sponsor] local brands failed:", describeFailure(err));
+      }
+    }
+  }
+
   return {
     holder: { kind: holder.kind, name, ids, ...(holder.kind === "entity" ? { category: holder.entity.category } : {}) },
     groups,
+    fallback,
     cities,
     audience,
     sourceCalls: { brands: view(res.meta), heat: heatCall, audience: calls.find((c) => c.params["filter.type"] === "urn:demographics") },

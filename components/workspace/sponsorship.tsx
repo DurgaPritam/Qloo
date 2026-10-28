@@ -24,11 +24,11 @@ export interface ShortlistRow {
   createdAt: string;
 }
 
-/** Upper bounds, from the code paths: search, lists, teams, heatmap, demographics, reverse checks (and, for a brand, up to 3 saved events). */
+/** Upper bounds, from the code paths: search, lists, teams, heatmap, demographics, reverse checks (a brand: up to 3 saved events; an act or team: one local fallback call when results are thin). */
 const ESTIMATE: Record<View | HolderKind, number> = {
   brand: 17,
-  rights: 9,
-  entity: 9,
+  rights: 10,
+  entity: 10,
   event: 1,
   roster: 1,
 };
