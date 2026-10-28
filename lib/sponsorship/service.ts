@@ -6,7 +6,7 @@ import { CATEGORY_LABEL } from "@/lib/engine/explain";
 import { isComedian } from "@/lib/engine/match";
 import type { SponsorFit } from "@/lib/engine/sponsor";
 import type { Category, Entity } from "@/lib/engine/types";
-import type { PitchInput } from "@/lib/export/sponsor";
+import type { PitchInput, PitchSource } from "@/lib/export/sponsor";
 import type { QlooScope } from "@/lib/qloo/allowance";
 import { QLOO_RUN_BUDGET } from "@/lib/qloo/client";
 import type { QlooSource } from "@/lib/qloo/source";
@@ -14,7 +14,7 @@ import { findAct } from "@/lib/roster/resolve";
 import { withBudget } from "@/lib/agent/budget";
 import { kvGet, kvSet } from "@/lib/server/kv";
 import { matchBrand } from "@/lib/tools/brand";
-import type { Choice } from "@/lib/tools/shared";
+import type { CallView, Choice } from "@/lib/tools/shared";
 import { brandsToPitch, type RightsHolder } from "@/lib/tools/sponsor";
 import { can, ForbiddenError } from "@/lib/workspace/permissions";
 
@@ -71,6 +71,11 @@ function describeEntity(e: Pick<Entity, "category" | "description" | "tags" | "n
   return kindOf(e.category);
 }
 
+/** One source per figure that has a recorded request. */
+function sources(entries: [string, CallView | undefined][]): PitchSource[] {
+  return entries.flatMap(([figure, c]) => (c ? [{ figure, endpoint: c.endpoint, params: c.params }] : []));
+}
+
 async function saveDraft(draft: Draft) {
   const id = crypto.randomUUID();
   await kvSet(draftKey(id), draft, DRAFT_TTL);
@@ -93,7 +98,20 @@ export async function runBrandView(repo: WorkspaceRepo, input: { query: string; 
     name: f.name,
     meta: `${f.list} ${r.brand.name} fans over-index on`,
     fit: f.fit,
-    pitch: { holder: f.name, brand: r.brand.name, fit: f.fit, audience, cities, mock: source.mock },
+    pitch: {
+      holder: f.name,
+      brand: r.brand.name,
+      fit: f.fit,
+      audience,
+      cities,
+      sources: sources([
+        [`${r.brand.name} among ${f.name} fans (fit, forward)`, f.forwardCall],
+        [`${f.name} among ${r.brand.name} fans (fit, backward)`, f.listCall],
+        [`Cities: ${r.brand.name} fans' heat`, r.heatCall],
+        [`Audience: ${r.brand.name} fans`, r.audienceCall],
+      ]),
+      mock: source.mock,
+    },
   }));
   const draftId = await saveDraft({
     workspaceId: repo.context.workspaceId,
@@ -160,7 +178,21 @@ export async function runRightsView(repo: WorkspaceRepo, input: HolderInput, sou
         name: b.name,
         meta: b.description ?? "Brand",
         fit: b.fit,
-        pitch: { holder: r.holder.name, brand: b.name, sector: g.sector, fit: b.fit, audience, cities, mock: source.mock },
+        pitch: {
+          holder: r.holder.name,
+          brand: b.name,
+          sector: g.sector,
+          fit: b.fit,
+          audience,
+          cities,
+          sources: sources([
+            [`${b.name} among ${r.holder.name} fans (fit, forward)`, r.sourceCalls.brands],
+            [`${r.holder.name} among ${b.name} fans (fit, backward)`, b.backwardCall],
+            [`Cities: ${r.holder.name} fans' heat`, r.sourceCalls.heat],
+            [`Audience: ${r.holder.name} fans`, r.sourceCalls.audience],
+          ]),
+          mock: source.mock,
+        },
       }),
     ),
   }));

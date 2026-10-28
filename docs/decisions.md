@@ -676,3 +676,12 @@ the engine produced.
 sends the run id and the match, never a score, so a shortlisted fit is always the engine's.
 `sponsor_matches` stores the pitch input so a deck can be rebuilt without Qloo. Sending to the
 outreach pipeline waits for Feature 7.
+
+**D113. Sponsorship "done when" (28 Oct).** A brand (Liquid Death) and a team (Golden State Warriors,
+a Qloo brand tagged "Sports Organization"; both added to the sample data) each give a ranked match
+list in which every fit carries its Qloo values as evidence. Every pitch now records the Qloo request
+behind each figure (forward and backward affinity, cities, audience), shown on the card as "Where
+each figure comes from" and as a Sources slide. The deck builder is split from the download, so a
+test builds the real .pptx, unzips it, checks every part is well-formed XML, and checks that every
+number in the slides is one the engine produced or a digit of a recorded request; the e2e opens the
+file the browser downloaded the same way.

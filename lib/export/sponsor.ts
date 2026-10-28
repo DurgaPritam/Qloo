@@ -18,7 +18,23 @@ export interface PitchInput {
   audience: { of: string; skewsTo: string[]; gender: "female" | "male" | "balanced" } | null;
   /** City scores 0–1 from scoreCities, best first. */
   cities: { name: string; score: number }[];
+  /** The Qloo request behind each figure, for the Sources slide. Absent on matches saved before it existed. */
+  sources?: PitchSource[];
   mock: boolean;
+}
+
+export interface PitchSource {
+  /** Which figure: "Fit, forward", "Cities", "Audience"… */
+  figure: string;
+  endpoint: string;
+  params: Record<string, string>;
+}
+
+/** The parameters that say what was asked: type, signal, targets, place. */
+const KEY_PARAMS = ["filter.type", "signal.interests.entities", "filter.results.entities", "filter.location.query", "signal.location.query", "query"];
+export function describeRequest(s: Pick<PitchSource, "endpoint" | "params">): string {
+  const parts = KEY_PARAMS.filter((k) => s.params[k]).map((k) => `${k}=${s.params[k]}`);
+  return `GET ${s.endpoint}${parts.length ? ` · ${parts.join(" · ")}` : ""}`;
 }
 
 const pct = (x: number) => String(Math.round(x * 100));
@@ -71,6 +87,13 @@ export function pitchOutline(p: PitchInput): SlideOutline[] {
     });
   }
   slides.push({ title: "The pitch", bullets: [pitchText(p)], note: TO_CONFIRM_COMMERCIAL });
+  if (p.sources?.length) {
+    slides.push({
+      title: "Sources",
+      table: { columns: ["Figure", "Qloo request"], rows: p.sources.map((s) => [s.figure, describeRequest(s)]) },
+      note: "Every figure in this deck is a Qloo value from the request beside it, or computed from those values by Takeover's engine.",
+    });
+  }
   return slides;
 }
 
@@ -80,5 +103,7 @@ export function pitchNumbers(p: PitchInput): Set<string> {
   for (const v of [p.fit.forward, p.fit.backward]) if (v !== null) nums.add(v.toFixed(2));
   for (const c of p.cities) nums.add(pct(c.score));
   for (const band of p.audience?.skewsTo ?? []) for (const n of band.match(/\d+/g) ?? []) nums.add(n);
+  // Digits inside the requests' entity ids and place names on the Sources slide.
+  for (const s of p.sources ?? []) for (const n of describeRequest(s).match(/\d+(?:\.\d+)?/g) ?? []) nums.add(n);
   return nums;
 }

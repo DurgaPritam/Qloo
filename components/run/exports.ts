@@ -43,6 +43,12 @@ export async function downloadDeck(plan: Plan) {
 
 /** The house deck: dark theme, one outline slide per slide, the footer (or sample-data label) on each. */
 export async function renderDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean; fileName: string }) {
+  const pptx = await buildDeck(slides, deck);
+  await pptx.writeFile({ fileName: deck.fileName });
+}
+
+/** Builds the deck without saving it, so tests can open the real file. */
+export async function buildDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean }) {
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 in
@@ -119,5 +125,5 @@ export async function renderDeck(slides: SlideOutline[], deck: { title: string; 
       margin: 0,
     });
   }
-  await pptx.writeFile({ fileName: deck.fileName });
+  return pptx;
 }

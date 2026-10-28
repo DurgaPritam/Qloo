@@ -30,6 +30,8 @@ export interface BrandList {
   picks: PartnerPick[];
   reason: string;
   error?: string;
+  /** The Qloo request behind the list. */
+  call?: CallView;
 }
 
 export type BrandResult =
@@ -44,6 +46,9 @@ export type BrandResult =
       /** Sponsorship only: who the brand's fans are (demographics), and the best fits both ways. */
       audience?: AudienceProfile | null;
       fits?: BrandFit[];
+      /** The heatmap and demographics requests, for sources. */
+      heatCall?: CallView;
+      audienceCall?: CallView;
       calls: CallView[];
       mock: boolean;
     };
@@ -55,6 +60,9 @@ export interface BrandFit {
   category: Category;
   list: string;
   fit: SponsorFit;
+  /** The request for the brand among this one's fans (the reverse check), and for its list. */
+  forwardCall?: CallView;
+  listCall?: CallView;
 }
 
 /**
@@ -76,6 +84,7 @@ export async function matchBrand(
   const brand = resolved.entity;
   const market = marketFor(brand.homeCountry) ?? marketFor(DEFAULT_MARKET)!;
 
+  let heatCall: CallView | undefined;
   const [lists, heat] = await Promise.all([
     Promise.all(
       LISTS.map(async ({ category, label }): Promise<BrandList> => {
@@ -83,7 +92,7 @@ export async function matchBrand(
           const res = await source.candidates([brand.id], category, undefined, opts);
           calls.push(view(res.meta));
           const scored = scorePartners(res.data, { count: 5, minCategories: 1, excludeIds: [brand.id] });
-          return { category, label, picks: scored.picks, reason: scored.reason };
+          return { category, label, picks: scored.picks, reason: scored.reason, call: view(res.meta) };
         } catch (err) {
           console.warn(`[tools/brand] ${category} failed:`, describeFailure(err));
           return { category, label, picks: [], reason: "", error: "Qloo had no answer for this list; try again shortly." };
@@ -93,6 +102,7 @@ export async function matchBrand(
     source.heatmap([brand.id], market.name, opts).then(
       (res) => {
         calls.push(view(res.meta));
+        heatCall = view(res.meta);
         return res.data;
       },
       (err) => {
@@ -111,7 +121,7 @@ export async function matchBrand(
         .filter(isSportsOrganisation)
         .map((b) => ({ id: b.id, name: b.name, category: "brand", affinity: b.affinity, popularity: b.popularity, tags: b.tags }));
       const scored = scorePartners(teams, { count: 5, minCategories: 1, excludeIds: [brand.id] });
-      lists.push({ category: "brand", label: "Teams", picks: scored.picks, reason: scored.reason });
+      lists.push({ category: "brand", label: "Teams", picks: scored.picks, reason: scored.reason, call: view(res.meta) });
     } catch (err) {
       if (err instanceof BudgetExceededError) throw err;
       console.warn("[tools/brand] teams failed:", describeFailure(err));
@@ -119,20 +129,23 @@ export async function matchBrand(
     }
   }
   const audience = more.audience ? ((await audienceProfiles([brand.id], source, opts, calls))[0] ?? null) : undefined;
+  const audienceCall = more.audience ? calls.find((c) => c.params["filter.type"] === "urn:demographics") : undefined;
 
   // The reverse direction for the strongest picks: the brand among each one's fans.
   let fits: BrandFit[] | undefined;
   if (more.reverse) {
     const top = lists
-      .flatMap((l) => l.picks.map((p) => ({ list: l.label, pick: p })))
+      .flatMap((l) => l.picks.map((p) => ({ list: l.label, pick: p, listCall: l.call })))
       .sort((a, b) => b.pick.score - a.pick.score)
       .slice(0, more.reverse);
     const scored = await Promise.all(
-      top.map(async ({ list, pick }) => {
+      top.map(async ({ list, pick, listCall }): Promise<BrandFit | null> => {
         let forward: number | null = null;
+        let forwardCall: CallView | undefined;
         try {
           const res = await source.affinityOf([pick.entity.id], brand.id, "brand", opts);
           calls.push(view(res.meta));
+          forwardCall = view(res.meta);
           forward = res.data?.affinity ?? null;
         } catch (err) {
           if (err instanceof BudgetExceededError) throw err;
@@ -140,7 +153,7 @@ export async function matchBrand(
         }
         // The pick's own affinity is it among the brand's fans: the backward direction.
         const fit = scoreSponsorFit(pick.entity, brand, { forward, backward: pick.entity.affinity });
-        return fit ? { name: pick.entity.name, id: pick.entity.id, category: pick.entity.category, list, fit } : null;
+        return fit ? { name: pick.entity.name, id: pick.entity.id, category: pick.entity.category, list, fit, forwardCall, listCall } : null;
       }),
     );
     fits = rankByFit(scored.filter((f): f is BrandFit => f !== null));
@@ -156,8 +169,9 @@ export async function matchBrand(
     lists,
     cities,
     citiesError: heat ? undefined : "Qloo had no city data for this brand right now.",
-    ...(audience !== undefined ? { audience } : {}),
+    ...(audience !== undefined ? { audience, audienceCall } : {}),
     ...(fits ? { fits } : {}),
+    heatCall,
     calls,
     mock: source.mock,
   };

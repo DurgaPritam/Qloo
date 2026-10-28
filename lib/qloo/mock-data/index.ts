@@ -23,8 +23,11 @@ export const MOCK_SEED = { category: "artist" as Category, popularity: 0.55 };
  */
 export const MOCK_SEARCH: Record<
   string,
-  Array<{ name: string; category: Category; popularity: number; description?: string }>
+  Array<{ name: string; category: Category; popularity: number; description?: string; tags?: string[] }>
 > = {
+  // A team and a brand for Sponsorship: Qloo lists teams as brands tagged "Sports Organization".
+  "golden state warriors": [{ name: "Golden State Warriors", category: "brand", popularity: 0.95, tags: ["NBA", "Basketball", "Sports Organization"] }],
+  "liquid death": [{ name: "Liquid Death", category: "brand", popularity: 0.8, description: "Canned water brand (sample description)" }],
   "john mulaney": [{ name: "John Mulaney", category: "person", popularity: 0.7, description: "Stand-up comedian (sample description)" }],
   "phoebe bridgers": [{ name: "Phoebe Bridgers", category: "artist", popularity: 0.65 }],
   sinners: [{ name: "Sinners", category: "movie", popularity: 0.75 }],

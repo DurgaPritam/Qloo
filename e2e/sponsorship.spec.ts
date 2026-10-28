@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import { expect, test, type Page } from "@playwright/test";
+
+import { openPptx } from "../tests/support/pptx";
 
 /** Sponsorship: brand view, save to the shortlist, a pitch deck, then the rights-holder view. */
 
@@ -45,6 +49,27 @@ test("brand view, shortlist, pitch deck and rights-holder view", async ({ page }
     const download = page.waitForEvent("download");
     await card.getByRole("button", { name: "Make pitch deck" }).click();
     expect((await download).suggestedFilename()).toMatch(/liquid-death-pitch-sample\.pptx$/);
+  });
+
+  await test.step("a team: brands to pitch, ranked and evidenced, and its pitch deck opens", async () => {
+    await page.getByRole("tab", { name: "Rights-holder view" }).click();
+    await page.getByRole("textbox", { name: "Act or team" }).fill("Golden State Warriors");
+    await page.getByRole("button", { name: "Find brands" }).click();
+    const card = page.locator("[data-match]").first();
+    await expect(card).toBeVisible();
+    await expect(page.getByText(/^Golden State Warriors$/).first()).toBeVisible();
+    await expect(card.getByText(/Golden State Warriors fans over-index on .*: Qloo affinity \d\.\d\d\./)).toBeVisible();
+    await card.getByText("Where each figure comes from").click();
+    await expect(card.getByText(/fit, forward/)).toBeVisible();
+    await expect(card.getByText(/GET \/v2\/insights · filter\.type=urn:entity:brand/).first()).toBeVisible();
+    const download = page.waitForEvent("download");
+    await card.getByRole("button", { name: "Make pitch deck" }).click();
+    const file = await (await download).path();
+    const { slides } = openPptx(new Uint8Array(readFileSync(file!)));
+    expect(slides.length).toBeGreaterThanOrEqual(4);
+    expect(slides[0].join(" ")).toMatch(/GOLDEN STATE WARRIORS ×/);
+    expect(slides.at(-1)!.join(" ")).toContain("SOURCES");
+    await page.getByRole("tab", { name: "Brand view" }).click();
   });
 
   await test.step("rights-holder view: brands to pitch, grouped by sector", async () => {

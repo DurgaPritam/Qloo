@@ -14,7 +14,11 @@ import { findAct } from "@/lib/roster/resolve";
 import { runBrandView, runRightsView, shortlistMatch, type SponsorRun } from "@/lib/sponsorship/service";
 import { ForbiddenError } from "@/lib/workspace/permissions";
 
+import { buildDeck } from "@/components/run/exports";
+import { pitchFooter, pitchNumbers, pitchOutline } from "@/lib/export/sponsor";
+
 import { addUser, testDb } from "../support/db";
+import { openPptx } from "../support/pptx";
 import { expectAllScoped, type LoggedQuery } from "../support/scoped-queries";
 
 let db: DB;
@@ -117,6 +121,79 @@ describe("rights-holder view", () => {
     const ro = done(await runRightsView(repo, { kind: "roster", rosterId }, new MockQlooSource()));
     expect(ro.subject.meta).toMatch(/Roster · 2 acts/);
     expect(matches(ro).length).toBeGreaterThan(0);
+  });
+});
+
+describe("done when: a brand and a team, and a deck that opens with every figure traced", () => {
+  const evidenced = (m: ReturnType<typeof matches>[number]) => {
+    expect(m.fit.evidence.filter((e) => e.source === "qloo").length).toBeGreaterThan(0);
+    for (const e of m.fit.evidence.filter((x) => x.source === "qloo")) expect(e.text).toContain(e.value!.toFixed(2));
+    expect(m.fit.evidence.at(-1)!.kind).toBe("to_confirm");
+  };
+
+  it("a brand: a ranked list of talent, each fit traced to the two Qloo requests behind it", async () => {
+    const { repo } = await person("hal@sp.test");
+    const r = done(await runBrandView(repo, { query: "Liquid Death" }, new MockQlooSource()));
+    expect(r.subject.name).toBe("Liquid Death");
+    const all = matches(r);
+    expect(all.map((m) => m.fit.fit)).toEqual([...all.map((m) => m.fit.fit)].sort((a, b) => b - a));
+    for (const m of all) {
+      evidenced(m);
+      const figures = (m.pitch.sources ?? []).map((s) => s.figure);
+      expect(figures).toEqual([
+        `Liquid Death among ${m.name} fans (fit, forward)`,
+        `${m.name} among Liquid Death fans (fit, backward)`,
+        "Cities: Liquid Death fans' heat",
+        "Audience: Liquid Death fans",
+      ]);
+      const forward = m.pitch.sources![0];
+      expect(forward.params["filter.results.entities"]).toBe("mock:seed:liquid-death:brand");
+      expect(forward.params["filter.type"]).toBe("urn:entity:brand");
+    }
+  });
+
+  it("a team: a ranked list of brands to pitch, no rival teams, each fit traced both ways", async () => {
+    const { repo } = await person("ivy@sp.test");
+    const r = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, withRivals()));
+    expect(r.subject.name).toBe("Golden State Warriors");
+    const all = matches(r);
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.map((m) => m.name)).not.toContain("Rival F.C.");
+    for (const g of r.groups) expect(g.matches.map((m) => m.fit.fit)).toEqual([...g.matches.map((m) => m.fit.fit)].sort((a, b) => b - a));
+    for (const m of all) {
+      evidenced(m);
+      const [forward, backward] = m.pitch.sources!;
+      expect(forward.params["signal.interests.entities"]).toBe("mock:seed:golden-state-warriors:brand");
+      if (m.fit.backward !== null) {
+        expect(backward.figure).toMatch(/fit, backward/);
+        expect(backward.params["filter.results.entities"]).toBe("mock:seed:golden-state-warriors:brand");
+        expect(backward.params["signal.interests.entities"]).toBe(m.key);
+      }
+    }
+  });
+
+  it("the pitch deck is a real .pptx that opens, with every number traceable to Qloo or the engine", async () => {
+    const { repo } = await person("jo@sp.test");
+    const r = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, new MockQlooSource()));
+    const pitch = matches(r)[0].pitch;
+    const outline = pitchOutline(pitch);
+    expect(outline.at(-1)!.title).toBe("Sources");
+    const pptx = await buildDeck(outline, { title: `${pitch.holder} × ${pitch.brand}`, footer: pitchFooter(pitch), mock: pitch.mock });
+    const bytes = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    const { files, slides } = openPptx(bytes);
+    expect(files).toEqual(expect.arrayContaining(["[Content_Types].xml", "ppt/presentation.xml"]));
+    expect(slides).toHaveLength(outline.length);
+    const allowed = pitchNumbers(pitch);
+    slides.forEach((runs, i) => {
+      const text = runs.join(" ");
+      expect(text).toContain(outline[i].title.toUpperCase());
+      for (const n of text.match(/\d+(?:\.\d+)?/g) ?? []) {
+        // The slide number in the corner is the only number the deck adds.
+        if (n === String(i + 1)) continue;
+        expect(allowed.has(n), `slide ${i + 1}: ${n} is not from Qloo or the engine`).toBe(true);
+      }
+    });
+    expect(slides.flat().join(" ")).toContain(`${pitch.fit.fit} / 100`);
   });
 });
 

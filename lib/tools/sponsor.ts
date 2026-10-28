@@ -28,6 +28,8 @@ export interface PitchBrand {
   sector: string;
   description?: string;
   fit: SponsorFit;
+  /** The request for the holder among this brand's fans (the reverse check). */
+  backwardCall?: CallView;
 }
 
 export interface BrandsToPitch {
@@ -35,6 +37,8 @@ export interface BrandsToPitch {
   groups: { sector: string; brands: PitchBrand[] }[];
   cities: CityScore[];
   audience: AudienceProfile | null;
+  /** The requests behind the brand list, the cities and the audience. */
+  sourceCalls: { brands: CallView; heat?: CallView; audience?: CallView };
   /** Why something is missing, in plain words. */
   notes: string[];
   calls: CallView[];
@@ -66,12 +70,14 @@ export async function brandsToPitch(holder: RightsHolder, source: QlooSource, op
   if (!ranked.picks.length) notes.push(ranked.reason);
 
   const backward = new Map<string, number | null>();
+  const backwardCalls = new Map<string, CallView>();
   if (holder.kind === "entity") {
     await Promise.all(
       ranked.picks.slice(0, REVERSE_CHECKS).map(async (p) => {
         try {
           const r = await source.affinityOf([p.brand.id], holder.entity.id, holder.entity.category, opts);
           calls.push(view(r.meta));
+          backwardCalls.set(p.brand.id, view(r.meta));
           backward.set(p.brand.id, r.data?.affinity ?? null);
         } catch (err) {
           if (err instanceof BudgetExceededError) throw err;
@@ -85,19 +91,24 @@ export async function brandsToPitch(holder: RightsHolder, source: QlooSource, op
 
   const brands = ranked.picks.flatMap((p): PitchBrand[] => {
     const fit = scoreSponsorFit({ name }, p.brand, { forward: p.brand.affinity, backward: backward.get(p.brand.id) ?? null });
-    return fit ? [{ id: p.brand.id, name: p.brand.name, sector: sectorOf(p.brand), description: p.brand.description, fit }] : [];
+    return fit ? [{ id: p.brand.id, name: p.brand.name, sector: sectorOf(p.brand), description: p.brand.description, fit, backwardCall: backwardCalls.get(p.brand.id) }] : [];
   });
   const bySector = new Map<string, PitchBrand[]>();
   for (const b of rankByFit(brands)) bySector.set(b.sector, [...(bySector.get(b.sector) ?? []), b]);
   const groups = [...bySector].map(([sector, list]) => ({ sector, brands: list }));
 
   let cities: CityScore[] = [];
+  let heatCall: CallView | undefined;
   let audience: AudienceProfile | null = null;
   if (holder.kind === "entity") {
     const market = marketFor(holder.entity.homeCountry) ?? marketFor(DEFAULT_MARKET)!;
     const [heat, profiles] = await Promise.all([
       source.heatmap([holder.entity.id], market.name, opts).then(
-        (r) => (calls.push(view(r.meta)), r.data),
+        (r) => {
+          calls.push(view(r.meta));
+          heatCall = view(r.meta);
+          return r.data;
+        },
         (err) => {
           if (err instanceof BudgetExceededError) throw err;
           notes.push("Qloo had no city data for this act right now.");
@@ -117,6 +128,7 @@ export async function brandsToPitch(holder: RightsHolder, source: QlooSource, op
     groups,
     cities,
     audience,
+    sourceCalls: { brands: view(res.meta), heat: heatCall, audience: calls.find((c) => c.params["filter.type"] === "urn:demographics") },
     notes,
     calls,
     mock: source.mock,

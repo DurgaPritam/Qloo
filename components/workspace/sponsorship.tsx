@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { PitchInput } from "@/lib/export/sponsor";
+import { describeRequest, type PitchInput } from "@/lib/export/sponsor";
 import type { MatchView, SponsorRun } from "@/lib/sponsorship/service";
 
 import { FIELD } from "../account/fields";
@@ -224,6 +224,19 @@ function MatchCard({ m, canEdit, saved, onSave }: { m: MatchView; canEdit: boole
             </li>
           ))}
         </ul>
+        {m.pitch.sources && m.pitch.sources.length > 0 && (
+          <details className="text-chip">
+            <summary className="cursor-pointer text-acc-text">Where each figure comes from</summary>
+            <ul className="m-0 flex list-none flex-col gap-1.5 p-0 pt-1.5" aria-label={`Sources for ${m.name}`}>
+              {m.pitch.sources.map((s) => (
+                <li key={s.figure} className="flex flex-col">
+                  <span>{s.figure}</span>
+                  <span className="font-mono text-label text-mute [overflow-wrap:anywhere]">{describeRequest(s)}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
           <SourceBadge />
           <span className="flex-1" />
