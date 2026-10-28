@@ -16,6 +16,7 @@ import { predictionsFromPlan } from "@/lib/outcomes/predict";
 import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
 import type { OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
+import type { CampaignBriefData } from "@/lib/campaign/brief";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -25,6 +26,7 @@ import { isPlanTarget } from "@/lib/workspace/targets";
 import type { DB } from "./index";
 import {
   activityLog,
+  campaignBriefs,
   comments,
   alerts,
   calibrationPairs,
@@ -1033,6 +1035,36 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           await db.update(outreach).set({ remindedFor: d.dueDate }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, d.id)));
         }
         return owned;
+      },
+    },
+
+    /** Campaign briefs made from saved plans. */
+    briefs: {
+      async list() {
+        need("plan.read");
+        return db
+          .select({ id: campaignBriefs.id, planId: campaignBriefs.planId, data: campaignBriefs.data, createdAt: campaignBriefs.createdAt, author: users.name, authorEmail: users.email })
+          .from(campaignBriefs)
+          .leftJoin(users, eq(users.id, campaignBriefs.createdBy))
+          .where(eq(campaignBriefs.workspaceId, ws))
+          .orderBy(desc(campaignBriefs.createdAt))
+          .limit(50);
+      },
+      async get(id: string) {
+        need("plan.read");
+        return (await db.select().from(campaignBriefs).where(and(eq(campaignBriefs.workspaceId, ws), eq(campaignBriefs.id, id))).limit(1))[0] ?? null;
+      },
+      async save(planId: string, data: CampaignBriefData) {
+        need("plan.create");
+        if (!(await planById(planId))) throw new InputError("That plan isn't in this workspace.");
+        const id = crypto.randomUUID();
+        await db.insert(campaignBriefs).values({ id, workspaceId: ws, planId, data, createdBy: ctx.userId });
+        await log("brief.created", { type: "campaign_brief", id }, { name: data.title });
+        return id;
+      },
+      async remove(id: string) {
+        need("plan.create");
+        await db.delete(campaignBriefs).where(and(eq(campaignBriefs.workspaceId, ws), eq(campaignBriefs.id, id)));
       },
     },
 

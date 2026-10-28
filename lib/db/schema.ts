@@ -12,6 +12,7 @@ import type { Prediction } from "@/lib/engine/outcomes";
 import type { DeckFont } from "@/lib/export/branding";
 import type { OutreachKind, OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
+import type { CampaignBriefData } from "@/lib/campaign/brief";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -738,6 +739,26 @@ export const tours = pgTable(
   (t) => [index("tours_workspace_idx").on(t.workspaceId, t.createdAt)],
 );
 
+/* ---------- Campaign briefs ---------- */
+
+/** A one-page campaign brief built from a saved plan; its figures are the plan's and Qloo's. */
+export const campaignBriefs = pgTable(
+  "campaign_briefs",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => plans.id, { onDelete: "cascade" }),
+    data: jsonb("data").$type<CampaignBriefData>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("campaign_briefs_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -764,4 +785,5 @@ export const TENANT_TABLES = [
   "outreach_events",
   "tours",
   "watch_runs",
+  "campaign_briefs",
 ] as const;

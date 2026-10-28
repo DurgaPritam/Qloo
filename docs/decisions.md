@@ -949,3 +949,19 @@ runs again. An unfinished claim older than 30 minutes is a run that crashed, and
 may take it over (items already checked that week are not due, so they are not checked twice).
 Items skipped for budget wait for the first Monday 07:xx after their limit resets. Pipeline
 reminders still run on any hourly tick: they have their own once-per-due-date guard.
+
+**D142. Campaign brief** (roadmap Prompt 9; its text was not given, so built from the design). At
+/workspace/campaign a member picks a finished plan and, optionally, a campaign name, flight and
+budget (user data, labelled; empty ones print "to confirm"). The brief takes interests (what the fans
+over-index on: the partner shortlist, sponsors and opener, by Qloo affinity) and cities (combined
+score, Qloo rank and population rank, plus a Market watch alert from the last week when there is one)
+from the plan as stored, so they cost nothing; Qloo is asked only for demographics of the fanbase
+and partner (at most 2 calls, the workspace's allowance, checked against the role first). Three
+creative angles are templated, each tied to one Qloo fact shown as its source; the model may only
+rephrase the sentence, and a rephrasing that adds a number or drops a name is thrown away. Briefs
+are stored (`campaign_briefs`) so they can be reopened, printed ("Download PDF" prints the page
+alone) or copied as text. The design's sample figures ("58% women", "2.4× live comedy vs watch
+parties", "38% also follow Hot Ones", "×" affinities vs a national average) are not values Qloo
+returns, so the brief shows Qloo's age and gender skews and 0–1 affinities instead (as D75 did for
+"% shared fans"). Considered: Qloo tag insights for genre-level interests (an endpoint the app has
+not used yet; it would need live probing first). The sidebar's Campaign brief link is restored.

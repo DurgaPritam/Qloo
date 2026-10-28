@@ -25,6 +25,7 @@ const TOOLS = [
   { href: "/workspace/outcomes", label: "Outcomes" },
   { href: "/tour", label: "Tour optimizer" },
   { href: "/lineup", label: "Lineup builder" },
+  { href: "/workspace/campaign", label: "Campaign brief" },
 ] as const;
 
 export const initials = (name: string) =>
