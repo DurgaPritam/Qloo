@@ -5,6 +5,7 @@ import type { Plan } from "@/lib/agent/types";
 import type { Category } from "@/lib/engine/types";
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
+import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -294,7 +295,7 @@ export const jobRuns = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<"roster.refresh">().notNull(),
+    kind: text("kind").$type<"roster.refresh" | "watch.refresh">().notNull(),
     /** What the job is about, e.g. the roster id. */
     targetId: text("target_id"),
     status: text("status").$type<JobStatus>().notNull(),
@@ -379,6 +380,110 @@ export const datasetRows = pgTable(
   ],
 );
 
+/* ---------- Market watch ---------- */
+
+export const WATCH_KINDS = ["fanbase", "city"] as const;
+export type WatchKind = (typeof WATCH_KINDS)[number];
+
+/** A fanbase (Qloo entity) or a city (GeoNames metro) re-checked weekly. */
+export const watchItems = pgTable(
+  "watch_items",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<WatchKind>().notNull(),
+    /** Qloo entity id for a fanbase, GeoNames id for a city. */
+    targetId: text("target_id").notNull(),
+    name: text("name").notNull(),
+    /** Fanbase: Qloo category. City: ISO country code. */
+    detail: text("detail"),
+    /** Fanbase: the resolver's entity snapshot (for its market and format). */
+    entity: jsonb("entity").$type<RosterEntity>(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    lastSnapshotAt: timestamp("last_snapshot_at", { mode: "date", withTimezone: true }),
+    nextDueAt: timestamp("next_due_at", { mode: "date", withTimezone: true }),
+    /** What the last check did, in plain words (skipped for budget, Qloo did not answer…). */
+    lastNote: text("last_note"),
+  },
+  (t) => [
+    uniqueIndex("watch_items_target_idx").on(t.workspaceId, t.kind, t.targetId),
+    index("watch_items_due_idx").on(t.nextDueAt),
+    check("watch_items_kind_check", sql`${t.kind} in ('fanbase', 'city')`),
+  ],
+);
+
+export const snapshots = pgTable(
+  "snapshots",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => watchItems.id, { onDelete: "cascade" }),
+    takenAt: timestamp("taken_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+    /** Ranked top lists with entity ids, ranks and values, as Qloo and the engine gave them. */
+    summary: jsonb("summary").$type<Snapshot & { market?: string; calls: CallRecord[] }>().notNull(),
+    qlooCalls: integer("qloo_calls").notNull().default(0),
+  },
+  (t) => [index("snapshots_item_idx").on(t.workspaceId, t.itemId, t.takenAt)],
+);
+
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => watchItems.id, { onDelete: "cascade" }),
+    /** The two snapshots compared: every alert needs both. */
+    snapshotId: text("snapshot_id")
+      .notNull()
+      .references(() => snapshots.id, { onDelete: "cascade" }),
+    previousSnapshotId: text("previous_snapshot_id")
+      .notNull()
+      .references(() => snapshots.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<ChangeKind>().notNull(),
+    list: text("list").notNull(),
+    entityId: text("entity_id").notNull(),
+    entityName: text("entity_name").notNull(),
+    before: jsonb("before").$type<{ rank: number; value: number } | null>(),
+    after: jsonb("after").$type<{ rank: number; value: number }>().notNull(),
+    /** Filled from templates (lib/watch/wording.ts), never written by the model. */
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("alerts_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
+/**
+ * The weekly digest, per person and workspace: off until the person turns it on. Unsubscribe
+ * links carry a signed token (lib/watch/digest.ts), so nothing secret is stored here.
+ */
+export const digestSubscriptions = pgTable(
+  "digest_subscriptions",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(false),
+    lastSentAt: timestamp("last_sent_at", { mode: "date", withTimezone: true }),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -392,4 +497,8 @@ export const TENANT_TABLES = [
   "job_runs",
   "datasets",
   "dataset_rows",
+  "watch_items",
+  "snapshots",
+  "alerts",
+  "digest_subscriptions",
 ] as const;

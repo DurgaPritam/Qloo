@@ -52,7 +52,10 @@ venues over 500", "not before March").
     when it is public);
   - an invitation by the hash of its token, and accepting it (the writes still carry
     `workspace_id`);
-  - creating a personal workspace on first sign-in.
+  - creating a personal workspace on first sign-in;
+  - for the weekly market watch tick, which workspaces have a watch due and an owner to act as
+    (each job then works through `forWorkspace` only);
+  - turning off one person's digest in one workspace from the signed unsubscribe link.
   Admin scripts, when they exist, follow the same naming.
 
 ## 4. Background jobs respect the Qloo budget

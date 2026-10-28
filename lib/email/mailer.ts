@@ -11,6 +11,8 @@ export interface Email {
   subject: string;
   text: string;
   html: string;
+  /** Extra headers, e.g. List-Unsubscribe on the digest. */
+  headers?: Record<string, string>;
 }
 
 export interface OutboxMessage extends Email {
@@ -47,7 +49,7 @@ export async function sendEmail(email: Email): Promise<void> {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: email.to, subject: email.subject, text: email.text, html: email.html }),
+      body: JSON.stringify({ from, to: email.to, subject: email.subject, text: email.text, html: email.html, ...(email.headers ? { headers: email.headers } : {}) }),
     });
     // The response body can echo the request; log the status only.
     if (!res.ok) throw new Error(`Resend refused the email (HTTP ${res.status}).`);
@@ -58,7 +60,7 @@ export async function sendEmail(email: Email): Promise<void> {
   if (outbox.length > 100) outbox.shift();
 }
 
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /** A plain message with one button: sign-in links and invitations. */
 export function linkEmail({ to, subject, intro, button, url, outro }: { to: string; subject: string; intro: string; button: string; url: string; outro: string }): Email {

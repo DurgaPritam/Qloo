@@ -109,7 +109,10 @@ starts with it.
 | `user_facts` | single facts typed in: fees, constraints | workspace |
 | `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |
-| `watches` | a fanbase or city to watch, last Qloo snapshot, frequency, opt-in for email | workspace |
+| `watch_items` (*Built*) | a fanbase (Qloo entity) or city (GeoNames metro) to watch, last and next check, last note | workspace |
+| `snapshots` (*Built*) | per item and week: ranked top lists (entity ids, ranks, values) and the Qloo requests | workspace |
+| `alerts` (*Built*) | a change between two snapshots: kind, list, entity, before, after, templated title and body | workspace |
+| `digest_subscriptions` (*Built*) | per person and workspace: digest on or off, last sent | workspace |
 | `job_runs` (*Built*) | job kind, target, status (queued, running, done, failed, skipped_budget), Qloo calls used, note | workspace |
 | `rosters` (*Built*) | name, created by | workspace |
 | `roster_acts` (*Built*) | roster, Qloo entity id, name, type, resolver snapshot, home city (user data), added by, Qloo affinities to the other acts and when | workspace |
@@ -183,7 +186,7 @@ health page shows today's global count and the cap.
 
 | Job | Schedule | Qloo calls | Output |
 | --- | --- | --- | --- |
-| Watch refresh | Weekly per workspace (QStash schedule fans out one message per workspace) | Small and fixed per watch; counted against the workspace | "What changed" in the workspace; an email only if opted in |
+| Watch refresh (*Built*) | Weekly per workspace: a QStash schedule (Mondays) calls `/api/jobs/watch-tick`, which sends one message per workspace with a watch due, 30 s apart, to `/api/jobs/watch-refresh` | 3 per fanbase, 4 per city; checked against the workspace allowance and the daily cap (keeping the job reserve) before each item, skipped and logged when over | Snapshots, alerts in Market watch, and the digest to members who turned it on |
 | Export render | On click | None | A deck or PDF in Blob |
 | Stripe sync | On webhook | None | `subscriptions` and `workspaces.plan` |
 | Usage rollup | Daily | None | Copies the Redis counters into Postgres for the usage page and billing |
@@ -260,7 +263,8 @@ All are server-only. None has a `NEXT_PUBLIC_` prefix.
 4. **User data.** `user_facts`, the "Your data" label, and the CSV upload to Blob. (*Built* as
    datasets: upload, column mapping, GeoNames matching, attach to a fanbase, combined ranking.)
 5. **Outreach tracking and Send with confirmation.** Through Resend.
-6. **Watches and the weekly job.** Through QStash.
+6. **Watches and the weekly job.** Through QStash. (*Built*: Market watch. To schedule it, create a
+   QStash schedule with cron `0 7 * * 1` and destination `<APP_URL>/api/jobs/watch-tick`.)
 7. **Stripe.** Plans, Checkout, webhook, Portal.
 
 Each step lands with tests, passing checks and a decision entry, and is committed on its own.

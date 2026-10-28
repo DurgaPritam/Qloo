@@ -8,7 +8,8 @@ import { auth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { loadPlan } from "@/lib/server/plan-store";
 
-import { unscopedAcceptInvitation, unscopedInvitationByToken } from "@/lib/db/unscoped";
+import { unscopedAcceptInvitation, unscopedInvitationByToken, unscopedUnsubscribeDigest, unscopedWatchWorkspacesDue } from "@/lib/db/unscoped";
+import { readUnsubscribeToken } from "@/lib/watch/token";
 
 import { contextFor, jobContext, planForViewer } from "./context";
 
@@ -91,4 +92,17 @@ export async function acceptInvitationForCurrentUser(token: string) {
 /** For job routes: the workspace in the payload, checked as jobContext() describes. */
 export async function jobWorkspace(workspaceId: string, userId: string) {
   return jobContext(await getDb(), workspaceId, userId);
+}
+
+/** For the weekly market watch tick: workspaces with a watch due, each with an owner to act as. */
+export async function watchWorkspacesDue(now: Date) {
+  return unscopedWatchWorkspacesDue(await getDb(), now);
+}
+
+/** The digest's unsubscribe link: a signed token for one person in one workspace, no sign-in. */
+export async function unsubscribeDigest(token: string): Promise<boolean> {
+  const who = readUnsubscribeToken(token);
+  if (!who) return false;
+  await unscopedUnsubscribeDigest(await getDb(), who.workspaceId, who.userId);
+  return true;
 }

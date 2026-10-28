@@ -2,11 +2,12 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, asc, count, desc, eq, gt, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, or } from "drizzle-orm";
 
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
 import type { Category } from "@/lib/engine/types";
+import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -17,8 +18,10 @@ import type { DB } from "./index";
 import {
   activityLog,
   comments,
+  alerts,
   datasetRows,
   datasets,
+  digestSubscriptions,
   entityProfiles,
   invitations,
   jobRuns,
@@ -27,11 +30,14 @@ import {
   plans,
   rosterActs,
   rosters,
+  snapshots,
   users,
+  watchItems,
   workspaces,
   type CommentTarget,
   type JobStatus,
   type MatchStatus,
+  type WatchKind,
   type Role,
   type Visibility,
 } from "./schema";
@@ -59,6 +65,8 @@ export const MAX_COMMENT = 2000;
 const MAX_NAME = 60;
 /** Pairings grow with the square of the roster, and each refresh asks Qloo once per act. */
 export const MAX_ROSTER_ACTS = 40;
+/** Each watch costs a few Qloo calls a week. */
+export const MAX_WATCH_ITEMS = 30;
 
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export const newToken = () => randomBytes(32).toString("base64url");
@@ -420,8 +428,8 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
     },
 
     jobs: {
-      async create(input: { kind: "roster.refresh"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
-        need("roster.edit");
+      async create(input: { kind: "roster.refresh" | "watch.refresh"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
+        need(input.kind === "roster.refresh" ? "roster.edit" : "watch.read");
         const id = crypto.randomUUID();
         await db.insert(jobRuns).values({ id, workspaceId: ws, createdBy: ctx.userId, ...input });
         return id;
@@ -543,6 +551,135 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .where(and(eq(activityLog.workspaceId, ws), eq(activityLog.targetType, "dataset"), eq(activityLog.targetId, id)));
         await log("data.deleted", { type: "dataset", id });
         return found.fileKey;
+      },
+    },
+
+    /** Market watch: items, their weekly snapshots and the alerts from comparing two of them. */
+    watch: {
+      async items() {
+        need("watch.read");
+        return db.select().from(watchItems).where(eq(watchItems.workspaceId, ws)).orderBy(asc(watchItems.createdAt));
+      },
+      async item(id: string) {
+        need("watch.read");
+        return (await db.select().from(watchItems).where(and(eq(watchItems.workspaceId, ws), eq(watchItems.id, id))).limit(1))[0] ?? null;
+      },
+      async add(input: { kind: WatchKind; targetId: string; name: string; detail: string | null; entity?: RosterEntity | null }) {
+        need("watch.edit");
+        const existing = (await db.select().from(watchItems).where(and(eq(watchItems.workspaceId, ws), eq(watchItems.kind, input.kind), eq(watchItems.targetId, input.targetId))).limit(1))[0];
+        if (existing) return { id: existing.id, added: false };
+        const [{ n }] = await db.select({ n: count() }).from(watchItems).where(eq(watchItems.workspaceId, ws));
+        if (n >= MAX_WATCH_ITEMS) throw new InputError(`A workspace can watch up to ${MAX_WATCH_ITEMS} fanbases and cities.`);
+        const id = crypto.randomUUID();
+        await db.insert(watchItems).values({ id, workspaceId: ws, createdBy: ctx.userId, ...input, entity: input.entity ?? null });
+        await log("watch.added", { type: "watch", id }, { name: input.name, kind: input.kind });
+        return { id, added: true };
+      },
+      async remove(id: string) {
+        need("watch.edit");
+        await db.delete(watchItems).where(and(eq(watchItems.workspaceId, ws), eq(watchItems.id, id)));
+      },
+      /** Items with no snapshot yet, or whose week is up. */
+      async due(now: Date) {
+        return db
+          .select()
+          .from(watchItems)
+          .where(and(eq(watchItems.workspaceId, ws), or(isNull(watchItems.nextDueAt), lte(watchItems.nextDueAt, now))))
+          .orderBy(asc(watchItems.createdAt));
+      },
+      async setChecked(id: string, patch: { lastSnapshotAt?: Date; nextDueAt?: Date; lastNote: string | null }) {
+        await db.update(watchItems).set(patch).where(and(eq(watchItems.workspaceId, ws), eq(watchItems.id, id)));
+      },
+      /** Newest first. */
+      async snapshots(itemId: string, limit = 2) {
+        need("watch.read");
+        return db
+          .select()
+          .from(snapshots)
+          .where(and(eq(snapshots.workspaceId, ws), eq(snapshots.itemId, itemId)))
+          .orderBy(desc(snapshots.takenAt), desc(snapshots.id))
+          .limit(limit);
+      },
+      async addSnapshot(itemId: string, summary: Snapshot & { market?: string; calls: CallRecord[] }, qlooCalls: number, at: Date) {
+        const id = crypto.randomUUID();
+        await db.insert(snapshots).values({ id, workspaceId: ws, itemId, summary, qlooCalls, takenAt: at });
+        return id;
+      },
+      async addAlerts(
+        rows: {
+          itemId: string;
+          snapshotId: string;
+          previousSnapshotId: string;
+          kind: ChangeKind;
+          list: string;
+          entityId: string;
+          entityName: string;
+          before: { rank: number; value: number } | null;
+          after: { rank: number; value: number };
+          title: string;
+          body: string;
+          /** When the snapshot behind it was taken. */
+          createdAt: Date;
+        }[],
+      ) {
+        if (rows.length) await db.insert(alerts).values(rows.map((r) => ({ ...r, workspaceId: ws })));
+      },
+      async alerts(opts: { since?: Date; limit?: number } = {}) {
+        need("watch.read");
+        return db
+          .select({
+            id: alerts.id,
+            itemId: alerts.itemId,
+            itemName: watchItems.name,
+            itemKind: watchItems.kind,
+            itemTarget: watchItems.targetId,
+            kind: alerts.kind,
+            list: alerts.list,
+            entityId: alerts.entityId,
+            entityName: alerts.entityName,
+            before: alerts.before,
+            after: alerts.after,
+            title: alerts.title,
+            body: alerts.body,
+            createdAt: alerts.createdAt,
+          })
+          .from(alerts)
+          .innerJoin(watchItems, and(eq(watchItems.id, alerts.itemId), eq(watchItems.workspaceId, ws)))
+          .where(and(eq(alerts.workspaceId, ws), opts.since ? gte(alerts.createdAt, opts.since) : undefined))
+          .orderBy(desc(alerts.createdAt), asc(alerts.id))
+          .limit(opts.limit ?? 50);
+      },
+    },
+
+    /** The caller's own weekly digest setting in this workspace (rule 5: email to yourself needs an opt-in). */
+    digest: {
+      async get() {
+        need("watch.read");
+        return (await db.select().from(digestSubscriptions).where(and(eq(digestSubscriptions.workspaceId, ws), eq(digestSubscriptions.userId, ctx.userId))).limit(1))[0] ?? null;
+      },
+      async set(enabled: boolean) {
+        need("watch.read");
+        await db
+          .insert(digestSubscriptions)
+          .values({ workspaceId: ws, userId: ctx.userId, enabled })
+          .onConflictDoUpdate({ target: [digestSubscriptions.workspaceId, digestSubscriptions.userId], set: { enabled, updatedAt: new Date() } });
+        await log(enabled ? "digest.on" : "digest.off", { type: "user", id: ctx.userId });
+      },
+      /** Members who turned the digest on, and are still members. */
+      async recipients() {
+        return db
+          .select({ userId: users.id, email: users.email, name: users.name })
+          .from(digestSubscriptions)
+          .innerJoin(memberships, and(eq(memberships.workspaceId, ws), eq(memberships.userId, digestSubscriptions.userId)))
+          .innerJoin(users, eq(users.id, digestSubscriptions.userId))
+          .where(and(eq(digestSubscriptions.workspaceId, ws), eq(digestSubscriptions.enabled, true)));
+      },
+      async markSent(userIds: readonly string[], at: Date) {
+        if (!userIds.length) return;
+        await db
+          .update(digestSubscriptions)
+          .set({ lastSentAt: at })
+          .where(and(eq(digestSubscriptions.workspaceId, ws), inArray(digestSubscriptions.userId, [...userIds])));
       },
     },
 

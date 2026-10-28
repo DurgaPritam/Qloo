@@ -13,7 +13,10 @@ export interface LocalPick {
  * to 1 for most results, so its own order is kept; the popularity band drops mega-stars and acts
  * too obscure to sell tickets, and duplicate names are merged.
  */
-export function rankLocal(candidates: readonly Candidate[], cfg = ENGINE_CONFIG.local): { picks: LocalPick[]; dropped: number } {
+export function rankLocal(
+  candidates: readonly Candidate[],
+  cfg: { count: number; minPopularity: number; maxPopularity: number } = ENGINE_CONFIG.local,
+): { picks: LocalPick[]; dropped: number } {
   const seen = new Set<string>();
   const kept = candidates.filter((c) => {
     const key = foldName(c.name);

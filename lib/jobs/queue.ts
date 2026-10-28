@@ -16,11 +16,21 @@ export interface RosterRefreshMessage {
   force: boolean;
 }
 
-export type JobMessage = RosterRefreshMessage;
+/** One workspace's weekly market watch: its due items, then its digest. */
+export interface WatchRefreshMessage {
+  kind: "watch.refresh";
+  workspaceId: string;
+  /** The member the job acts as (an owner); it stops if they are no longer a member. */
+  userId: string;
+  /** Local runs only: the date the job acts as of (a stand-in for next Monday in tests). */
+  asOf?: string;
+}
+
+export type JobMessage = RosterRefreshMessage | WatchRefreshMessage;
 
 type Env = Record<string, string | undefined>;
 
-export const JOB_PATHS: Record<JobMessage["kind"], string> = { "roster.refresh": "/api/jobs/roster-refresh" };
+export const JOB_PATHS: Record<JobMessage["kind"], string> = { "roster.refresh": "/api/jobs/roster-refresh", "watch.refresh": "/api/jobs/watch-refresh" };
 
 /**
  * QStash when it is configured; on a laptop, an in-process timer. A deployment without QStash
@@ -52,7 +62,11 @@ export async function enqueue(message: JobMessage, delaySeconds: number, env: En
     return;
   }
   setTimeout(() => {
-    void import("@/lib/roster/jobs").then(({ runRosterJob }) => runRosterJob(message)).catch((err: unknown) => {
+    const run =
+      message.kind === "roster.refresh"
+        ? import("@/lib/roster/jobs").then(({ runRosterJob }) => runRosterJob(message))
+        : import("@/lib/watch/jobs").then(({ runWatchJob }) => runWatchJob(message));
+    void run.catch((err: unknown) => {
       console.error("[jobs] local job failed:", err instanceof Error ? err.message : "unknown");
     });
   }, delaySeconds * 1000);

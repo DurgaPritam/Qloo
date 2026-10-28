@@ -574,3 +574,55 @@ its arithmetic with the weight. Plans now store each city's two heat values and 
 requests (`city.ranked`, `city.calls`). Deleting a dataset also clears its file name and counts
 from the activity log ("deleted data and its file" stays), so after one click it appears in no
 view: the data pages, plans' city steps, or settings.
+
+## Market watch (28 Oct, branch roadmap/foundation)
+
+**D96. What a snapshot holds.** A fanbase: its top 10 cities by heat in its home market (city heat
+scaled to the hottest, scoreCityHeat) and its top 10 crossover partners (scorePartners over the two
+partner categories a plan tries first), 3 Qloo calls. A city: its top 10 per category for artist,
+podcast, TV show and brand (rankLocal, the Venue booker's ranking), 4 calls. Each entry keeps its
+Qloo entity id, rank and value; the requests are kept with the snapshot as evidence. A list Qloo
+did not answer for is left out, so it is never compared with a real one.
+
+**D97. `diffSnapshots` and its thresholds** (`ENGINE_CONFIG.watch`): top 10; a move of 3 places or
+more; a value change of 0.05 or more (5 points on the 0–100 scale shown). One change per entry, the
+rank move first when both happen; each carries both snapshots' rank and value. A list the previous
+snapshot did not have is not compared. Entries that drop out of a list are not alerted (not asked
+for, and usually the other side of a new entry).
+
+**D98. No alert from a single snapshot.** Adding a watch takes the first snapshot at once (when the
+allowance has room) and says "First snapshot taken; changes appear next week". Alerts are only
+created by comparing two snapshots and store both ids. The next check is the next Monday at least
+four days away, so two snapshots are never days apart.
+
+**D99. The weekly job.** A QStash schedule (Mondays 07:00 UTC) calls a tick that finds workspaces
+with something due through one new named lookup (`unscopedWatchWorkspacesDue`, added to the rules'
+list) and queues one job per workspace, 30 s apart, acting as the workspace's first owner. Before
+each item the job checks the workspace allowance, the daily cap and the job reserve; an item that
+does not fit is skipped, its note says which limit and when it is next tried (the 1st of next month,
+or tomorrow), and the job is recorded as "skipped_budget". Nothing retries before then. Locally,
+with no scheduler, a request with the e2e token may run the tick as of a later date.
+
+**D100. Alert wording is templated from the diff** (`lib/watch/wording.ts`): titles and bodies use
+only the entity and item names and the two snapshots' ranks and values. The digest may ask the
+model (through lib/llm) to rephrase a line; `safeRephrase` keeps the rephrasing only if it has
+exactly the same numbers and names, and otherwise sends the template.
+
+**D101. The digest is opt-in per person and workspace,** with an unsubscribe link that works
+without signing in: a token signed with AUTH_SECRET for that person and workspace, so nothing
+secret is stored (the table's hashed token was dropped before its migration shipped). Opening the
+link changes nothing (mail scanners follow links); the button does. A one-click endpoint takes the
+List-Unsubscribe POST. No email in a week with no changes. "Send me a test" goes only to the person
+who clicked.
+
+**D102. Departures from the design.** Each watch shows its real status ("1st snapshot", "N
+changes", "No changes", or a skip note) instead of the design's "88 / 100 ▲3", which has no defined
+meaning for a fanbase. "Edit recipients" is left out: one member must not subscribe another (rule
+5); each turns the digest on for themselves and the preview lists who has. The "Thin data" alert
+type is not built; a list that was empty and fills up shows as new entries.
+
+**D103. Watches live in a "Watch" workspace tab**, like Rosters and Data (D74). A workspace can watch
+up to 30 fanbases and cities (at most about 120 calls a week).
+
+**D104. Alerts are dated by their snapshot**, not by the database clock, so a run as of a given
+Monday (the job, or a test standing in for it) files its alerts in that week.

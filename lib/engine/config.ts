@@ -64,6 +64,18 @@ export const ENGINE_CONFIG = {
    * (docs/tuning.md), so 0.92+ is as strong as a typical top crossover.
    */
   overlap: { strong: 0.92, clear: 0.85 },
+  /**
+   * Market watch: what counts as a change between two weekly snapshots of a top list. Values are
+   * Qloo affinity (partners, a city's top entities) or city heat scaled to the hottest city, 0–1.
+   */
+  watch: {
+    /** Lists are compared over their top N. */
+    topN: 10,
+    /** A move of this many places or more. */
+    rankMove: 3,
+    /** A change of this much or more (0.05 = 5 points on the 0–100 scale shown). */
+    valueChange: 0.05,
+  },
   /** Audience profile: a skew below this (either way) reads as "balanced". */
   audience: { lean: 0.1 },
   places: {

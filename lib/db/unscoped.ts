@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 
 import type { Plan } from "@/lib/agent/types";
 
 import type { DB } from "./index";
-import { activityLog, invitations, memberships, plans, users, workspaces, type Role, type Visibility } from "./schema";
+import { activityLog, digestSubscriptions, invitations, memberships, plans, users, watchItems, workspaces, type Role, type Visibility } from "./schema";
 import { hashToken, normaliseEmail } from "./scoped";
 
 /**
@@ -120,4 +120,34 @@ export async function unscopedEnsurePersonalWorkspace(db: DB, user: { id: string
     await tx.insert(activityLog).values({ workspaceId: id, actorId: user.id, action: "workspace.created", targetType: "workspace", targetId: id });
   });
   return id;
+}
+
+/**
+ * For the weekly market watch tick: the workspaces with a watch item due, each with a member to
+ * act as (its earliest owner). The job then works through forWorkspace() only.
+ */
+export async function unscopedWatchWorkspacesDue(db: DB, now: Date): Promise<{ workspaceId: string; userId: string }[]> {
+  const due = await db
+    .selectDistinct({ workspaceId: watchItems.workspaceId })
+    .from(watchItems)
+    .where(or(isNull(watchItems.nextDueAt), lte(watchItems.nextDueAt, now)));
+  if (!due.length) return [];
+  const owners = await db
+    .select({ workspaceId: memberships.workspaceId, userId: memberships.userId, createdAt: memberships.createdAt })
+    .from(memberships)
+    .where(and(inArray(memberships.workspaceId, due.map((d) => d.workspaceId)), eq(memberships.role, "owner")))
+    .orderBy(asc(memberships.createdAt));
+  const first = new Map<string, string>();
+  for (const o of owners) if (!first.has(o.workspaceId)) first.set(o.workspaceId, o.userId);
+  return [...first].map(([workspaceId, userId]) => ({ workspaceId, userId }));
+}
+
+/** For the digest's unsubscribe link (no sign-in): turns that person's digest off in that workspace. */
+export async function unscopedUnsubscribeDigest(db: DB, workspaceId: string, userId: string): Promise<boolean> {
+  const done = await db
+    .update(digestSubscriptions)
+    .set({ enabled: false, updatedAt: new Date() })
+    .where(and(eq(digestSubscriptions.workspaceId, workspaceId), eq(digestSubscriptions.userId, userId)))
+    .returning({ userId: digestSubscriptions.userId });
+  return done.length > 0;
 }
