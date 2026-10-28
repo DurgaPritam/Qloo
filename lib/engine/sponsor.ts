@@ -6,7 +6,9 @@ import type { Confidence } from "./types";
  * pairwise affinity in both directions where Qloo gave it:
  *   forward  = the brand among the rights holder's fans
  *   backward = the rights holder among the brand's fans
- * fit = mean of the directions present × 100. Nothing commercial is scored or estimated: reach,
+ * fit = √(forward × backward) × 100, the geometric mean, as cities combine two heats (a fit
+ * needs both sides; one weak direction pulls it down). With one direction only, fit = that direction,
+ * and confidence is capped at medium. Nothing commercial is scored or estimated: reach,
  * impressions and fees are always "to confirm".
  */
 export interface FitEvidence {
@@ -52,7 +54,8 @@ export function scoreSponsorFit(
     evidence.push({ kind: "missing", text: `Qloo gave one direction only, so confidence is at most medium.`, value: null, source: "none" });
   }
   evidence.push({ kind: "to_confirm", text: TO_CONFIRM_COMMERCIAL, value: null, source: "none" });
-  return { fit: Math.round((both.reduce((s, x) => s + x, 0) / both.length) * 100), level, confidence, forward, backward, evidence };
+  const mean = both.length === 2 ? Math.sqrt(both[0] * both[1]) : both[0];
+  return { fit: Math.round(mean * 100), level, confidence, forward, backward, evidence };
 }
 
 const RANK: Record<Confidence, number> = { high: 2, medium: 1, low: 0 };

@@ -833,3 +833,10 @@ signal, no data from you yet", by Qloo signal, with no Your data or Combined val
 map view shows both groups (their Qloo values are real); the Your data and Combined views show only
 the ranked cities. A plan's chosen city can sit in the untested list and is marked there.
 Considered: ranking untested cities with a penalty (that would be a number we invented).
+
+**D130. Sponsor fit is the geometric mean** (halfway review, answer 13). `scoreSponsorFit` now gives
+√(forward × backward) × 100 when Qloo gave both directions, the same rule as a city's score from two
+heats: a fit needs both sides, so one weak direction pulls it down (0.9 and 0.1 give 30, not 50).
+With one direction only, the fit is that direction and confidence stays capped at medium, as before.
+The deck's method note says so. Matches already on a shortlist keep the fit they were saved with
+(the stored pitch is what its deck was built from); saving the match again recomputes it.

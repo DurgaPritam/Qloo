@@ -11,7 +11,7 @@ const A = { name: "Ali Wong" };
 const B = { name: "Liquid Death" };
 
 describe("scoreSponsorFit", () => {
-  it("is the mean of both directions × 100, with each as Qloo evidence and commercial terms to confirm", () => {
+  it("is the geometric mean of both directions × 100, with each as Qloo evidence and commercial terms to confirm", () => {
     const f = scoreSponsorFit(A, B, { forward: 0.94, backward: 0.88 })!;
     expect(f).toMatchObject({ fit: 91, level: "strong", confidence: "high", forward: 0.94, backward: 0.88 });
     expect(f.evidence.map((e) => [e.kind, e.source, e.value])).toEqual([
@@ -21,6 +21,12 @@ describe("scoreSponsorFit", () => {
     ]);
     expect(f.evidence[0].text).toBe("Ali Wong fans over-index on Liquid Death: Qloo affinity 0.94.");
     expect(f.evidence.at(-1)!.text).toBe(TO_CONFIRM_COMMERCIAL);
+  });
+
+  it("lets one weak direction pull the fit down, as the city score does with two heats", () => {
+    // √(0.9 × 0.1) = 0.30; the arithmetic mean would have said 0.50.
+    expect(scoreSponsorFit(A, B, { forward: 0.9, backward: 0.1 })!.fit).toBe(30);
+    expect(scoreSponsorFit(A, B, { forward: 0.6, backward: 0 })!.fit).toBe(0);
   });
 
   it("uses one direction alone at most medium confidence, and invents nothing with none", () => {

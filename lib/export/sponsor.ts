@@ -72,7 +72,7 @@ export function pitchOutline(p: PitchInput): SlideOutline[] {
     {
       title: "Why it fits",
       bullets: f.evidence.filter((e) => e.kind !== "to_confirm").map((e) => e.text),
-      note: "Fit = the mean of Qloo's affinity in each direction measured, × 100.",
+      note: "Fit = √(affinity each way) × 100, the geometric mean of Qloo's two directions; one direction alone when Qloo gave only one.",
     },
   ];
   if (p.audience) {
