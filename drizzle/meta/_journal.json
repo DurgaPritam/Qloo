@@ -36,6 +36,13 @@
       "when": 1793187985461,
       "tag": "0004_market_watch",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793189163419,
+      "tag": "0005_digest_theme",
+      "breakpoints": true
     }
   ]
 }

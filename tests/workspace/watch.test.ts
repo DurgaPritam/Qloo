@@ -12,7 +12,7 @@ import { MockQlooSource } from "@/lib/qloo/mock";
 import type { QlooSource } from "@/lib/qloo/source";
 import { digestLines, sendDigests } from "@/lib/watch/digest";
 import { runWatchJob } from "@/lib/watch/jobs";
-import { addWatch, checkItem, FIRST_SNAPSHOT_NOTE, nextCheck, runWatchWorkspace, scheduleWatchJobs, watchView, WATCH_INTERVAL_MS } from "@/lib/watch/service";
+import { addWatch, checkItem, FIRST_SNAPSHOT_NOTE, nextCheck, recordSnapshot, runWatchWorkspace, seededWeek, scheduleWatchJobs, watchView, WATCH_INTERVAL_MS } from "@/lib/watch/service";
 import { readUnsubscribeToken, unsubscribeToken } from "@/lib/watch/token";
 import { ForbiddenError } from "@/lib/workspace/permissions";
 
@@ -147,6 +147,95 @@ describe("market watch", () => {
     const repo = forWorkspace(db, { userId: viewer.id, workspaceId: owner.workspaceId, role: "viewer" });
     await expect(addWatch(repo, { kind: "fanbase", query: "Clairo" }, { source: new MockQlooSource() })).rejects.toBeInstanceOf(ForbiddenError);
     expect(await repo.watch.items()).toEqual([]);
+  });
+});
+
+describe("two seeded snapshots", () => {
+  const entry = (id: string, name: string, rank: number, value: number) => ({ id, name, rank, value });
+  const week1 = {
+    lists: {
+      cities: [entry("c-austin", "Austin", 6, 0.7), entry("c-la", "Los Angeles", 1, 0.95), entry("c-ny", "New York City", 2, 0.9)],
+      partners: [entry("p-hot", "Hot Ones", 1, 0.9), entry("p-smart", "SmartLess", 2, 0.86), entry("p-bon", "Bon Appétit", 3, 0.8)],
+    },
+    calls: [],
+    failed: [],
+  };
+  const week2 = {
+    lists: {
+      cities: [entry("c-austin", "Austin", 2, 0.79), entry("c-la", "Los Angeles", 1, 0.95), entry("c-ny", "New York City", 3, 0.9)],
+      partners: [entry("p-hot", "Hot Ones", 1, 0.82), entry("p-smart", "SmartLess", 2, 0.86), entry("p-liquid", "Liquid Death", 3, 0.91)],
+    },
+    calls: [],
+    failed: [],
+  };
+
+  it("produce exactly the expected alerts, each with before and after values", async () => {
+    const { repo } = await person("seed@watch.test");
+    const { id } = await repo.watch.add({ kind: "fanbase", targetId: "e-ali", name: "Ali Wong", detail: "person", entity: { id: "e-ali", name: "Ali Wong", category: "person", popularity: 0.8 } });
+    const item = (await repo.watch.item(id))!;
+    const first = await recordSnapshot(repo, item, week1, { calls: 0, now: MONDAY });
+    expect(first).toMatchObject({ first: true, changes: [], note: FIRST_SNAPSHOT_NOTE });
+    expect(await repo.watch.alerts()).toEqual([]);
+
+    const second = await recordSnapshot(repo, item, week2, { calls: 0, now: NEXT_MONDAY });
+    const alerts = await repo.watch.alerts();
+    const got = alerts.map((a) => ({ kind: a.kind, list: a.list, entity: a.entityName, before: a.before, after: a.after, title: a.title, body: a.body }));
+    expect(got.sort((x, y) => x.entity.localeCompare(y.entity))).toEqual([
+      {
+        kind: "rank_up",
+        list: "cities",
+        entity: "Austin",
+        before: { rank: 6, value: 0.7 },
+        after: { rank: 2, value: 0.79 },
+        title: "Austin up 4 places in the top cities for Ali Wong",
+        body: "Rank #6 → #2; Qloo value 70 → 79 among Ali Wong fans.",
+      },
+      {
+        kind: "value_down",
+        list: "partners",
+        entity: "Hot Ones",
+        before: { rank: 1, value: 0.9 },
+        after: { rank: 1, value: 0.82 },
+        title: "Ali Wong fans cooling on Hot Ones",
+        body: "Down 8 points, 90 → 82; still #1 in the top crossover partners.",
+      },
+      {
+        kind: "new",
+        list: "partners",
+        entity: "Liquid Death",
+        before: null,
+        after: { rank: 3, value: 0.91 },
+        title: "Liquid Death entered the top crossover partners for Ali Wong",
+        body: "Now #3 at 91 / 100; it was not in the top list last week.",
+      },
+    ]);
+    // Los Angeles (no change), New York City (one place, under 3) and SmartLess (no change) stay quiet.
+    expect(second.note).toBe("3 changes since last week.");
+    const [now, before] = await repo.watch.snapshots(id, 2);
+    const rows = (await db.query.alerts.findMany()).filter((a) => a.itemId === id);
+    expect(rows.every((a) => a.snapshotId === now.id && a.previousSnapshotId === before.id)).toBe(true);
+  });
+
+  it("the seeded next week used for local checks gives one rise and one fall per list", () => {
+    const s = { lists: { partners: [entry("a", "A", 1, 0.9), entry("b", "B", 2, 0.88), entry("c", "C", 3, 0.85), entry("d", "D", 4, 0.8)] } };
+    const next = seededWeek(s);
+    expect(next.lists.partners.map((e) => [e.id, e.rank])).toEqual([["d", 1], ["a", 2], ["b", 3], ["c", 4]]);
+    expect(next.lists.partners.find((e) => e.id === "b")!.value).toBeCloseTo(0.8);
+  });
+
+  it("sends each recipient the digest in the look they picked", async () => {
+    const { repo, user } = await person("look@watch.test");
+    const { id } = await repo.watch.add({ kind: "fanbase", targetId: "e-ali2", name: "Ali Wong", detail: "person", entity: { id: "e-ali2", name: "Ali Wong", category: "person", popularity: 0.8 } });
+    const item = (await repo.watch.item(id))!;
+    await recordSnapshot(repo, item, week1, { calls: 0, now: MONDAY });
+    await recordSnapshot(repo, item, week2, { calls: 0, now: NEXT_MONDAY });
+    await repo.digest.setTheme("dark");
+    expect((await repo.digest.get())?.enabled).toBe(false);
+    await repo.digest.set(true);
+    await sendDigests(repo, { workspaceName: "W", appUrl: APP, now: NEXT_MONDAY });
+    const [mail] = readOutbox(user.email);
+    expect(mail.html).toContain('bgcolor="#161826"');
+    expect(mail.html).toContain("Austin up 4 places");
   });
 });
 

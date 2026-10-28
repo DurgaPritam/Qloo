@@ -1,0 +1,1 @@
+ALTER TABLE "digest_subscriptions" ADD COLUMN "theme" text DEFAULT 'light' NOT NULL;

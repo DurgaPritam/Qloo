@@ -626,3 +626,16 @@ up to 30 fanbases and cities (at most about 120 calls a week).
 
 **D104. Alerts are dated by their snapshot**, not by the database clock, so a run as of a given
 Monday (the job, or a test standing in for it) files its alerts in that week.
+
+**D105. Market watch "done when" (28 Oct).** Alert creation is now `recordSnapshot`, used by the
+weekly check and by tests: two seeded snapshots give exactly the expected alerts (a rank move, a
+value fall, a new entry; three unchanged entries stay quiet), each with both snapshots' values and
+ids. A local-only route (404 unless local with the e2e token) seeds a second snapshot from an item's
+real one so the alerts can be checked on screen. A value change with no rank move says "still #N".
+
+**D106. The digest in the three themes.** The site's theme lives in the browser, so each person
+picks the email's look (Light, Dark, Gen Z; Light by default) in Market watch, with a preview that is
+the email's own HTML. The email uses inline hex colours copied from each theme's tokens (a test
+reads app/globals.css and fails on any other colour), table layout with bgcolor, no CSS variables,
+classes or style blocks, and fonts every client has. Gen Z keeps its hard ink outline and offset
+shadow (clients without box-shadow keep the outline). Text, links and the button are at least 4.5:1.

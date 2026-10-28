@@ -8,6 +8,7 @@ import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
 import type { Category } from "@/lib/engine/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
+import type { EmailTheme } from "@/lib/email/digest-html";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -665,10 +666,18 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .onConflictDoUpdate({ target: [digestSubscriptions.workspaceId, digestSubscriptions.userId], set: { enabled, updatedAt: new Date() } });
         await log(enabled ? "digest.on" : "digest.off", { type: "user", id: ctx.userId });
       },
+      /** Changing the look does not subscribe anyone. */
+      async setTheme(theme: EmailTheme) {
+        need("watch.read");
+        await db
+          .insert(digestSubscriptions)
+          .values({ workspaceId: ws, userId: ctx.userId, enabled: false, theme })
+          .onConflictDoUpdate({ target: [digestSubscriptions.workspaceId, digestSubscriptions.userId], set: { theme, updatedAt: new Date() } });
+      },
       /** Members who turned the digest on, and are still members. */
       async recipients() {
         return db
-          .select({ userId: users.id, email: users.email, name: users.name })
+          .select({ userId: users.id, email: users.email, name: users.name, theme: digestSubscriptions.theme })
           .from(digestSubscriptions)
           .innerJoin(memberships, and(eq(memberships.workspaceId, ws), eq(memberships.userId, digestSubscriptions.userId)))
           .innerJoin(users, eq(users.id, digestSubscriptions.userId))

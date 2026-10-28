@@ -28,7 +28,7 @@ async function Content() {
       <WatchScreen
         initial={view}
         canEdit={can(ctx.role, "watch.edit")}
-        me={{ email: user.email, digestOn: Boolean(mine?.enabled) }}
+        me={{ email: user.email, digestOn: Boolean(mine?.enabled), theme: mine?.theme ?? "light" }}
         recipients={recipients.flatMap((r) => (r.email ? [r.email] : []))}
       />
     </>

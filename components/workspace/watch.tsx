@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { digestHtml, EMAIL_THEME_LABEL, EMAIL_THEMES, type EmailTheme } from "@/lib/email/digest-html";
 import type { WatchView } from "@/lib/watch/service";
 
 import { FIELD } from "../account/fields";
@@ -37,7 +38,7 @@ export function WatchScreen({
 }: {
   initial: WatchView;
   canEdit: boolean;
-  me: { email: string | null; digestOn: boolean };
+  me: { email: string | null; digestOn: boolean; theme: EmailTheme };
   recipients: string[];
 }) {
   const [view, setView] = useState(initial);
@@ -278,11 +279,28 @@ function Alerts({ view }: { view: WatchView }) {
   );
 }
 
-function Digest({ view, me, recipients, say }: { view: WatchView; me: { email: string | null; digestOn: boolean }; recipients: string[]; say: (n: string | null, e?: string | null) => void }) {
+function Digest({ view, me, recipients, say }: { view: WatchView; me: { email: string | null; digestOn: boolean; theme: EmailTheme }; recipients: string[]; say: (n: string | null, e?: string | null) => void }) {
   const [on, setOn] = useState(me.digestOn);
+  const [theme, setTheme] = useState<EmailTheme>(me.theme);
   const [list, setList] = useState(recipients);
   const [busy, setBusy] = useState(false);
   const lines = view.alerts.filter((a) => view.thisWeek.includes(a.id)).slice(0, 8);
+
+  const pickTheme = async (t: EmailTheme) => {
+    setTheme(t);
+    const { ok, data } = await send("/api/workspace/watch/digest", "POST", { theme: t });
+    if (!ok) say(null, data.error ?? "That didn't work.");
+  };
+  const n = lines.length;
+  // The same HTML the email carries, so the preview is the email.
+  const preview = digestHtml({
+    theme,
+    intro: n ? `${n} thing${n === 1 ? "" : "s"} moved on your watchlist this week.` : "Nothing moved on your watchlist this week.",
+    lines: lines.map((a) => ({ tag: a.tag, title: a.title, body: a.body })),
+    outro: "Every change is Qloo signal, compared with last week's snapshot. Manage alerts in Market watch.",
+    marketWatchUrl: "#",
+    unsubscribeUrl: "#",
+  });
 
   const toggle = async () => {
     const next = !on;
@@ -335,6 +353,11 @@ function Digest({ view, me, recipients, say }: { view: WatchView; me: { email: s
           )}
           <p className="m-0 text-chip text-mute">Sent every Monday, only to members who turn it on, with an unsubscribe link. Every change is Qloo signal.</p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-chip">Email look</span>
+          <Segmented label="Email look" options={EMAIL_THEMES.map((t) => ({ value: t, label: EMAIL_THEME_LABEL[t] }))} value={theme} onChange={(t) => void pickTheme(t)} />
+        </div>
+        <iframe title={`Digest email preview, ${EMAIL_THEME_LABEL[theme]}`} srcDoc={preview} sandbox="" className="h-[460px] w-full rounded-md border-th border-line bg-bg" data-digest-preview={theme} />
         <div>
           <Button
             loading={busy}

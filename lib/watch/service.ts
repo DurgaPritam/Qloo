@@ -100,17 +100,23 @@ function snapshotFor(item: Item, source: QlooSource, opts: { runId: string; scop
   return citySnapshot(city, source, opts);
 }
 
-/**
- * One check of one item: a snapshot now, compared with the previous one. The first snapshot never
- * alerts (one reading is not a trend); later ones alert on the changes diffSnapshots finds, with
- * wording filled from the diff.
- */
+/** One check of one item: a snapshot from Qloo now, recorded and compared (recordSnapshot). */
 export async function checkItem(repo: WorkspaceRepo, item: Item, deps: { source: QlooSource; scope: QlooScope; now: Date }) {
   const runId = `watch-${crypto.randomUUID()}`;
   const source = withBudget(deps.source, runId, QLOO_RUN_BUDGET);
-  const [previous] = await repo.watch.snapshots(item.id, 1);
   const summary = await snapshotFor(item, source, { runId, scope: deps.scope });
-  const snapshotId = await repo.watch.addSnapshot(item.id, summary, source.used(), deps.now);
+  const r = await recordSnapshot(repo, item, summary, { calls: source.used(), now: deps.now });
+  return { ...r, calls: source.used() };
+}
+
+/**
+ * Stores a snapshot and compares it with the item's previous one: the first never alerts (one
+ * reading is not a trend); later ones alert on what diffSnapshots finds, with wording filled from
+ * the diff and both snapshot ids kept on each alert.
+ */
+export async function recordSnapshot(repo: WorkspaceRepo, item: Item, summary: SnapshotSummary, deps: { calls: number; now: Date }) {
+  const [previous] = await repo.watch.snapshots(item.id, 1);
+  const snapshotId = await repo.watch.addSnapshot(item.id, summary, deps.calls, deps.now);
   let changes: WatchChange[] = [];
   if (previous) {
     changes = diffSnapshots(previous.summary, summary);
@@ -133,7 +139,7 @@ export async function checkItem(repo: WorkspaceRepo, item: Item, deps: { source:
   const failed = summary.failed.length ? ` Qloo did not answer for ${summary.failed.join(", ")}; those lists are compared next week.` : "";
   const note = previous ? `${changes.length ? `${changes.length} change${changes.length === 1 ? "" : "s"}` : "No changes"} since last week.${failed}` : `${FIRST_SNAPSHOT_NOTE}${failed}`;
   await repo.watch.setChecked(item.id, { lastSnapshotAt: deps.now, nextDueAt: nextCheck(deps.now), lastNote: note });
-  return { snapshotId, first: !previous, changes, calls: source.used(), note };
+  return { snapshotId, first: !previous, changes, note };
 }
 
 const startOfNextMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
@@ -192,11 +198,12 @@ export async function runWatchWorkspace(
 
 /** "Send me a test": this week's digest to the person who clicked, whether or not they subscribed. */
 export async function sendTestDigest(repo: WorkspaceRepo, input: { email: string; workspaceName: string; appUrl: string; now: Date }) {
+  const theme = (await repo.digest.get())?.theme ?? "light";
   const alerts = await repo.watch.alerts({ since: new Date(input.now.getTime() - WATCH_INTERVAL_MS), limit: 8 });
   const lines = alerts.length ? await digestLines(alerts, null) : [{ tag: "", title: "Nothing moved yet", body: "Your watchlist has no changes this week. Changes need two weekly snapshots." }];
   const urls = unsubscribeUrls(input.appUrl, repo.context.workspaceId, repo.context.userId);
   await sendEmail({
-    ...digestEmail({ to: input.email, workspaceName: input.workspaceName, weekOf: weekOf(input.now), lines, appUrl: input.appUrl, unsubscribeUrl: urls.page, oneClickUrl: urls.oneClick }),
+    ...digestEmail({ to: input.email, workspaceName: input.workspaceName, weekOf: weekOf(input.now), lines, appUrl: input.appUrl, unsubscribeUrl: urls.page, oneClickUrl: urls.oneClick, theme }),
     subject: `Test · Market watch · week of ${weekOf(input.now)}`,
   });
 }
@@ -249,3 +256,19 @@ export async function watchView(repo: WorkspaceRepo, now = new Date()) {
 }
 
 export type WatchView = Awaited<ReturnType<typeof watchView>>;
+
+/**
+ * A made-up "next week" for local checks and tests (never used by the job): each list's 4th entry
+ * moves to 1st and the 2nd entry loses 0.08. Against the real snapshot that gives one rank_up and
+ * one value_down per list of four or more.
+ */
+export function seededWeek(s: Pick<SnapshotSummary, "lists" | "market">): Pick<SnapshotSummary, "lists" | "market"> {
+  const lists = Object.fromEntries(
+    Object.entries(s.lists).map(([list, entries]) => {
+      if (entries.length < 4) return [list, entries];
+      const order = [entries[3], entries[0], entries[1], entries[2], ...entries.slice(4)];
+      return [list, order.map((e, i) => ({ ...e, rank: i + 1, value: e.id === entries[1].id ? Math.max(0, e.value - 0.08) : e.value }))];
+    }),
+  );
+  return { ...s, lists };
+}

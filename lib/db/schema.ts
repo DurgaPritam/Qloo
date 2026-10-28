@@ -6,6 +6,7 @@ import type { Category } from "@/lib/engine/types";
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
+import type { EmailTheme } from "@/lib/email/digest-html";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -478,6 +479,8 @@ export const digestSubscriptions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     enabled: boolean("enabled").notNull().default(false),
+    /** The look of the email: one of the three site themes, in email-safe colours. */
+    theme: text("theme").$type<EmailTheme>().notNull().default("light"),
     lastSentAt: timestamp("last_sent_at", { mode: "date", withTimezone: true }),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
   },

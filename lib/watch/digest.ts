@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { WorkspaceRepo } from "@/lib/db/scoped";
-import { escapeHtml, sendEmail, type Email } from "@/lib/email/mailer";
+import { digestHtml, type EmailTheme } from "@/lib/email/digest-html";
+import { sendEmail, type Email } from "@/lib/email/mailer";
 import { MAX_OUTPUT_TOKENS } from "@/lib/llm";
 import type { LLMProvider } from "@/lib/llm/types";
 
@@ -50,23 +51,28 @@ export function unsubscribeUrls(appUrl: string, workspaceId: string, userId: str
   return { page: `${appUrl}/unsubscribe/digest?token=${token}`, oneClick: `${appUrl}/api/digest/unsubscribe?token=${token}` };
 }
 
-export function digestEmail(input: { to: string; workspaceName: string; weekOf: string; lines: DigestLine[]; appUrl: string; unsubscribeUrl: string; oneClickUrl: string }): Email {
+export function digestEmail(input: {
+  to: string;
+  workspaceName: string;
+  weekOf: string;
+  lines: DigestLine[];
+  appUrl: string;
+  unsubscribeUrl: string;
+  oneClickUrl: string;
+  theme?: EmailTheme;
+}): Email {
   const { lines } = input;
   const n = lines.length;
   const subject = `Market watch · week of ${input.weekOf} · ${n} change${n === 1 ? "" : "s"}`;
   const intro = `${n} thing${n === 1 ? "" : "s"} moved on ${input.workspaceName}'s watchlist this week.`;
   const outro = "Every change is Qloo signal, compared with last week's snapshot. Manage alerts in Market watch.";
-  const text = [intro, "", ...lines.map((l) => `${l.title}. ${l.body}`), "", outro, `Market watch: ${input.appUrl}/workspace/watch`, "", `Unsubscribe: ${input.unsubscribeUrl}`].join("\n");
-  const html = `<div style="font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1d1b26">
-<p>${escapeHtml(intro)}</p>
-${lines.map((l) => `<p><strong>${escapeHtml(l.title)}.</strong> ${escapeHtml(l.body)}</p>`).join("\n")}
-<p style="color:#6b6878">${escapeHtml(outro)} <a href="${escapeHtml(`${input.appUrl}/workspace/watch`)}">Open Market watch</a></p>
-<p style="color:#6b6878;font-size:12px"><a href="${escapeHtml(input.unsubscribeUrl)}">Unsubscribe from this digest</a></p></div>`;
+  const marketWatchUrl = `${input.appUrl}/workspace/watch`;
+  const text = [intro, "", ...lines.map((l) => `${l.title}. ${l.body}`), "", outro, `Market watch: ${marketWatchUrl}`, "", `Unsubscribe: ${input.unsubscribeUrl}`].join("\n");
   return {
     to: input.to,
     subject,
     text,
-    html,
+    html: digestHtml({ theme: input.theme ?? "light", intro, lines, outro, marketWatchUrl, unsubscribeUrl: input.unsubscribeUrl }),
     headers: { "List-Unsubscribe": `<${input.oneClickUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
   };
 }
@@ -86,7 +92,7 @@ export async function sendDigests(repo: WorkspaceRepo, input: { workspaceName: s
   const sent: string[] = [];
   for (const r of recipients) {
     const urls = unsubscribeUrls(input.appUrl, repo.context.workspaceId, r.userId);
-    await sendEmail(digestEmail({ to: r.email!, workspaceName: input.workspaceName, weekOf: weekOf(input.now), lines, appUrl: input.appUrl, unsubscribeUrl: urls.page, oneClickUrl: urls.oneClick }));
+    await sendEmail(digestEmail({ to: r.email!, workspaceName: input.workspaceName, weekOf: weekOf(input.now), lines, appUrl: input.appUrl, unsubscribeUrl: urls.page, oneClickUrl: urls.oneClick, theme: r.theme }));
     sent.push(r.userId);
   }
   await repo.digest.markSent(sent, input.now);

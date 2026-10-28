@@ -46,7 +46,7 @@ export function alertText(change: WatchChange, item: { name: string; kind: Watch
   const up = change.kind === "value_up";
   return {
     title: `${owner.charAt(0).toUpperCase()}${owner.slice(1)} ${up ? "warming to" : "cooling on"} ${change.name}`,
-    body: `${up ? "Up" : "Down"} ${Math.abs(points(a.value) - points(b.value))} points, ${value}; rank ${rank} in the ${list}.`,
+    body: `${up ? "Up" : "Down"} ${Math.abs(points(a.value) - points(b.value))} points, ${value}; ${a.rank === b.rank ? `still #${a.rank}` : `rank ${rank}`} in the ${list}.`,
   };
 }
 

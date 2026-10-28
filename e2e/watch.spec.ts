@@ -60,6 +60,29 @@ test("watch a fanbase and a city, first snapshot, weekly check, digest test and 
     await expect(page.getByText("No changes since last week.").first()).toBeVisible();
   });
 
+  await test.step("a seeded second snapshot produces alerts with before and after values", async () => {
+    const watch = (await (await page.request.get("/api/workspace/watch")).json()) as { items: { id: string; name: string }[] };
+    const phoebe = watch.items.find((i) => i.name === "Phoebe Bridgers")!;
+    const seeded = await page.request.post("/api/dev/watch-seed", { data: { itemId: phoebe.id } });
+    expect(seeded.ok()).toBe(true);
+    expect((await seeded.json()).changes).toBeGreaterThanOrEqual(2);
+    await page.reload();
+    const alerts = page.getByRole("list", { name: "Alerts" });
+    await expect(alerts.locator('[data-alert="rank_up"]').first()).toContainText(/up 3 places in the top (cities|crossover partners) for Phoebe Bridgers/);
+    await expect(alerts.locator('[data-alert="rank_up"]').first()).toContainText(/Rank #4 → #1; Qloo value \d+ → \d+ among Phoebe Bridgers fans\./);
+    await expect(alerts.locator('[data-alert="value_down"]').first()).toContainText(/Down 8 points, \d+ → \d+; rank #2 → #3/);
+  });
+
+  await test.step("the digest previews in all three looks, as the email itself", async () => {
+    const digest = page.getByRole("region", { name: "Weekly digest" });
+    for (const [label, bg] of [["Dark", "#161826"], ["Gen Z", "#f4eee0"], ["Light", "#f3f5fe"]] as const) {
+      await digest.getByRole("tab", { name: label }).click();
+      const frame = page.frameLocator(`iframe[title="Digest email preview, ${label}"]`);
+      await expect(frame.getByText(/up 3 places/).first()).toBeVisible();
+      expect(await frame.locator("body").getAttribute("bgcolor")).toBe(bg);
+    }
+  });
+
   await test.step("turn the digest on and send a test; only this person is a recipient", async () => {
     const digest = page.getByRole("region", { name: "Weekly digest" });
     await expect(digest.getByText("Off")).toBeVisible();
