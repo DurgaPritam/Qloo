@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { ENGINE_CONFIG } from "@/lib/engine/config";
 
@@ -247,7 +247,7 @@ function toPoint(p: { id: string; name: string; lat: number; lon: number; combin
   };
 }
 
-export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (cityId: string) => void }) {
+export function CitySection({ view, onUseCity, extra }: { view: RunView; onUseCity?: (cityId: string) => void; extra?: ReactNode }) {
   const { city, fanbase, partners } = view;
   const [mode, setMode] = useState<"cities" | "tour">("cities");
   const dim = view.replanFrom === "partners";
@@ -435,6 +435,7 @@ export function CitySection({ view, onUseCity }: { view: RunView; onUseCity?: (c
           )}
         </>
       )}
+      {extra}
     </Panel>
   );
 }

@@ -12,6 +12,7 @@ import { STEPS } from "@/lib/agent/types";
 import { AppHeader, Banner, Button, InputBar, MonoLabel, OutlineChip, Page, Sk, StepCard, cx, type StepData } from "../ui";
 import { AudiencePanel } from "../audience";
 import { categoryLabel } from "./format";
+import { PlanYourData } from "../workspace/your-data";
 import { BriefSection, CitySection, CrossoverSection, OutreachSection, RoomSection, type LlmOnly } from "./sections";
 import { ApiBusy, EntityPicker, NoMatch } from "./states";
 import { usePlanStream, type RunView } from "./use-plan-stream";
@@ -281,7 +282,15 @@ export function RunScreen() {
                   <AudiencePanel people={audiencePeople(view)} />
                 </div>
               )}
-              <CitySection view={view} onUseCity={useCity} />
+              <CitySection
+                view={view}
+                onUseCity={useCity}
+                extra={
+                  savedTo && finished && view.plan ? (
+                    <PlanYourData planId={view.plan.runId} chosenCityId={view.city?.chosen?.pick.city.id} onUseCity={useCity} />
+                  ) : undefined
+                }
+              />
               <RoomSection view={view} />
               <BriefSection view={view} shareUrl={shareUrl} />
               <OutreachSection view={view} />

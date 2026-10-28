@@ -340,6 +340,13 @@ export const YourDataBadge = () => (
   </span>
 );
 
+/** Qloo signal and the user's data together, with the formula shown beside it. From the design's Your data screen. */
+export const CombinedBadge = () => (
+  <span className="whitespace-nowrap rounded-badge border border-acc-line px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-ink">
+    ◆■ Combined
+  </span>
+);
+
 export const NoSourceBadge = () => (
   <span className="rounded-badge border-th border-line px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-mute">
     No source

@@ -4,6 +4,7 @@ import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, times
 import type { Plan } from "@/lib/agent/types";
 import type { Category } from "@/lib/engine/types";
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
+import type { CityOption, MetricDef } from "@/lib/data/types";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -312,6 +313,72 @@ export const jobRuns = pgTable(
   ],
 );
 
+/* ---------- Your data (docs/roadmap-rules.md, rule 2) ---------- */
+
+/** An uploaded file of the user's own numbers by city. Never sent to the model, never shown outside the workspace. */
+export const datasets = pgTable(
+  "datasets",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Always "user": these numbers were entered by a person and are not checked. */
+    source: text("source").$type<"user">().notNull().default("user"),
+    name: text("name").notNull(),
+    fileKind: text("file_kind").$type<"csv" | "xlsx">().notNull(),
+    /** The stored file (private Blob pathname, or a local key). */
+    fileKey: text("file_key").notNull(),
+    fileBytes: integer("file_bytes").notNull(),
+    cityColumn: text("city_column").notNull(),
+    countryColumn: text("country_column"),
+    metrics: jsonb("metrics").$type<MetricDef[]>().notNull(),
+    /** The fanbase (Qloo entity) the data is about; null until attached. */
+    entityId: text("entity_id"),
+    entityName: text("entity_name"),
+    entityCategory: text("entity_category").$type<Category>(),
+    uploadedBy: text("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+    uploadedAt: timestamp("uploaded_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("datasets_workspace_idx").on(t.workspaceId, t.uploadedAt),
+    index("datasets_entity_idx").on(t.workspaceId, t.entityId),
+    check("datasets_source_check", sql`${t.source} = 'user'`),
+  ],
+);
+
+export const MATCH_STATUSES = ["matched", "manual", "ambiguous", "unmatched", "skipped"] as const;
+export type MatchStatus = (typeof MATCH_STATUSES)[number];
+
+export const datasetRows = pgTable(
+  "dataset_rows",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    datasetId: text("dataset_id")
+      .notNull()
+      .references(() => datasets.id, { onDelete: "cascade" }),
+    source: text("source").$type<"user">().notNull().default("user"),
+    rowNumber: integer("row_number").notNull(),
+    rawCity: text("raw_city").notNull(),
+    rawCountry: text("raw_country"),
+    /** The GeoNames metro the row counts towards, once matched. */
+    cityId: text("city_id"),
+    matchStatus: text("match_status").$type<MatchStatus>().notNull(),
+    matchNote: text("match_note"),
+    options: jsonb("options").$type<CityOption[]>(),
+    /** Metric key → value; null where the cell was not a number. */
+    metrics: jsonb("metrics").$type<Record<string, number | null>>().notNull(),
+  },
+  (t) => [
+    index("dataset_rows_dataset_idx").on(t.workspaceId, t.datasetId),
+    check("dataset_rows_source_check", sql`${t.source} = 'user'`),
+    check("dataset_rows_status_check", sql`${t.matchStatus} in ('matched', 'manual', 'ambiguous', 'unmatched', 'skipped')`),
+  ],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -323,4 +390,6 @@ export const TENANT_TABLES = [
   "rosters",
   "roster_acts",
   "job_runs",
+  "datasets",
+  "dataset_rows",
 ] as const;

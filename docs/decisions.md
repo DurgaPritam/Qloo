@@ -510,3 +510,58 @@ links to its pair), "estimated N, used M" after each refresh, and an Evidence se
 pair and act: Qloo's values, how the score follows from them, and the exact requests (endpoint and
 params, never the key). Requests are stored with the act (`roster_acts.affinities_calls`, migration
 0002) and in its profile; profiles cached before this show "refresh to record them".
+
+## Your data (28 Oct, branch roadmap/foundation)
+
+**D86. Datasets replace `user_facts` for uploads.** A file of city rows with several metrics fits
+two tables better than one fact per value: `datasets` (the file, its mapping and the attached
+fanbase) and `dataset_rows` (raw city, matched metro, metric values), both with workspace_id and a
+check constraint that `source = 'user'`. `user_facts` stays planned for single typed-in facts.
+
+**D87. XLSX without a spreadsheet package.** An .xlsx is a zip of XML; `fflate` (already used to
+build the city data, now a runtime dependency) unzips it and the first sheet is read with its
+shared strings, inline strings, numbers and booleans. Considered: SheetJS (its npm release is old
+and the current one is not on npm) and exceljs (large). The same reader runs in the browser for the
+preview and on the server for what is stored.
+
+**D88. `@vercel/blob` 2.8.1 with `access: "private"`.** The SDK supports private blobs, so files
+have no public URL and are never served back; the app only stores and deletes them. 2.8.1 is 22
+days old. The clean reinstall pulled `undici` 6.29.1 (13 days old) through it, so `undici` is
+overridden to 6.29.0; `zod` is now 4.1.11 everywhere because `@vercel/cli-config` pins it exactly
+(an older release within every other package's range). Considered: `npm install --before`, which
+fails because `next` 16.4.3 is pinned and newer than the cutoff.
+
+**D89. City names are matched to GeoNames metros by code, with a review list.** Accents, case,
+"St"/"Saint", a trailing "City", "City, ST" and a few short forms (NYC, LA, DC) are handled;
+boroughs fold into their metro (Brooklyn counts for New York City) as in plans. Several cities
+left: the largest wins only when it is at least 10× the next (London, England over London,
+Ontario); otherwise the name goes to "Check city names" with its options (Springfield; Saint
+Louis, which also names a city in Senegal). Unmatched rows stay out of the ranking until a person
+picks a city or skips them; a different spelling can be searched. Matching uses cities over
+100,000 people, so a smaller town is reported as not found rather than guessed.
+
+**D90. `combineCityScores` and the weight.** Your data = a city's summed metric ÷ the best city's
+(the design's "scaled 0–100 against your best city"); Combined = (1 − w) × Qloo + w × yours,
+w = 0.5 by default, in steps of 0.1. Every row keeps the Qloo part, your part (and the raw number)
+and the weight. A city missing on one side uses the other side alone, as the design says; so at
+w = 1 a city you never played can tie with your best city, which is the honest reading of "not in
+your file" (unknown, not zero). The slider recombines in the browser by calling the same engine
+function; the formula is on screen and in /method.
+
+**D91. The ranking's Qloo signal.** On the data page, the attached fanbase's own heat in its home
+market (the act profile used by rosters, cached a week per entity, 4 calls when missing). In a
+plan, the plan's own city scores (fanbase with partner): plans now store a compact ranked list of
+up to 100 cities (`city.ranked`, id and score) so cities outside the top five can be combined.
+Neither changes the plan's chosen city: "Use this city" is the user's click, a normal replan.
+
+**D92. User data never reaches the model or another workspace.** The agent and `lib/llm` never
+read datasets (a test fails if they import `lib/data` or the database); the plan stores no user
+data; a plan's three columns come from a members-only route at view time, so a public link shows
+none. A test runs a full plan with a recording model in a workspace with data attached and checks
+that no file name, value or label appears in any prompt. Another workspace gets the not-found page.
+
+**D93. No "Use sample file" button.** The design has one, but sample sales figures would be
+numbers invented by us inside the Your data channel. The empty state links to /method instead.
+
+**D94. Deletion is one click, without a confirm dialog,** as asked: rows, dataset and file go
+together, and the activity log records the deletion by name only.

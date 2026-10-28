@@ -27,7 +27,7 @@ atomic and fast. Postgres holds everything a customer owns.
 | Auth | **Auth.js (v5)** with email magic links, the Drizzle adapter, database sessions (*Built*) | No passwords to store. Sessions live in Postgres, so they can be revoked. Requests without a session cookie never touch the database. |
 | Email | **Resend** (*Built* for sign-in and invites) | Sign-in links, invites, later opt-in alerts and outreach the user clicks Send on. Without `RESEND_API_KEY`, local runs and e2e use an in-memory outbox at `/dev/outbox`; it never exists on Vercel, where sending fails closed. |
 | Background jobs | **Upstash QStash** (*Built* for roster refreshes) | Already on Upstash. Signed HTTP calls to our own routes, with retries, delays, schedules and a dead-letter queue. One message per workspace, so a failure never stops everyone's job. |
-| Files | **Vercel Blob** | Exported decks and PDFs, posters, uploaded CSVs of ticket sales. |
+| Files | **Vercel Blob** (*Built* for uploaded data files, private) | Exported decks and PDFs, posters, uploaded CSVs and XLSX files of ticket sales. Without `BLOB_READ_WRITE_TOKEN`, local runs keep files under `.data/uploads` (memory in tests and e2e); a Vercel deployment without it refuses uploads. |
 | Billing | **Stripe** | Checkout to subscribe, the Customer Portal to change or cancel, webhooks to sync the plan. |
 
 Alternatives considered:
@@ -104,7 +104,9 @@ starts with it.
 | `comments` (*Built*) | plan, target (plan, partner, city, venue, sponsor) and its id, parent (one level of threading), author, body, resolved | workspace |
 | `notifications` (*Built*) | in-app @mentions | workspace |
 | `activity_log` (*Built*) | who did what | workspace |
-| `user_facts` | kind (ticket_sales, attendance, fee, constraint), value, unit, `source = 'user'`, entered by, entered at | workspace |
+| `datasets` (*Built*, in place of `user_facts` for uploads) | file name, kind, private file key, city and country columns, metrics, attached fanbase, `source = 'user'`, uploaded by, uploaded at | workspace |
+| `dataset_rows` (*Built*) | raw city and country, matched GeoNames metro, match status (matched, manual, ambiguous, unmatched, skipped), metric values, `source = 'user'` | workspace |
+| `user_facts` | single facts typed in: fees, constraints | workspace |
 | `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |
 | `watches` | a fanbase or city to watch, last Qloo snapshot, frequency, opt-in for email | workspace |
@@ -116,7 +118,7 @@ starts with it.
 | `subscriptions` | Stripe subscription id, price, status, current period end | workspace |
 | `audit_log` | who did what (invite, role change, send, export, billing) | workspace |
 
-`user_facts` stays separate from anything Qloo produced, so the "Your data" label is a property
+`datasets`, `dataset_rows` and `user_facts` stay separate from anything Qloo produced, so the "Your data" label is a property
 of where a value comes from, not something added by hand when it is shown.
 
 ## How the rules are enforced
@@ -203,8 +205,11 @@ job is no longer queued. Locally the queue is an in-process timer; on Vercel wit
 - **Exports and uploads:** customer data. They are served through
   `/api/files/[id]`, which checks the session's workspace before streaming from Blob. Whether
   Vercel Blob's private access mode should be used instead is checked when it is installed.
-- **Uploaded CSVs:** parsed on the server into `user_facts` with `source = 'user'`. They are
-  size-limited and never executed.
+- **Uploaded CSVs and XLSX** (*Built*): read in the browser for the preview and again on the
+  server (CSV parser; XLSX unzipped with `fflate`, XML read directly; up to 5 MB and 5,000 rows),
+  stored in `datasets` and `dataset_rows` with `source = 'user'`. The file is put in Vercel Blob
+  with `access: "private"`; it is never served back, only deleted. One click deletes the rows,
+  the dataset and the file.
 
 ## Billing
 
@@ -252,7 +257,8 @@ All are server-only. None has a `NEXT_PUBLIC_` prefix.
    (*Built* with rosters.)
 3. **Auth.js magic links and workspaces.** Invites, memberships, a sign-in page in the design
    system, and saved plans moved from the browser into the workspace.
-4. **User data.** `user_facts`, the "Your data" label, and the CSV upload to Blob.
+4. **User data.** `user_facts`, the "Your data" label, and the CSV upload to Blob. (*Built* as
+   datasets: upload, column mapping, GeoNames matching, attach to a fanbase, combined ranking.)
 5. **Outreach tracking and Send with confirmation.** Through Resend.
 6. **Watches and the weekly job.** Through QStash.
 7. **Stripe.** Plans, Checkout, webhook, Portal.

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AppHeader, MonoLabel, Page, SourceBadge } from "@/components/ui";
+import { DEFAULT_USER_WEIGHT } from "@/lib/engine/combine";
 import { ENGINE_CONFIG as C } from "@/lib/engine/config";
 import { QLOO_RUN_BUDGET } from "@/lib/qloo/client";
 
@@ -53,6 +54,16 @@ const SECTIONS = [
     ],
   },
   {
+    id: "your-data",
+    label: "Your data",
+    title: "Combining Qloo with your own numbers",
+    body: [
+      "A workspace can upload its own ticket sales, streams, signups or revenue by city. Those numbers are labelled Your data, are not checked by Takeover, stay inside the workspace and are never sent to the AI model.",
+      "Your data = a city's total ÷ your best city's total, so your best city is 100. Qloo signal = the city's score from the heatmaps above, also 0 to 100 against the hottest city.",
+      `Combined = (1 − w) × Qloo signal + w × Your data, where w is the weight on your data: ${DEFAULT_USER_WEIGHT} unless you move the slider. All three columns are always shown side by side; a city missing on one side is combined from the other side alone and shows a dash.`,
+    ],
+  },
+  {
     label: "Confidence",
     title: "High, medium or low",
     body: [
@@ -81,7 +92,7 @@ export default function MethodPage() {
         </p>
       </section>
       {SECTIONS.map((s) => (
-        <section key={s.title} className="flex flex-col gap-2.5 border-t border-line pt-[18px]">
+        <section key={s.title} id={"id" in s ? s.id : undefined} className="flex scroll-mt-4 flex-col gap-2.5 border-t border-line pt-[18px]">
           <MonoLabel className="text-acc-text">{s.label}</MonoLabel>
           <h2 className="m-0 text-[20px] font-semibold leading-[1.2]">{s.title}</h2>
           {s.body.map((p) => (

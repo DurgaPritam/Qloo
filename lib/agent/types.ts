@@ -113,6 +113,8 @@ export interface CityResult {
   tour: TourPlan;
   /** Up to ten cities for the map, best first. */
   map: Array<{ id: string; name: string; lat: number; lon: number; combined: number }>;
+  /** Every city with a score (up to 100), best first: id and combined score only. Absent on older plans. */
+  ranked?: Array<{ id: string; combined: number }>;
   level: "city" | "region";
   /** The country the cities were ranked in. */
   market: { code: string; name: string };

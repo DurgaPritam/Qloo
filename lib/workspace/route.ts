@@ -57,3 +57,12 @@ export function inRoster(id: string, fn: (w: Found, roster: NonNullable<Awaited<
     return fn(w, roster);
   });
 }
+
+/** Runs `fn` with a dataset of the current workspace; 404 when it is not one of them. */
+export function inDataset(id: string, fn: (w: Found, dataset: NonNullable<Awaited<ReturnType<Found["repo"]["datasets"]["get"]>>>) => Promise<Response>) {
+  return inWorkspace(async (w) => {
+    const dataset = UUID.test(id) ? await w.repo.datasets.get(id) : null;
+    if (!dataset) return Response.json({ error: "That dataset isn't in this workspace." }, { status: 404 });
+    return fn(w, dataset);
+  });
+}

@@ -10,6 +10,7 @@ import { TeamVote } from "../team-vote";
 import { audiencePeople } from "./run-screen";
 import { PlanComments } from "../workspace/plan-comments";
 import { PlanSharing, type MemberView } from "../workspace/plan-sharing";
+import { PlanYourData } from "../workspace/your-data";
 
 /**
  * A finished plan opened from its link. Workspace members also get the sharing control and the
@@ -27,7 +28,7 @@ export function SharedPlan({ plan, member }: { plan: Plan; member?: MemberView }
       {plan.status === "complete" && <TeamVote plan={plan} />}
       <CrossoverSection view={view} />
       {plan.status === "complete" && !plan.mock && <AudiencePanel people={audiencePeople(view)} />}
-      <CitySection view={view} />
+      <CitySection view={view} extra={member ? <PlanYourData planId={plan.runId} chosenCityId={plan.city?.chosen?.pick.city.id} /> : undefined} />
       <RoomSection view={view} />
       <BriefSection view={view} shareUrl={typeof window !== "undefined" ? window.location.href : undefined} />
       <OutreachSection view={view} />

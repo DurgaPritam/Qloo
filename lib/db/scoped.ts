@@ -5,6 +5,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, asc, count, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
+import type { CityOption, MetricDef } from "@/lib/data/types";
+import type { Category } from "@/lib/engine/types";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -15,6 +17,8 @@ import type { DB } from "./index";
 import {
   activityLog,
   comments,
+  datasetRows,
+  datasets,
   entityProfiles,
   invitations,
   jobRuns,
@@ -27,6 +31,7 @@ import {
   workspaces,
   type CommentTarget,
   type JobStatus,
+  type MatchStatus,
   type Role,
   type Visibility,
 } from "./schema";
@@ -434,6 +439,105 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .where(and(eq(jobRuns.workspaceId, ws), eq(jobRuns.targetId, targetId)))
           .orderBy(desc(jobRuns.createdAt))
           .limit(limit);
+      },
+    },
+
+    /** The user's own data (rule 2). Every read and write carries workspace_id; nothing here reaches the model. */
+    datasets: {
+      async list() {
+        need("data.read");
+        return db
+          .select({
+            id: datasets.id,
+            name: datasets.name,
+            fileKind: datasets.fileKind,
+            metrics: datasets.metrics,
+            entityId: datasets.entityId,
+            entityName: datasets.entityName,
+            entityCategory: datasets.entityCategory,
+            uploadedAt: datasets.uploadedAt,
+            uploader: users.name,
+            uploaderEmail: users.email,
+          })
+          .from(datasets)
+          .leftJoin(users, eq(users.id, datasets.uploadedBy))
+          .where(eq(datasets.workspaceId, ws))
+          .orderBy(desc(datasets.uploadedAt));
+      },
+      async get(id: string) {
+        need("data.read");
+        return (await db.select().from(datasets).where(and(eq(datasets.workspaceId, ws), eq(datasets.id, id))).limit(1))[0] ?? null;
+      },
+      async create(input: {
+        name: string;
+        fileKind: "csv" | "xlsx";
+        fileKey: string;
+        fileBytes: number;
+        cityColumn: string;
+        countryColumn: string | null;
+        metrics: MetricDef[];
+        rows: { rowNumber: number; rawCity: string; rawCountry: string | null; cityId: string | null; matchStatus: MatchStatus; matchNote: string | null; options: CityOption[] | null; metrics: Record<string, number | null> }[];
+      }) {
+        need("data.edit");
+        const { rows, ...meta } = input;
+        const id = crypto.randomUUID();
+        await db.transaction(async (tx) => {
+          await tx.insert(datasets).values({ id, workspaceId: ws, uploadedBy: ctx.userId, ...meta });
+          for (let i = 0; i < rows.length; i += 500) {
+            await tx.insert(datasetRows).values(rows.slice(i, i + 500).map((r) => ({ ...r, workspaceId: ws, datasetId: id })));
+          }
+        });
+        await log("data.uploaded", { type: "dataset", id }, { name: meta.name, rows: rows.length });
+        return id;
+      },
+      async rows(id: string) {
+        need("data.read");
+        return db
+          .select()
+          .from(datasetRows)
+          .where(and(eq(datasetRows.workspaceId, ws), eq(datasetRows.datasetId, id)))
+          .orderBy(asc(datasetRows.rowNumber));
+      },
+      /** Applies a person's answer to every row with that city name (and country): a city, or skip. */
+      async resolveCity(id: string, rawCity: string, rawCountry: string | null, cityId: string | null) {
+        need("data.edit");
+        const sameCountry = rawCountry === null ? isNull(datasetRows.rawCountry) : eq(datasetRows.rawCountry, rawCountry);
+        await db
+          .update(datasetRows)
+          .set(cityId ? { cityId, matchStatus: "manual", matchNote: "matched by hand", options: null } : { cityId: null, matchStatus: "skipped", matchNote: "skipped by hand" })
+          .where(and(eq(datasetRows.workspaceId, ws), eq(datasetRows.datasetId, id), eq(datasetRows.rawCity, rawCity), sameCountry));
+      },
+      async attach(id: string, entity: { id: string; name: string; category: Category } | null) {
+        need("data.edit");
+        await db
+          .update(datasets)
+          .set({ entityId: entity?.id ?? null, entityName: entity?.name ?? null, entityCategory: entity?.category ?? null })
+          .where(and(eq(datasets.workspaceId, ws), eq(datasets.id, id)));
+        await log("data.attached", { type: "dataset", id }, { entity: entity?.name ?? null });
+      },
+      /** The newest dataset attached to a fanbase, if this workspace has one. */
+      async forEntity(entityId: string) {
+        need("data.read");
+        return (
+          (
+            await db
+              .select()
+              .from(datasets)
+              .where(and(eq(datasets.workspaceId, ws), eq(datasets.entityId, entityId)))
+              .orderBy(desc(datasets.uploadedAt))
+              .limit(1)
+          )[0] ?? null
+        );
+      },
+      /** Deletes the dataset and its rows; returns the file key so the caller removes the file too. */
+      async remove(id: string) {
+        need("data.edit");
+        const found = (await db.select({ fileKey: datasets.fileKey, name: datasets.name }).from(datasets).where(and(eq(datasets.workspaceId, ws), eq(datasets.id, id))).limit(1))[0];
+        if (!found) return null;
+        await db.delete(datasetRows).where(and(eq(datasetRows.workspaceId, ws), eq(datasetRows.datasetId, id)));
+        await db.delete(datasets).where(and(eq(datasets.workspaceId, ws), eq(datasets.id, id)));
+        await log("data.deleted", { type: "dataset", id }, { name: found.name });
+        return found.fileKey;
       },
     },
 

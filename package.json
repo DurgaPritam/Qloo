@@ -36,7 +36,9 @@
     "drizzle-orm": "0.45.4",
     "postgres": "3.4.9",
     "@electric-sql/pglite": "0.5.8",
-    "resend": "6.32.1"
+    "resend": "6.32.1",
+    "fflate": "0.8.3",
+    "@vercel/blob": "2.8.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
@@ -48,7 +50,6 @@
     "@types/topojson-client": "^3.1.5",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
-    "fflate": "^0.8.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
@@ -56,6 +57,7 @@
     "drizzle-kit": "0.31.11"
   },
   "overrides": {
-    "image-size": "^2.0.4"
+    "image-size": "^2.0.4",
+    "undici": "6.29.0"
   }
 }

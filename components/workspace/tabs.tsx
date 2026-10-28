@@ -8,6 +8,7 @@ import { cx, MonoLabel, OutlineChip } from "../ui";
 const TABS = [
   { href: "/workspace", label: "Plans" },
   { href: "/workspace/rosters", label: "Rosters" },
+  { href: "/workspace/data", label: "Data" },
   { href: "/workspace/members", label: "Members" },
   { href: "/workspace/inbox", label: "Inbox" },
   { href: "/workspace/settings", label: "Settings" },
