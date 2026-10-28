@@ -350,3 +350,24 @@ overlap), the other tools as one row of chips, one plan grid with Featured / Jus
 trending, and four FAQs. Considered: a scrolling marquee of plan cards (new motion the design
 does not define; the ticker reuses the design's 250 ms dim) and an inline lineup builder (too
 heavy for a landing page). Every value shown still comes from a stored run or a Qloo-backed API.
+
+## 2026-10-28 · Team product: rules and architecture (proposal)
+
+**D59. Roadmap rules** in `docs/roadmap-rules.md`, referenced from CLAUDE.md: user data is
+labelled "Your data" and never blended into a Qloo number; every customer table has
+`workspace_id` and every query is scoped; jobs respect a per-workspace monthly Qloo allowance and
+a global daily cap in the Qloo client; nothing is sent to a third party without a click on that
+exact draft. Added: jobs keep a reserve of the daily cap for interactive users
+(`QLOO_JOB_RESERVE`), so a weekly job cannot starve the live site. Considered: a separate job cap
+(two numbers to tune instead of one).
+
+**D60. Neon for Postgres, QStash for jobs** (the request left both open). Neon: Vercel
+Marketplace, serverless HTTP driver for Drizzle, preview branches. Considered Supabase (its auth
+and storage duplicate Auth.js and Blob). QStash: already on Upstash, signed calls, retries, one
+message per workspace. Considered Vercel Cron (once a day on Hobby, no retries or fan-out).
+
+**D61. The unscoped-query test helper is written now** (`tests/support/scoped-queries.ts`), before
+Drizzle is installed: it reads the SQL Drizzle emits for Postgres, so it needs no database. It
+proves a `workspace_id` condition is present, not that it holds the right workspace; the scoped
+repository supplies the value. Considered: Postgres row-level security as the only guard (the
+HTTP driver has no session to carry the workspace id); kept as a later second layer.
