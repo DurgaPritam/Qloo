@@ -24,7 +24,7 @@ const NAV = [
 const TOOLS = [
   { href: "/workspace/outcomes", label: "Outcomes" },
   { href: "/tour", label: "Tour optimizer" },
-  { href: "/workspace/lineup", label: "Lineup optimizer" },
+  { href: "/lineup", label: "Lineup optimizer" },
   { href: "/workspace/campaign", label: "Campaign brief" },
 ] as const;
 

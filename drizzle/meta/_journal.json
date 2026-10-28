@@ -134,6 +134,13 @@
       "when": 1793206668228,
       "tag": "0018_brief_fanbase",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793207092610,
+      "tag": "0019_drop_plan_lineups",
+      "breakpoints": true
     }
   ]
 }

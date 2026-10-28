@@ -67,6 +67,18 @@ export const ENGINE_CONFIG = {
     /** Strong cities left out that get a "why not". */
     whyNot: 6,
   },
+  /**
+   * Lineup optimizer (lib/engine/lineup.ts): score = (1 − weight) × crowd fit + weight × coverage.
+   * Two acts are in the same audience cluster when their mutual Qloo affinity is at least
+   * clusterThreshold. Pools are searched exactly, so they are capped at maxPool.
+   */
+  lineup: {
+    coverageWeight: 0.3,
+    clusterThreshold: 0.6,
+    maxPool: 10,
+    minActs: 2,
+    nearMisses: 3,
+  },
   /** Venue booker: who people in a city over-index on, with no fanbase signal. */
   local: {
     count: 8,

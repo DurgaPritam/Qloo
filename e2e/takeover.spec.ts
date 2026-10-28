@@ -237,17 +237,6 @@ test("the Gen Z theme applies and survives a reload", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
-test("the lineup builder saves a shareable poster", async ({ page }) => {
-  await page.goto("/lineup?h=John%20Mulaney");
-  await expect(page.getByText("Poster preview")).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("textbox", { name: "Event name" }).fill("Night One");
-  await page.getByRole("button", { name: "Save and share the poster" }).click();
-  await expect(page).toHaveURL(/\/lineup\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { name: "Night One" })).toBeVisible();
-  await expect(page.getByRole("img", { name: /Poster/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Download poster" })).toHaveAttribute("href", /\/poster$/);
-});
-
 test("meet the fan shows who they are and what else they love", async ({ page }) => {
   await page.goto("/fan/John%20Mulaney");
   await expect(page.getByRole("heading", { name: /The John Mulaney fan/i })).toBeVisible({ timeout: 30_000 });
@@ -277,7 +266,7 @@ test("takeover daily explains itself when there is no puzzle", async ({ page }) 
 
 test("the tools page lists every tool", async ({ page }) => {
   await page.goto("/tools");
-  for (const t of ["Fan overlap", "Meet the fan", "Lineup builder", "Brand match", "Venue booker", "City explorer", "Tour optimizer", "City pages"]) {
+  for (const t of ["Fan overlap", "Meet the fan", "Lineup optimizer", "Brand match", "Venue booker", "City explorer", "Tour optimizer", "City pages"]) {
     await expect(page.getByRole("main").getByRole("link", { name: t, exact: true })).toBeVisible();
   }
 });

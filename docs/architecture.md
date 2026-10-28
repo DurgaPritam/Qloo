@@ -124,7 +124,6 @@ starts with it.
 | `rosters` (*Built*) | name, created by | workspace |
 | `roster_acts` (*Built*) | roster, Qloo entity id, name, type, resolver snapshot, home city (user data), added by, Qloo affinities to the other acts and when | workspace |
 | `entity_profiles` (*Built*) | per Qloo entity: best city, partner, sponsor and per-city heat, refreshed at; keyed live or sample | Shared: Qloo data about a public entity, not customer data |
-| `plan_lineups` (*Built*) | the Lineup optimizer's bill for a plan (engine pick from Qloo fits) with the user's budget, fee tiers and each act's tier (user data) | workspace |
 | `campaign_briefs` (*Built*) | a targeting brief from a plan (or a fanbase alone, no plan): Qloo demographics, interests by category, the engine's cities, keyword groups, numbered facts and three angles the model wrote from them; the user's flight | workspace |
 | `tours` (*Built*) | a Tour optimizer result saved from its server-side draft (the engine's route, scores and requests), with the user's window and per-stop dates and venue sizes (user data) | workspace |
 | `exports` | Blob path, kind (deck, PDF, CSV, poster), created by | workspace |

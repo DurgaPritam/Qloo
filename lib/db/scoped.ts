@@ -17,7 +17,6 @@ import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/p
 import type { OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
 import type { CampaignBriefData } from "@/lib/campaign/brief";
-import type { LineupPick } from "@/lib/engine/lineup";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -43,7 +42,6 @@ import {
   outcomes,
   outreach,
   outreachEvents,
-  planLineups,
   planPredictions,
   plans,
   rosterActs,
@@ -1037,24 +1035,6 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           await db.update(outreach).set({ remindedFor: d.dueDate }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, d.id)));
         }
         return owned;
-      },
-    },
-
-    /** Lineups from the Lineup optimizer, one per plan. */
-    lineups: {
-      async get(planId: string) {
-        need("plan.read");
-        return (await db.select().from(planLineups).where(and(eq(planLineups.workspaceId, ws), eq(planLineups.planId, planId))).limit(1))[0] ?? null;
-      },
-      async save(planId: string, lineup: LineupPick, yours: (typeof planLineups.$inferInsert)["yours"]) {
-        need("plan.create");
-        if (!(await planById(planId))) throw new InputError("That plan isn't in this workspace.");
-        const now = new Date();
-        await db
-          .insert(planLineups)
-          .values({ workspaceId: ws, planId, lineup, yours, savedBy: ctx.userId, savedAt: now })
-          .onConflictDoUpdate({ target: [planLineups.workspaceId, planLineups.planId], set: { lineup, yours, savedBy: ctx.userId, savedAt: now } });
-        await log("lineup.saved", { type: "plan", id: planId }, { acts: lineup.slots.length });
       },
     },
 

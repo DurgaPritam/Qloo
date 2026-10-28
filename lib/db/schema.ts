@@ -13,7 +13,6 @@ import type { DeckFont } from "@/lib/export/branding";
 import type { OutreachKind, OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
 import type { CampaignBriefData } from "@/lib/campaign/brief";
-import type { LineupPick } from "@/lib/engine/lineup";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -759,30 +758,6 @@ export const campaignBriefs = pgTable(
   (t) => [index("campaign_briefs_workspace_idx").on(t.workspaceId, t.createdAt)],
 );
 
-/* ---------- Plan lineups (Lineup optimizer) ---------- */
-
-/**
- * One lineup per plan, from the Lineup optimizer: the engine's pick from the draft's Qloo fits and
- * the user's own budget and fee tiers (user data, kept beside it).
- */
-export const planLineups = pgTable(
-  "plan_lineups",
-  {
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    planId: text("plan_id")
-      .notNull()
-      .references(() => plans.id, { onDelete: "cascade" }),
-    lineup: jsonb("lineup").$type<LineupPick>().notNull(),
-    /** The user's inputs: budget, fees per tier, each act's tier, slots. */
-    yours: jsonb("yours").$type<{ budget: number; slots: number; fees: Record<"A" | "B" | "C", number>; tiers: Record<string, "A" | "B" | "C">; headlinerTier: "A" | "B" | "C" }>().notNull(),
-    savedBy: text("saved_by").references(() => users.id, { onDelete: "set null" }),
-    savedAt: timestamp("saved_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [primaryKey({ columns: [t.workspaceId, t.planId] })],
-);
-
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -810,5 +785,4 @@ export const TENANT_TABLES = [
   "tours",
   "watch_runs",
   "campaign_briefs",
-  "plan_lineups",
 ] as const;

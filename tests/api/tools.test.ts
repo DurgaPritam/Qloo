@@ -151,20 +151,27 @@ describe("GET /api/suggest", () => {
   });
 });
 
-describe("lineup", () => {
-  it("suggests acts and saves a poster only from its own suggestions", async () => {
-    const { POST: suggestLineup } = await import("@/app/api/tools/lineup/route");
+describe("lineup optimizer", () => {
+  it("matches names, scores the pool's pairwise affinities, and saves a poster scored from the draft only", async () => {
+    const { POST: resolve } = await import("@/app/api/tools/lineup/resolve/route");
+    const { POST: score } = await import("@/app/api/tools/lineup/route");
     const { POST: save } = await import("@/app/api/tools/lineup/save/route");
-    const draft = await (await suggestLineup(postJson("http://localhost/api/tools/lineup", { headliner: "John Mulaney" }, "192.0.2.110"))).json();
-    expect(draft.status).toBe("done");
-    expect(draft.acts.length).toBeGreaterThan(0);
+    const { crowdFit } = await import("@/lib/engine/lineup");
+    const names = ["John Mulaney", "Phoebe Bridgers", "Ali Wong"];
+    const matched = await (await resolve(postJson("http://localhost/api/tools/lineup/resolve", { acts: names.map((name) => ({ name })) }, "192.0.2.110"))).json();
+    const acts = matched.acts.filter((a: { status: string }) => a.status === "resolved").map((a: { entity: unknown }) => a.entity);
+    expect(acts.length).toBeGreaterThanOrEqual(2);
+    const draft = await (await score(postJson("http://localhost/api/tools/lineup", { acts }, "192.0.2.111"))).json();
+    expect(Object.keys(draft.matrix).sort()).toEqual(acts.map((a: { id: string }) => a.id).sort());
+    expect(draft.calls.length).toBeLessThanOrEqual(acts.length * 2);
 
-    const ok = await save(postJson("http://localhost/api/tools/lineup/save", { draftId: draft.draftId, actIds: [draft.acts[0].id], title: "Night One" }));
+    const ids = acts.map((a: { id: string }) => a.id);
+    const ok = await save(postJson("http://localhost/api/tools/lineup/save", { draftId: draft.draftId, actIds: ids, tiers: { [ids[1]]: "A" }, title: "Night One", crowdFit: 999 }));
     const saved = await ok.json();
-    expect(saved).toMatchObject({ title: "Night One", acts: [{ id: draft.acts[0].id }] });
-    expect(saved.crowdFit).toBe(Math.round(draft.acts[0].affinity * 100));
+    expect(saved).toMatchObject({ title: "Night One", headliner: { id: ids[1] } });
+    expect(saved.crowdFit).toBe(Math.round(crowdFit(ids, draft.matrix) * 100));
 
-    const forged = await save(postJson("http://localhost/api/tools/lineup/save", { draftId: draft.draftId, actIds: ["not-suggested"] }));
+    const forged = await save(postJson("http://localhost/api/tools/lineup/save", { draftId: draft.draftId, actIds: [ids[0], "not-in-the-pool"] }));
     expect(forged.status).toBe(400);
   });
 });

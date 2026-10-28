@@ -5,7 +5,7 @@ import { LineupBuilder } from "@/components/tools/lineup-builder";
 import { AppHeader, Page } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Lineup builder · Takeover",
+  title: "Lineup optimizer · Takeover",
   description: "Pick a headliner; Qloo suggests the support acts, host, city and venue. Get a poster with the lineup's crowd fit.",
 };
 

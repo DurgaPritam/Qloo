@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { weekOf } from "@/lib/server/trending";
 import { introFor } from "@/lib/tools/fan";
-import { crowdFit } from "@/lib/tools/lineup";
+import { crowdFit } from "@/lib/engine/lineup";
 
 describe("crowdFit", () => {
-  it("is the mean Qloo affinity as 0–100", () => {
-    expect(crowdFit([{ affinity: 0.98 }, { affinity: 0.94 }])).toBe(96);
-    expect(crowdFit([])).toBe(0);
+  it("is the mean mutual Qloo affinity over every pair on the bill", () => {
+    expect(crowdFit(["a", "b"], { a: { b: 0.98 }, b: { a: 0.94 } })).toBeCloseTo(Math.sqrt(0.98 * 0.94));
+    expect(crowdFit(["a"], {})).toBe(0);
   });
 });
 

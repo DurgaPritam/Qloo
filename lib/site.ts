@@ -2,7 +2,7 @@
 export const TOOLS = [
   { href: "/overlap", label: "Fan overlap", who: "Anyone curious", body: "Any two names: how much their fans overlap, where, and who those fans are.", example: "/overlap?a=Phoebe%20Bridgers&b=PEN15" },
   { href: "/fan", label: "Meet the fan", who: "Creators & marketers", body: "Who a fanbase's fans are and everything else they love.", example: "/fan/Call%20Her%20Daddy" },
-  { href: "/lineup", label: "Lineup builder", who: "Promoters & festivals", body: "A headliner in; support acts, host, city, venue and a poster out.", example: "/lineup?h=Phoebe%20Bridgers" },
+  { href: "/lineup", label: "Lineup optimizer", who: "Promoters & festivals", body: "Your pool of acts and fee tiers in; the bill with the strongest shared audience inside your budget, and a poster, out.", example: "/lineup" },
   { href: "/brand", label: "Brand match", who: "Brands & agencies", body: "The talent, shows and podcasts your customers over-index on, and where they are.", example: "/brand?brand=Patagonia" },
   { href: "/venue", label: "Venue booker", who: "Venues", body: "The artists, comedians, podcasts and brands your city loves.", example: "/venue?city=Austin" },
   { href: "/cities", label: "City explorer", who: "Tour planners & fan clubs", body: "A fanbase's strongest cities at home and in three more countries.", example: "/cities?q=Taylor%20Swift" },

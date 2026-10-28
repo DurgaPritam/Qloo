@@ -995,3 +995,24 @@ The budget field from D142 is gone (no budget numbers). Exports: print to PDF, a
 branding) and a CSV of keywords (with Qloo affinity) and cities (with the engine score). Up to 8
 Qloo calls; at most 6 from a plan. A test checks that every number in the deck and CSV is a Qloo
 or engine figure (affinities, city scores and ranks, Qloo's skews and age-band names).
+
+**D145. Lineup optimizer, per Prompt 10** (replaces D143). /lineup itself is now the optimizer, and
+the headliner-and-budget version at /workspace/lineup is retired (its `plan_lineups` table is dropped,
+migration 0019; the sidebar's Lineup optimizer link points at /lineup). The pool is up to 10 acts,
+typed or from a CSV (name, tier, must_include), each with the user's fee tier and must-include flag;
+names are matched with Qloo (one search each, a picker when ambiguous), then the pool's pairwise
+affinities are fetched (each act's fans asked about the others, one call per act and category) and
+kept server-side as a draft. `optimizeLineup` (engine, run in the browser so the slider is instant)
+scores a bill as (1 − w) × crowd fit + w × coverage: crowd fit is the mean mutual affinity over every
+pair on the bill (√ of both directions, one direction alone, 0 when Qloo gave neither); coverage is
+the share of the pool's audience clusters on the bill (acts linked by mutual affinity ≥ 0.6 form a
+cluster). The weight is shown as a slider (default 30% coverage). Budget, fee per tier, most slots
+per tier and must-includes are hard constraints. Because crowd fit is a mean, an unconstrained search
+prefers two-act bills, so the bill fills as many of the user's slots as the budget and pool allow,
+then the score decides (then cost, then ids); every subset is tried, so it is deterministic (a test
+checks 200 random pools against brute force). Each act on the bill says why: must-include, its
+cluster, the act it shares most fans with and their mutual affinity, and how the score changes
+without it. Near misses are the next bills in the same order, with the swap and the score change;
+a fuller or better bill that is over budget is shown with how much over. The poster export is the
+existing one: the server re-scores the bill from the draft's own matrix (headliner = top tier, then
+best connected). No fee is ever suggested.
