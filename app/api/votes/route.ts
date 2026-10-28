@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 
-import { loadPlan } from "@/lib/server/plan-store";
+import { visiblePlan } from "@/lib/workspace/session";
 import { getLimiters, isE2eRequest, visitorId } from "@/lib/server/rate-limit";
 import { castVote, countVotes, myVote, VOTE_QUESTIONS, type VoteQuestion } from "@/lib/server/votes";
 
@@ -8,7 +8,7 @@ const ID = /^[0-9a-f-]{36}$/;
 
 /** The options a plan offers: its shortlisted partners and its top cities. */
 async function optionsFor(runId: string): Promise<Record<VoteQuestion, string[]> | null> {
-  const plan = await loadPlan(runId);
+  const plan = await visiblePlan(runId);
   if (!plan) return null;
   return {
     partner: plan.partners?.picks.map((p) => p.pick.entity.id) ?? [],
@@ -28,6 +28,7 @@ export async function GET(req: Request): Promise<Response> {
   await connection();
   const runId = new URL(req.url).searchParams.get("runId") ?? "";
   if (!ID.test(runId)) return Response.json({ error: "Unknown plan." }, { status: 400 });
+  if (!(await visiblePlan(runId))) return Response.json({ error: "This plan is no longer stored." }, { status: 404 });
   return Response.json(await state(runId, visitorId(req.headers)));
 }
 

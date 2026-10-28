@@ -11,6 +11,7 @@ import { Suspense, useEffect, useRef, useState, type ButtonHTMLAttributes, type 
 
 import { FOOTER_EXTRA, NAV, TOOLS } from "@/lib/site";
 
+import { AccountBar } from "./account/account-bar";
 import { AppearanceControls } from "./appearance";
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -32,6 +33,10 @@ export function AppHeader({ context, right }: { context?: string; right?: ReactN
         {context && <div className="font-mono text-[11px] uppercase tracking-[0.06em] text-mute">{context}</div>}
         <div className="flex-1" />
         {right}
+        {/* Reads the path, which dynamic routes only know at request time. */}
+        <Suspense fallback={<div className="h-[30px] w-[72px] flex-none" aria-hidden />}>
+          <AccountBar />
+        </Suspense>
         <AppearanceControls />
       </div>
       {/* The path is only known at request time; until then the links render without a highlight. */}

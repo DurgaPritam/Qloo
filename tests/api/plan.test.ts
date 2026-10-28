@@ -8,6 +8,10 @@ import { postJson, readEvents } from "./sse";
 
 const URL = "http://localhost/api/plan";
 
+// Signed-out visitors: plans go to the public store, as before workspaces existed.
+// Signed-in saving is covered end to end in e2e/workspace.spec.ts.
+vi.mock("@/lib/workspace/session", () => ({ currentWorkspace: async () => null }));
+
 beforeAll(() => {
   vi.stubEnv("TAKEOVER_MOCK", "1");
   vi.stubEnv("UPSTASH_REDIS_REST_URL", "");

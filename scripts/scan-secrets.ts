@@ -14,6 +14,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
+import { loadEnvConfig } from "@next/env";
+
 export interface Finding {
   file: string;
   line: number;
@@ -28,7 +30,22 @@ export interface Rules {
   forbidden: string[];
 }
 
-export const SECRET_ENV = ["QLOO_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY", "UPSTASH_REDIS_REST_TOKEN"];
+export const SECRET_ENV = [
+  "QLOO_API_KEY",
+  "GEMINI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "AUTH_SECRET",
+  "DATABASE_URL",
+  "DATABASE_URL_UNPOOLED",
+  "RESEND_API_KEY",
+  "QSTASH_TOKEN",
+  "QSTASH_CURRENT_SIGNING_KEY",
+  "QSTASH_NEXT_SIGNING_KEY",
+  "BLOB_READ_WRITE_TOKEN",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+];
 export const CLIENT_FORBIDDEN = [...SECRET_ENV, "X-Api-Key"];
 export const KEY_PATTERNS = [
   { name: "Anthropic key", re: /sk-ant-[A-Za-z0-9_-]{20,}/ },
@@ -83,6 +100,8 @@ function walk(dir: string, out: string[] = []): string[] {
 
 function main() {
   const root = path.resolve(import.meta.dirname, "..");
+  // Local runs check .env.local's values too; CI passes them in the environment.
+  loadEnvConfig(process.cwd());
   const values = SECRET_ENV.map((k) => process.env[k] ?? "").filter(Boolean);
   const findings: Finding[] = [];
   const rel = (f: string) => path.relative(root, f);

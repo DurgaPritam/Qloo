@@ -35,16 +35,25 @@ venues over 500", "not before March").
   Auth.js users, sessions and verification tokens) belong to a person, not a workspace, and are
   linked to workspaces through `memberships`.
 - Route handlers, server actions and jobs never import the raw database client. They use the
-  scoped repository, `forWorkspace(session)`, which adds `workspace_id = <the signed-in user's
-  workspace>` to every read and write.
+  scoped repository, `forWorkspace(db, ctx)`, which adds `workspace_id = <the request's
+  workspace>` to every read and write. The context comes only from `lib/workspace/session.ts`,
+  which checks the membership first.
 - A job runs for one workspace, named in its payload. It checks that the workspace still
   exists, and that its subscription allows the job, before doing anything.
 - `tests/support/scoped-queries.ts` fails a test when SQL touches a workspace table without a
   `workspace_id` condition. Every test that touches the database records its queries with the
   Drizzle logger and ends with `expectAllScoped(queries, TENANT_TABLES)`. `TENANT_TABLES` is
   derived from the schema: every table with a `workspace_id` column.
-- Cross-workspace reads exist only in admin scripts, which are never routed. They are named
-  `unscoped*` so they are easy to find in review.
+- Cross-workspace reads are named `unscoped*` and live in `lib/db/unscoped.ts`, which only
+  `lib/workspace` and `lib/auth.ts` may import (ESLint enforces this). They are the lookups that
+  find a workspace in the first place, and nothing else:
+  - the signed-in user's own memberships (to pick the request's workspace);
+  - a plan's owning workspace and visibility, for `/plan/<id>` (the plan itself is returned only
+    when it is public);
+  - an invitation by the hash of its token, and accepting it (the writes still carry
+    `workspace_id`);
+  - creating a personal workspace on first sign-in.
+  Admin scripts, when they exist, follow the same naming.
 
 ## 4. Background jobs respect the Qloo budget
 

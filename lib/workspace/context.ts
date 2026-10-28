@@ -35,16 +35,18 @@ export type PlanAccess =
  * null, and the page answers 404, so a private plan's existence is not revealed.
  */
 export async function planForViewer(
-  db: DB,
+  dbOrOpen: DB | (() => Promise<DB>),
   id: string,
   userId: string | null,
   loadAnonymous: (id: string) => Promise<Plan | null>,
 ): Promise<PlanAccess | null> {
+  // Signed-out plans first: workspace plans never enter that store (their ids are always new),
+  // so a hit there is public, and most share links never touch the database.
+  const anonymous = await loadAnonymous(id);
+  if (anonymous) return { kind: "anonymous", plan: anonymous };
+  const db = typeof dbOrOpen === "function" ? await dbOrOpen() : dbOrOpen;
   const access = await unscopedPlanAccess(db, id);
-  if (!access) {
-    const plan = await loadAnonymous(id);
-    return plan ? { kind: "anonymous", plan } : null;
-  }
+  if (!access) return null;
   if (userId) {
     const membership = (await unscopedMembershipsOf(db, userId)).find((m) => m.workspaceId === access.workspaceId);
     if (membership) {

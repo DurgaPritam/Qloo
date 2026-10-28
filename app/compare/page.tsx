@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { categoryLabel, pct } from "@/components/run/format";
 import { AppHeader, DataTable, MonoLabel, Page, Skeleton } from "@/components/ui";
 import type { Plan } from "@/lib/agent/types";
-import { loadPlan } from "@/lib/server/plan-store";
+import { visiblePlan } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Compare plans · Takeover" };
 
@@ -34,7 +34,7 @@ const LABELS = ["Fanbase", "Format", "Partner", "City", "City by population", "V
 async function Comparison({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   const ids = [sp.a, sp.b].map((v) => (typeof v === "string" && ID.test(v) ? v : null));
-  const plans = await Promise.all(ids.map((id) => (id ? loadPlan(id) : null)));
+  const plans = await Promise.all(ids.map((id) => (id ? visiblePlan(id) : null)));
   const [pa, pb] = plans;
   if (!pa || !pb) {
     return (

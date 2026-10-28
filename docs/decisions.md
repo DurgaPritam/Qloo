@@ -371,3 +371,63 @@ Drizzle is installed: it reads the SQL Drizzle emits for Postgres, so it needs n
 proves a `workspace_id` condition is present, not that it holds the right workspace; the scoped
 repository supplies the value. Considered: Postgres row-level security as the only guard (the
 HTTP driver has no session to carry the workspace id); kept as a later second layer.
+
+## 2026-10-28 · Team foundation: database, auth, workspaces, comments (branch roadmap/foundation)
+
+**D62. Roadmap work lives on `roadmap/foundation`; `main` stays the judged hackathon build** (user
+instruction, until 16 Nov). The roadmap-docs commit made earlier on main was moved to the branch
+before anything was pushed.
+
+**D63. Local stand-ins until Neon and Resend keys exist** (user chose this). PGlite runs the same
+Drizzle migrations in-process for dev, unit tests and e2e; an in-memory outbox at `/dev/outbox`
+replaces email when `RESEND_API_KEY` is unset. Both are refused on Vercel: no `DATABASE_URL`
+throws at startup, and with no Resend key the outbox does not exist and sending fails closed.
+`AUTH_SECRET` was generated locally into `.env.local`. Considered: Docker Postgres (not installed),
+skipping auth tests until keys arrive (would leave the core flow untested).
+
+**D64. Production driver: `postgres` on Neon's pooled URL, not the Neon HTTP driver.** The HTTP
+driver has no transactions, and accepting an invitation or creating a workspace writes several
+rows that must land together.
+
+**D65. Four cross-workspace lookups, named `unscoped*` and lint-fenced.** Choosing a request's
+workspace, opening `/plan/<id>`, reading an invitation token and creating a personal workspace
+cannot know the workspace in advance. They live in `lib/db/unscoped.ts`, which only `lib/workspace`
+and `lib/auth.ts` may import; everything else goes through `forWorkspace()`. A test records every
+query from a full workflow and fails on any unscoped one.
+
+**D66. Workspace plans are private by default and never public by accident.** Signed-in runs by
+members (not viewers) save to Postgres only: not the public Redis store, not "Just planned", not
+trending, so a brand's unannounced campaign never shows on the landing page. `/plan/<id>`, its
+title, its preview image, Compare and votes all go through one access check, and a refused plan
+answers 404 (not 403) so its existence is not revealed. Signed-out plans keep working exactly as
+before and stay public.
+
+**D67. Imported browser plans get new ids.** A plan in My plans may already be shared; giving the
+workspace copy the same id would make that public link private. The copy records `imported_from`,
+so importing twice does nothing.
+
+**D68. Roles:** viewer reads; member also plans, comments and resolves, and can share their own
+plans; admin also invites, manages members below owner and can share any plan; owner also renames
+and manages owners. The last owner can neither leave nor be demoted. Invitations must be accepted
+by the invited email; links last 7 days, a new invite replaces a pending one, and only the
+token's hash is stored.
+
+**D69. @mentions use email handles** (the part before @, with the domain label appended on a
+clash), offered as chips under the comment box. Considered: a typeahead (a new component the
+design does not have) and display names (spaces and duplicates). Mentions create in-app
+notifications only; the inbox marks them read when opened.
+
+**D70. Comments are one level deep and resolved per thread.** A reply to a reply joins the same
+thread; only a thread's first comment can be resolved. Comments are never shown on a public link.
+
+**D71. No Auth.js "new user" page.** It would send a first-time invitee to the welcome page
+instead of back to their invitation; sign-in returns to the page it came from, and `/signin`
+alone lands on the workspace.
+
+**D72. Signed-out requests never open the database.** Without an Auth.js session cookie the
+session read returns at once, and `/plan/<id>` checks the public store before Postgres. This
+keeps anonymous traffic (most of it) off the database; it also fixed a cold-start delay that made
+a run hang in e2e.
+
+**D73. Sign-in and invitation emails are rate-limited** at 10 per visitor per hour, so the forms
+cannot be used to flood someone's inbox.

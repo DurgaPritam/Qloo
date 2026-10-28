@@ -46,7 +46,7 @@ export function RunScreen() {
   const params = useSearchParams();
   const router = useRouter();
   const query = (params.get("q") ?? "").trim();
-  const { view, start } = usePlanStream();
+  const { view, start, savedTo } = usePlanStream();
   const overrides = useRef<Overrides>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [showLog, setShowLog] = useState(false);
@@ -68,17 +68,17 @@ export function RunScreen() {
     if (query) run();
   }, [query, run]);
 
-  // Every finished plan goes to My plans (this browser only).
+  // Finished plans go to My plans (this browser only), unless the run saved them to a workspace.
   const [saved, setSaved] = useState<string | null>(null);
   useEffect(() => {
     const plan = view.plan;
-    if (!plan || plan.status !== "complete") return;
+    if (!plan || plan.status !== "complete" || savedTo) return;
     const summary = summarise(plan, plan.cachedRun?.recordedAt ?? new Date().toISOString());
     if (!summary) return;
     savePlanLocally({ ...summary, savedAt: new Date().toISOString(), mock: plan.mock });
     // eslint-disable-next-line react-hooks/set-state-in-effect -- marks the save that just happened
     setSaved(plan.runId);
-  }, [view.plan]);
+  }, [view.plan, savedTo]);
 
   const goTo = (q: string) => router.push(`/run?q=${encodeURIComponent(q)}`);
 
@@ -219,7 +219,12 @@ export function RunScreen() {
                   Ask your team to vote
                 </Link>
               )}
-              {saved && saved === view.plan?.runId && (
+              {savedTo && finished && view.plan?.status === "complete" && (
+                <Link href="/workspace" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
+                  Saved to {savedTo}
+                </Link>
+              )}
+              {!savedTo && saved && saved === view.plan?.runId && (
                 <Link href="/plans" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
                   Saved to My plans
                 </Link>

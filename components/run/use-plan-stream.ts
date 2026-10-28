@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import type {
   AgentEvent,
@@ -180,6 +180,8 @@ function isPlan(data: unknown): data is Plan {
 export function usePlanStream() {
   const [view, dispatch] = useReducer(reduce, INITIAL);
   const abort = useRef<AbortController | null>(null);
+  /** The workspace a signed-in run is saved to (X-Saved-To), or null for browser-only saves. */
+  const [savedTo, setSavedTo] = useState<string | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -188,6 +190,7 @@ export function usePlanStream() {
     const controller = new AbortController();
     abort.current = controller;
     dispatch({ type: "start", replanFrom });
+    setSavedTo(null);
 
     try {
       const res = await fetch("/api/plan", {
@@ -204,6 +207,8 @@ export function usePlanStream() {
         });
         return;
       }
+      const saved = res.headers.get("X-Saved-To");
+      setSavedTo(saved ? decodeURIComponent(saved) : null);
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = "";
       for (;;) {
@@ -228,7 +233,7 @@ export function usePlanStream() {
     }
   }, []);
 
-  return { view, start };
+  return { view, start, savedTo };
 }
 
 /** A finished plan as a static view, for the share page. */

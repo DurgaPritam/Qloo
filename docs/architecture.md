@@ -1,7 +1,8 @@
 # Architecture: Takeover as a team product (proposal)
 
-Status: **proposal, waiting for approval. Nothing is installed.** The rules this design must keep
-are in [roadmap-rules.md](roadmap-rules.md).
+Status: **foundation built on branch `roadmap/foundation`**: database, auth, workspaces, plans,
+comments (sections marked *Built*). Jobs, Blob and Stripe are still proposals. The rules this
+design must keep are in [roadmap-rules.md](roadmap-rules.md).
 
 ## What changes and what stays
 
@@ -22,9 +23,9 @@ atomic and fast. Postgres holds everything a customer owns.
 
 | Part | Choice | Why |
 | --- | --- | --- |
-| Database | **Neon Postgres** with **Drizzle ORM** | On the Vercel Marketplace; serverless HTTP driver for route handlers, branch databases for previews; Drizzle gives typed SQL and SQL-first migrations we can read. |
-| Auth | **Auth.js (v5)** with email magic links, the Drizzle adapter, database sessions | No passwords to store. The Resend provider sends the link. Sessions live in Postgres, so they can be revoked. |
-| Email | **Resend** | Sign-in links, invites, opt-in alerts and digests, and outreach the user clicks Send on. |
+| Database | **Neon Postgres** with **Drizzle ORM** (*Built*) | On the Vercel Marketplace, branch databases for previews; Drizzle gives typed SQL and SQL-first migrations we can read. Production uses the `postgres` driver on Neon's pooled URL (transactions work, unlike the HTTP driver). Local dev, unit tests and e2e use **PGlite** (Postgres in WebAssembly) with the same migrations; Vercel refuses to start without `DATABASE_URL`. |
+| Auth | **Auth.js (v5)** with email magic links, the Drizzle adapter, database sessions (*Built*) | No passwords to store. Sessions live in Postgres, so they can be revoked. Requests without a session cookie never touch the database. |
+| Email | **Resend** (*Built* for sign-in and invites) | Sign-in links, invites, later opt-in alerts and outreach the user clicks Send on. Without `RESEND_API_KEY`, local runs and e2e use an in-memory outbox at `/dev/outbox`; it never exists on Vercel, where sending fails closed. |
 | Background jobs | **Upstash QStash** | Already on Upstash. Signed HTTP calls to our own routes, with retries, delays, schedules and a dead-letter queue. One message per workspace, so a failure never stops everyone's job. |
 | Files | **Vercel Blob** | Exported decks and PDFs, posters, uploaded CSVs of ticket sales. |
 | Billing | **Stripe** | Checkout to subscribe, the Customer Portal to change or cancel, webhooks to sync the plan. |
@@ -97,10 +98,12 @@ starts with it.
 | --- | --- | --- |
 | `users`, `accounts`, `sessions`, `verification_tokens` | Auth.js identity | Per person (identity only) |
 | `workspaces` | name, plan, Stripe customer id | The tenant itself, keyed by `id` |
-| `memberships` | `workspace_id`, `user_id`, role (owner, member) | workspace |
+| `memberships` | `workspace_id`, `user_id`, role (owner, admin, member, viewer) | workspace |
 | `invites` | email, hashed token, expiry, invited by | workspace |
-| `saved_plans` | run id, query, the stored plan JSON, created by | workspace |
-| `notes` | a note on a plan or a pick | workspace |
+| `plans` (*Built*) | run id, input, the stored plan JSON, created by, visibility (workspace or public), imported from | workspace |
+| `comments` (*Built*) | plan, target (plan, partner, city, venue, sponsor) and its id, parent (one level of threading), author, body, resolved | workspace |
+| `notifications` (*Built*) | in-app @mentions | workspace |
+| `activity_log` (*Built*) | who did what | workspace |
 | `user_facts` | kind (ticket_sales, attendance, fee, constraint), value, unit, `source = 'user'`, entered by, entered at | workspace |
 | `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |

@@ -32,7 +32,7 @@ export default defineConfig({
     : {
         command: "npm run build && npx next start -p 3200",
         url: `${baseURL}/api/health`,
-        env: { TAKEOVER_MOCK: "1", TAKEOVER_E2E_TOKEN: token ?? "" },
+        env: { TAKEOVER_MOCK: "1", TAKEOVER_E2E_TOKEN: token ?? "", TAKEOVER_DB: "memory" },
         reuseExistingServer: !process.env.CI,
         timeout: 240_000,
       },

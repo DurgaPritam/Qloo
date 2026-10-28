@@ -8,6 +8,8 @@ import { recordTrend } from "@/lib/server/trending";
 import { DAILY_ID, getLimiters, isE2eRequest, LIMITS, visitorId, type LimitResult } from "@/lib/server/rate-limit";
 import { loadRecording, replay } from "@/lib/server/replay";
 import { SSE_HEADERS, sseStream } from "@/lib/server/sse";
+import { can } from "@/lib/workspace/permissions";
+import { currentWorkspace } from "@/lib/workspace/session";
 
 /** A run makes about six model calls; on a slow day Gemini takes 10–15 s each (decisions D39). */
 export const maxDuration = 300;
@@ -84,6 +86,12 @@ export async function POST(req: Request): Promise<Response> {
     else if (daily && !daily.ok) limited = dailyMessage(daily);
   }
 
+  // Signed-in members save to their workspace: private by default, so never to the public
+  // store, the "Just planned" list or trending. Viewers and signed-out visitors save as before.
+  const found = limited ? null : await currentWorkspace();
+  const workspace = found && can(found.ctx.role, "plan.create") ? found : null;
+  const workspaceName = workspace?.memberships.find((m) => m.workspaceId === workspace.ctx.workspaceId)?.name;
+
   const stream = sseStream(async (send) => {
     if (limited) {
       send({
@@ -101,6 +109,10 @@ export async function POST(req: Request): Promise<Response> {
         { query },
         { runId, overrides, source, planner: createPlanner(), emit: send, signal: req.signal },
       );
+      if (workspace) {
+        await saveToWorkspace(workspace.repo, query, plan);
+        return;
+      }
       await savePlan(plan);
       if (!plan.mock && plan.status === "complete" && plan.fanbase) {
         await Promise.all([
@@ -120,7 +132,20 @@ export async function POST(req: Request): Promise<Response> {
     }
   });
 
-  return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": runId } });
+  const saved: Record<string, string> = workspaceName ? { "X-Saved-To": encodeURIComponent(workspaceName) } : {};
+  return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": runId, ...saved } });
+}
+
+/** One retry: a lost save would lose the team's plan, and it must never fall back to the public store. */
+async function saveToWorkspace(repo: NonNullable<Awaited<ReturnType<typeof currentWorkspace>>>["repo"], query: string, plan: Parameters<typeof savePlan>[0]) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await repo.plans.create({ id: plan.runId, query, result: plan });
+      return;
+    } catch (err) {
+      console.error("[api/plan] workspace save failed:", err instanceof Error ? err.name : "unknown");
+    }
+  }
 }
 
 function minutesUntil(resetAt: number): number {

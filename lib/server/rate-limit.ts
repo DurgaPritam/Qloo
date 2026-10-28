@@ -17,6 +17,8 @@ export const LIMITS = {
   toolsPerHour: 30,
   /** Search suggestions per visitor per hour (one Qloo search each, cached for a week). */
   suggestPerHour: 300,
+  /** Sign-in links and invitations emailed per visitor per hour. */
+  emailsPerHour: 10,
   /** Live runs per day across all visitors. Size it to the Qloo plan with TAKEOVER_DAILY_RUNS. */
   dailyRuns: dailyCeiling(process.env.TAKEOVER_DAILY_RUNS),
 } as const;
@@ -126,7 +128,7 @@ function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): Rate
   return new UpstashLimiter(ratelimit, memory);
 }
 
-type Limiters = { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; suggest: RateLimiter; daily: RateLimiter };
+type Limiters = { runs: RateLimiter; replans: RateLimiter; tools: RateLimiter; suggest: RateLimiter; emails: RateLimiter; daily: RateLimiter };
 const limiters: Partial<Limiters> = {};
 
 /** Each limiter is built on first use, so one added later is never missing (a dev hot reload kept the old set). */
@@ -135,6 +137,7 @@ export function getLimiters(): Limiters {
   limiters.replans ??= build("replans", LIMITS.replansPerHour);
   limiters.tools ??= build("tools", LIMITS.toolsPerHour);
   limiters.suggest ??= build("suggest", LIMITS.suggestPerHour);
+  limiters.emails ??= build("emails", LIMITS.emailsPerHour);
   limiters.daily ??= build("daily", LIMITS.dailyRuns, "1 d");
   return limiters as Limiters;
 }
