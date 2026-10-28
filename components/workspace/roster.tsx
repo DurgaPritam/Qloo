@@ -6,9 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Confidence } from "@/lib/engine/types";
 import { parseRosterCsv, sameName, type CsvAct } from "@/lib/roster/csv";
-import type { CallRecord, RosterActView, RosterView } from "@/lib/roster/types";
+import type { RosterActView, RosterView } from "@/lib/roster/types";
 
 import { FIELD } from "../account/fields";
+import { Calls } from "./calls";
 import { Banner, Button, MonoLabel, OutlineChip, Panel, ScoreBar, SourceBadge, YourDataBadge } from "../ui";
 
 interface Choice {
@@ -102,28 +103,6 @@ const pairAnchor = (view: RosterView, a: string, b: string) => {
   const [i, j] = [view.acts.findIndex((x) => x.entityId === a), view.acts.findIndex((x) => x.entityId === b)].sort((x, y) => x - y);
   return `pair-${i}-${j}`;
 };
-
-/** The Qloo requests behind a number, as the run's step cards show them. */
-function Calls({ calls }: { calls: CallRecord[] }) {
-  if (!calls.length) return <span className="text-mute">Qloo requests were not recorded for this result; refresh to record them.</span>;
-  return (
-    <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-      {calls.map((c, i) => (
-        <li key={i} className="flex flex-col font-mono text-label [overflow-wrap:anywhere]">
-          <span className="text-ink">
-            GET {c.endpoint}
-            {c.cached ? " · cached" : ""}
-          </span>
-          {Object.entries(c.params).map(([k, v]) => (
-            <span key={k} className="text-mute">
-              {k} = {v}
-            </span>
-          ))}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 /** A collapsed "Evidence" section under a score. */
 function Evidence({ children, label = "Evidence" }: { children: React.ReactNode; label?: string }) {

@@ -17,7 +17,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   if (!found) redirect(`/signin?next=/workspace/data/${encodeURIComponent(id)}`);
   const { repo, ctx } = found;
   const view = /^[0-9a-f-]{36}$/.test(id)
-    ? await datasetView(repo, id, async (entity) => (await fanbaseCityScores(repo, entity, getQlooSource(), { kind: "workspace", workspaceId: ctx.workspaceId })).scores)
+    ? await datasetView(repo, id, async (entity) => (await fanbaseCityScores(repo, entity, getQlooSource(), { kind: "workspace", workspaceId: ctx.workspaceId })))
     : null;
   if (!view) notFound();
   return <DatasetScreen initial={view} />;

@@ -529,14 +529,19 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           )[0] ?? null
         );
       },
-      /** Deletes the dataset and its rows; returns the file key so the caller removes the file too. */
+      /** Deletes the dataset and its rows and clears its name from the activity log; returns the file key so the caller removes the file too. */
       async remove(id: string) {
         need("data.edit");
         const found = (await db.select({ fileKey: datasets.fileKey, name: datasets.name }).from(datasets).where(and(eq(datasets.workspaceId, ws), eq(datasets.id, id))).limit(1))[0];
         if (!found) return null;
         await db.delete(datasetRows).where(and(eq(datasetRows.workspaceId, ws), eq(datasetRows.datasetId, id)));
         await db.delete(datasets).where(and(eq(datasets.workspaceId, ws), eq(datasets.id, id)));
-        await log("data.deleted", { type: "dataset", id }, { name: found.name });
+        // The file name and row counts leave the activity log too: only that something was deleted stays.
+        await db
+          .update(activityLog)
+          .set({ detail: null })
+          .where(and(eq(activityLog.workspaceId, ws), eq(activityLog.targetType, "dataset"), eq(activityLog.targetId, id)));
+        await log("data.deleted", { type: "dataset", id });
         return found.fileKey;
       },
     },

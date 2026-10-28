@@ -27,6 +27,8 @@ export interface CombinedCity {
   yours: number | null;
   /** The raw metric, for display next to the normalised one. */
   raw: number | null;
+  /** The best city's total, which the user's metric is scaled against; null without user data. */
+  scale: { cityId: string; raw: number } | null;
   combined: number;
   /** Weight on the user's data, 0–1, as used for this row. */
   weight: number;
@@ -58,12 +60,14 @@ export function combineCityScores(qlooScores: readonly CityQlooScore[], userMetr
   const qloo = new Map(qlooScores.filter((q) => finite(q.score)).map((q) => [q.cityId, Math.min(1, Math.max(0, q.score))]));
   const yours = normaliseMetric(userMetric);
   const ids = new Set([...qloo.keys(), ...yours.keys()]);
+  const best = [...yours].sort((a, b) => b[1].raw - a[1].raw || a[0].localeCompare(b[0]))[0];
+  const scale = best ? { cityId: best[0], raw: best[1].raw } : null;
   const rows = [...ids].map((cityId) => {
     const q = qloo.get(cityId) ?? null;
     const y = yours.get(cityId) ?? null;
     const basis: CombinedCity["basis"] = q !== null && y !== null ? "both" : q !== null ? "qloo" : "yours";
     const combined = basis === "both" ? (1 - w) * q! + w * y!.norm : basis === "qloo" ? q! : y!.norm;
-    return { cityId, qloo: q, yours: y?.norm ?? null, raw: y?.raw ?? null, combined, weight: w, basis, rank: 0 };
+    return { cityId, qloo: q, yours: y?.norm ?? null, raw: y?.raw ?? null, scale, combined, weight: w, basis, rank: 0 };
   });
   return rows
     .sort((a, b) => b.combined - a.combined || (b.qloo ?? -1) - (a.qloo ?? -1) || a.cityId.localeCompare(b.cityId))

@@ -7,7 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { runAgent } from "@/lib/agent/loop";
 import { LlmPlanner, ScriptedPlanner } from "@/lib/agent/planner";
 import { combineCityScores } from "@/lib/engine/combine";
-import { datasetView, deleteDataset, ingest, metricByCity, planCityScores } from "@/lib/data/service";
+import { datasetView, deleteDataset, fanbaseCityScores, ingest, metricByCity, planCityScores, planQlooTrace, uploadTrace } from "@/lib/data/service";
 import type { ColumnRole } from "@/lib/data/types";
 import type { DB } from "@/lib/db";
 import { forWorkspace } from "@/lib/db/scoped";
@@ -51,6 +51,7 @@ async function person(email: string) {
   return { user, workspaceId, repo: forWorkspace(db, { userId: user.id, workspaceId, role: "owner" }) };
 }
 
+const noQloo = async () => ({ scores: [], trace: { rule: "single" as const, hottest: null, byCity: {}, calls: [] } });
 const upload = (repo: ReturnType<typeof forWorkspace>) => ingest(repo, { name: SECRET_NAME, bytes: new TextEncoder().encode(CSV), mapping: MAPPING }, store);
 
 beforeAll(async () => {
@@ -93,7 +94,7 @@ describe("upload", () => {
   it("puts unmatched and ambiguous cities in a review list, out of the ranking until a person decides", async () => {
     const { repo } = await person("bo@data.test");
     const { id } = await upload(repo);
-    const view = (await datasetView(repo, id, async () => []))!;
+    const view = (await datasetView(repo, id, noQloo))!;
     expect(view.review.map((r) => [r.rawCity, r.status])).toEqual([
       ["Springfield", "ambiguous"],
       ["Zzxq Town", "unmatched"],
@@ -105,7 +106,7 @@ describe("upload", () => {
 
     await repo.datasets.resolveCity(id, "Springfield", "US", view.review[0].options[0].id);
     await repo.datasets.resolveCity(id, "Zzxq Town", "US", null);
-    const after = (await datasetView(repo, id, async () => []))!;
+    const after = (await datasetView(repo, id, noQloo))!;
     expect(after.review).toEqual([]);
     expect(metricByCity(await repo.datasets.rows(id), "m2").map((m) => m.value)).toContain(4321);
     expect((await repo.datasets.rows(id)).find((r) => r.rawCity === "Zzxq Town")!.matchStatus).toBe("skipped");
@@ -136,6 +137,49 @@ describe("attach and combine", () => {
   });
 });
 
+describe("every number traces back to Qloo or the upload", () => {
+  it("each city's Your data value lists the file rows it sums, and the scale is the best city's total", async () => {
+    const { repo } = await person("ken@data.test");
+    const { id } = await upload(repo);
+    await repo.datasets.attach(id, PHOEBE);
+    const view = (await datasetView(repo, id, (entity) => fanbaseCityScores(repo, entity, new MockQlooSource(), { kind: "visitor" })))!;
+    const { trace, totals, qloo } = view.ranking;
+    expect(trace.upload.fileName).toBe(SECRET_NAME);
+    const rows = combineCityScores(qloo!, totals.m2, 0.5);
+    for (const r of rows.filter((x) => x.raw !== null)) {
+      const from = trace.upload.rows.m2[r.cityId];
+      expect(from.reduce((n, x) => n + x.value, 0)).toBe(r.raw);
+      for (const x of from) expect(CSV.split("\n")[x.row - 1]).toContain(String(x.value));
+    }
+    const la = rows.find((r) => r.raw === 987654)!;
+    expect(la.scale).toEqual({ cityId: la.cityId, raw: 987654 });
+    expect(trace.upload.rows.m2[la.cityId]).toEqual([{ row: 2, rawCity: "Los Angeles", value: 987654 }]);
+  });
+
+  it("each Qloo value is the city's heat over the hottest city's, from the recorded heatmap request", async () => {
+    const { repo } = await person("lu@data.test");
+    const { scores, trace } = await fanbaseCityScores(repo, { ...PHOEBE, popularity: 0 }, new MockQlooSource(), { kind: "visitor" });
+    expect(trace.calls.map((c) => c.params["filter.type"])).toEqual(["urn:heatmap"]);
+    expect(trace.calls[0].params["signal.interests.entities"]).toBe(PHOEBE.id);
+    for (const s of scores) {
+      const part = trace.byCity[s.cityId].parts[0];
+      expect(part.cells).toBeGreaterThan(0);
+      expect(s.score).toBeCloseTo(part.heat / trace.hottest!.heat);
+    }
+  });
+
+  it("in a plan, each Qloo value is √(fanbase heat × partner heat) from the plan's two heatmap requests", async () => {
+    const plan = await runAgent({ query: "Phoebe Bridgers" }, { runId: "trace-plan", source: new MockQlooSource(), planner: new ScriptedPlanner(), emit: () => {} });
+    const trace = planQlooTrace(plan);
+    expect(trace.calls.map((c) => c.params["filter.type"])).toEqual(["urn:heatmap", "urn:heatmap"]);
+    for (const s of planCityScores(plan)) {
+      const [a, b] = trace.byCity[s.cityId].parts;
+      expect(s.score).toBeCloseTo(Math.sqrt(a.heat * b.heat));
+    }
+    expect(uploadTrace("x.csv", [], ["m2"])).toEqual({ fileName: "x.csv", rows: { m2: {} } });
+  });
+});
+
 describe("privacy", () => {
   it("keeps datasets, rows and files away from every other workspace", async () => {
     const a = await person("eve@data.test");
@@ -148,7 +192,7 @@ describe("privacy", () => {
     expect(await b.repo.datasets.get(id)).toBeNull();
     expect(await b.repo.datasets.rows(id)).toEqual([]);
     expect(await b.repo.datasets.forEntity(PHOEBE.id)).toBeNull();
-    expect(await datasetView(b.repo, id, async () => [])).toBeNull();
+    expect(await datasetView(b.repo, id, noQloo)).toBeNull();
     await b.repo.datasets.resolveCity(id, "Springfield", "US", null);
     await b.repo.datasets.attach(id, null);
     expect(await deleteDataset(b.repo, id, store)).toBe(false);
@@ -173,11 +217,20 @@ describe("privacy", () => {
     await expect(deleteDataset(repo, id, store)).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("deletes the rows, the dataset and the file with one call", async () => {
+  it("deletes the rows, the dataset and the file with one call, and it is gone from every view", async () => {
     const { repo } = await person("ida@data.test");
     const { id } = await upload(repo);
+    await repo.datasets.attach(id, PHOEBE);
     const fileKey = (await repo.datasets.get(id))!.fileKey;
+    expect(JSON.stringify(await repo.activity.list())).toContain(SECRET_NAME);
     expect(await deleteDataset(repo, id, store)).toBe(true);
+    // Data page, dataset page, a plan's city step (it looks the dataset up by fanbase) and the activity log.
+    expect(await repo.datasets.list()).toEqual([]);
+    expect(await datasetView(repo, id, noQloo)).toBeNull();
+    expect(await repo.datasets.forEntity(PHOEBE.id)).toBeNull();
+    const activity = JSON.stringify(await repo.activity.list());
+    expect(activity).not.toContain(SECRET_NAME);
+    expect(activity).toContain("data.deleted");
     expect(store.has(fileKey)).toBe(false);
     expect(await repo.datasets.get(id)).toBeNull();
     const [{ n: left }] = await db.select({ n: count() }).from(datasetRows).where(eq(datasetRows.datasetId, id));

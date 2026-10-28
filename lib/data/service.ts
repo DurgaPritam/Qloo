@@ -22,7 +22,7 @@ import type { FileStore } from "@/lib/files/store";
 import { can } from "@/lib/workspace/permissions";
 
 import { parseNumber, readTable, TableError } from "./table";
-import { METRIC_LABEL, type CityOption, type ColumnRole, type DatasetSummary, type DatasetView, type MetricDef, type ReviewItem } from "./types";
+import { METRIC_LABEL, type CityOption, type ColumnRole, type DatasetSummary, type DatasetView, type MetricDef, type QlooTrace, type ReviewItem, type UploadTrace } from "./types";
 
 /**
  * The user's own data (docs/roadmap-rules.md, rule 2). It is read only by these functions and
@@ -183,7 +183,7 @@ export async function fanbaseCityScores(
   entity: RosterEntity,
   source: QlooSource,
   scope: QlooScope,
-): Promise<{ market: string; scores: CityQlooScore[]; calls: number }> {
+): Promise<{ market: string; scores: CityQlooScore[]; calls: number; trace: QlooTrace }> {
   const key = profileKey(entity.id, source.mock);
   const cached = (await repo.entityProfiles.get([key]))[0];
   let profile = cached && !profileStale({ profileAt: cached.refreshedAt }, new Date()) ? cached.profile : null;
@@ -196,10 +196,47 @@ export async function fanbaseCityScores(
   }
   const pool = metroPool().filter((c) => c.country === profile.market);
   const heat = new Map(Object.entries(profile.heat).map(([id, [mean, cells]]) => [id, { mean, cells }]));
-  const scores = scoreCityHeat(heat, heat, pool, 0)
-    .filter((s) => s.combined > 0)
-    .map((s) => ({ cityId: s.city.id, score: s.combined }));
-  return { market: profile.market, scores, calls };
+  const scored = scoreCityHeat(heat, heat, pool, 0).filter((s) => s.combined > 0);
+  const scores = scored.map((s) => ({ cityId: s.city.id, score: s.combined }));
+  const top = scored[0];
+  const trace: QlooTrace = {
+    rule: "single",
+    hottest: top ? { cityId: top.city.id, heat: heat.get(top.city.id)!.mean } : null,
+    byCity: Object.fromEntries(scored.map((s) => [s.city.id, { parts: [{ label: `${entity.name} fans`, heat: heat.get(s.city.id)!.mean, cells: s.evidence.cellsA }] }])),
+    calls: (profile.calls ?? []).filter((c) => c.params["filter.type"] === "urn:heatmap").map(({ endpoint, params, cached }) => ({ endpoint, params, cached })),
+  };
+  return { market: profile.market, scores, calls, trace };
+}
+
+/** The plan's city scores with what each is made of: both audiences' heat and the heatmap requests. */
+export function planQlooTrace(plan: Plan): QlooTrace {
+  const fanbase = plan.fanbase?.name ?? "Fanbase";
+  const partner = plan.partners?.picks.find((p) => p.pick.entity.id === plan.partners?.chosenId)?.pick.entity.name ?? "Partner";
+  return {
+    rule: "both",
+    hottest: null,
+    byCity: Object.fromEntries(
+      (plan.city?.ranked ?? [])
+        .filter((c) => c.sA !== undefined && c.sB !== undefined)
+        .map((c) => [c.id, { parts: [{ label: `${fanbase} fans`, heat: c.sA!, cells: c.cellsA ?? 0 }, { label: `${partner} fans`, heat: c.sB!, cells: c.cellsB ?? 0 }] }]),
+    ),
+    calls: plan.city?.calls ?? [],
+  };
+}
+
+/** The rows of the file behind each city's value, per metric. */
+export function uploadTrace(fileName: string, rows: readonly Row[], metricKeys: readonly string[]): UploadTrace {
+  const out: UploadTrace["rows"] = {};
+  for (const key of metricKeys) {
+    const byCity: Record<string, { row: number; rawCity: string; value: number }[]> = {};
+    for (const r of rows) {
+      const v = r.metrics[key];
+      if (!r.cityId || (r.matchStatus !== "matched" && r.matchStatus !== "manual") || typeof v !== "number") continue;
+      (byCity[r.cityId] ??= []).push({ row: r.rowNumber, rawCity: r.rawCity, value: v });
+    }
+    out[key] = byCity;
+  }
+  return { fileName, rows: out };
 }
 
 /** A plan's own city scores (fanbase with partner), for the plan's city step. */
@@ -230,7 +267,7 @@ export type { Row as DatasetRow };
 export async function datasetView(
   repo: WorkspaceRepo,
   id: string,
-  qloo: (entity: RosterEntity) => Promise<CityQlooScore[]>,
+  qloo: (entity: RosterEntity) => Promise<{ scores: CityQlooScore[]; trace: QlooTrace }>,
 ): Promise<DatasetView | null> {
   const d = await repo.datasets.get(id);
   if (!d) return null;
@@ -238,10 +275,13 @@ export async function datasetView(
   const list = await repo.datasets.list();
   const meta = list.find((x) => x.id === id);
   let scores: CityQlooScore[] | null = null;
+  let qlooTrace: QlooTrace | null = null;
   let qlooNote: string | null = null;
   if (d.entityId && d.entityName && d.entityCategory) {
     try {
-      scores = await qloo({ id: d.entityId, name: d.entityName, category: d.entityCategory, popularity: 0 });
+      const got = await qloo({ id: d.entityId, name: d.entityName, category: d.entityCategory, popularity: 0 });
+      scores = got.scores;
+      qlooTrace = got.trace;
     } catch (err) {
       qlooNote = err instanceof BudgetExceededError ? `${err.message}; showing your data only.` : "Qloo did not answer, so this shows your data only. Try again later.";
     }
@@ -257,6 +297,7 @@ export async function datasetView(
       metrics: d.metrics.map((m) => ({ key: m.key, label: m.label })),
       totals,
       cities: cityInfo(ids),
+      trace: { qloo: qlooTrace, upload: uploadTrace(d.name, rows, d.metrics.map((m) => m.key)) },
     },
     canEdit: can(repo.context.role, "data.edit"),
     qlooNote,

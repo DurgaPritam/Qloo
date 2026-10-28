@@ -1,4 +1,4 @@
-import { cityInfo, metricByCity, planCityScores } from "@/lib/data/service";
+import { cityInfo, metricByCity, planCityScores, planQlooTrace, uploadTrace } from "@/lib/data/service";
 import type { RankingData } from "@/lib/data/types";
 import { inPlanWorkspace } from "@/lib/workspace/route";
 
@@ -22,6 +22,7 @@ export async function GET(req: Request): Promise<Response> {
       metrics: dataset.metrics.map((m) => ({ key: m.key, label: m.label })),
       totals,
       cities: cityInfo([...qloo.map((q) => q.cityId), ...Object.values(totals).flatMap((t) => t.map((x) => x.cityId))]),
+      trace: { qloo: planQlooTrace(plan), upload: uploadTrace(dataset.name, rows, dataset.metrics.map((m) => m.key)) },
     };
     return Response.json({ dataset: { id: dataset.id, name: dataset.name }, ranking });
   });

@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Ctx): Promise<Response> {
   const { id } = await params;
   return inDataset(id, async ({ repo, ctx }) => {
-    const view = await datasetView(repo, id, async (entity) => (await fanbaseCityScores(repo, entity, getQlooSource(), { kind: "workspace", workspaceId: ctx.workspaceId })).scores);
+    const view = await datasetView(repo, id, async (entity) => (await fanbaseCityScores(repo, entity, getQlooSource(), { kind: "workspace", workspaceId: ctx.workspaceId })));
     return Response.json(view);
   });
 }

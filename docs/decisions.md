@@ -565,3 +565,12 @@ numbers invented by us inside the Your data channel. The empty state links to /m
 
 **D94. Deletion is one click, without a confirm dialog,** as asked: rows, dataset and file go
 together, and the activity log records the deletion by name only.
+
+**D95. Your data "done when" (28 Oct).** Every number in a city ranking can be traced from its row
+("Where these numbers come from"): the Qloo signal as the city's heat over the hottest city's
+(or, in a plan, √ of both audiences' heat), with the heatmap requests; Your data as the file's
+rows that sum to it, over the best city's total (the engine now returns that scale); Combined as
+its arithmetic with the weight. Plans now store each city's two heat values and the heatmap
+requests (`city.ranked`, `city.calls`). Deleting a dataset also clears its file name and counts
+from the activity log ("deleted data and its file" stays), so after one click it appears in no
+view: the data pages, plans' city steps, or settings.

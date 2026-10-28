@@ -25,10 +25,18 @@ const ACTIONS: Record<string, string> = {
   "comment.created": "commented",
   "comment.resolved": "resolved a thread",
   "comment.reopened": "reopened a thread",
+  "roster.created": "created a roster",
+  "roster.deleted": "deleted a roster",
+  "roster.acts_added": "added acts to a roster",
+  "data.uploaded": "uploaded data",
+  "data.attached": "attached data to a fanbase",
+  "data.deleted": "deleted data and its file",
 };
 
-function detail(d: Record<string, string | number | boolean | null> | null): string {
+function detail(action: string, d: Record<string, string | number | boolean | null> | null): string {
   if (!d) return "";
+  if (action === "roster.acts_added" && typeof d.count === "number") return `${d.count} act${d.count === 1 ? "" : "s"}`;
+  if (action === "data.attached") return typeof d.entity === "string" ? d.entity : "detached";
   if (typeof d.email === "string") return `${d.email}${d.role ? ` as ${d.role}` : ""}`;
   if (typeof d.input === "string") return d.input;
   if (typeof d.visibility === "string") return d.visibility === "public" ? "anyone with the link" : "workspace only";
@@ -64,7 +72,7 @@ async function Content() {
             </span>,
             <span key="a" className="[overflow-wrap:anywhere]">
               {ACTIONS[a.action] ?? a.action}
-              {detail(a.detail) ? <span className="text-mute"> · {detail(a.detail)}</span> : null}
+              {detail(a.action, a.detail) ? <span className="text-mute"> · {detail(a.action, a.detail)}</span> : null}
             </span>,
           ])}
         />

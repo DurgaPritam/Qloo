@@ -488,7 +488,11 @@ const pickCity: ToolDef = {
         combined: s.combined,
       })),
       // Compact, for combining with a workspace's own data in the UI (never sent to the model).
-      ranked: scores.filter((s) => s.combined > 0).slice(0, 100).map((s) => ({ id: s.city.id, combined: s.combined })),
+      ranked: scores
+        .filter((s) => s.combined > 0)
+        .slice(0, 100)
+        .map((s) => ({ id: s.city.id, combined: s.combined, sA: s.sA, sB: s.sB, cellsA: s.evidence.cellsA, cellsB: s.evidence.cellsB })),
+      calls: [...(state.city?.calls ?? []), ...calls].map((c) => ({ endpoint: c.endpoint, params: c.params, cached: c.cached })).slice(-2),
       level,
       market,
       basis,

@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { combineCityScores, DEFAULT_USER_WEIGHT } from "@/lib/engine/combine";
+import { combineCityScores, DEFAULT_USER_WEIGHT, type CombinedCity } from "@/lib/engine/combine";
 import { fileKind, MAX_FILE_BYTES, readTable, type Table } from "@/lib/data/table";
 import { METRIC_LABEL, type CityOption, type ColumnRole, type DatasetView, type MetricKind, type RankingData, type ReviewItem } from "@/lib/data/types";
 
 import { FIELD } from "../account/fields";
+import { Calls } from "./calls";
 import { GeoMap, type GeoPoint } from "../geo-map";
 import { pct } from "../run/format";
 import { Banner, Button, CombinedBadge, cx, MonoLabel, Num, OutlineChip, Panel, Segmented, SourceBadge, YourDataBadge } from "../ui";
@@ -199,6 +200,7 @@ export function CityRanking({ ranking, title, chosenCityId, onUseCity }: { ranki
   const [metric, setMetric] = useState(ranking.metrics[0]?.key ?? "");
   const [show, setShow] = useState<"table" | "map">("table");
   const [lens, setLens] = useState<Lens>("combined");
+  const [traced, setTraced] = useState<string | null>(null);
   const label = ranking.metrics.find((m) => m.key === metric)?.label ?? "Your metric";
   const info = useMemo(() => new Map(ranking.cities.map((c) => [c.id, c])), [ranking.cities]);
   const rows = useMemo(
@@ -313,9 +315,19 @@ export function CityRanking({ ranking, title, chosenCityId, onUseCity }: { ranki
                   <span role="cell" className="tabular font-mono text-label text-mute">
                     {String(r.rank).padStart(2, "0")}
                   </span>
-                  <span role="cell" className="min-w-0 [overflow-wrap:anywhere]">
-                    {c.name}
-                    <span className="text-chip text-mute">, {c.admin1 || c.country}</span>
+                  <span role="cell" className="flex min-w-0 flex-col items-start [overflow-wrap:anywhere]">
+                    <span>
+                      {c.name}
+                      <span className="text-chip text-mute">, {c.admin1 || c.country}</span>
+                    </span>
+                    <button
+                      type="button"
+                      aria-expanded={traced === r.cityId}
+                      onClick={() => setTraced(traced === r.cityId ? null : r.cityId)}
+                      className="cursor-pointer border-0 bg-transparent p-0 font-body text-chip text-acc-text"
+                    >
+                      {traced === r.cityId ? "Hide sources" : "Where these numbers come from"}
+                    </button>
                   </span>
                   <span role="cell" className="text-right">
                     <Num>{r.qloo === null ? "—" : pct(r.qloo)}</Num>
@@ -338,6 +350,11 @@ export function CityRanking({ ranking, title, chosenCityId, onUseCity }: { ranki
                       ) : null}
                     </span>
                   )}
+                  {traced === r.cityId && (
+                    <div role="cell" className="col-span-full">
+                      <Trace row={r} name={c.name} ranking={ranking} metric={metric} metricLabel={label} info={info} />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -348,6 +365,87 @@ export function CityRanking({ ranking, title, chosenCityId, onUseCity }: { ranki
         A dash means the city is missing on that side; its combined score then uses the other side alone. {rows.length > shown.length ? `Top ${shown.length} of ${rows.length} cities.` : ""}
       </span>
     </section>
+  );
+}
+
+/**
+ * Every number in a ranking row, traced: the Qloo heat and requests behind the Qloo signal, the
+ * rows of the uploaded file behind Your data, and the arithmetic of Combined. All values shown
+ * here are the engine's or the file's; nothing is computed for display.
+ */
+function Trace({
+  row,
+  name,
+  ranking,
+  metric,
+  metricLabel,
+  info,
+}: {
+  row: CombinedCity;
+  name: string;
+  ranking: RankingData;
+  metric: string;
+  metricLabel: string;
+  info: Map<string, { name: string }>;
+}) {
+  const q = ranking.trace.qloo;
+  const parts = q?.byCity[row.cityId]?.parts ?? [];
+  const rows = ranking.trace.upload.rows[metric]?.[row.cityId] ?? [];
+  const n = (x: number) => x.toLocaleString("en-GB");
+  const w = row.weight;
+  return (
+    <div className="mt-2 flex flex-col gap-2.5 rounded-md bg-bg p-3 text-chip" data-trace={name}>
+      <div className="flex flex-col gap-1.5">
+        <span className="flex flex-wrap items-center gap-2">
+          <SourceBadge />
+          {row.qloo === null ? (
+            <span>Qloo has no heat for {name} in this market, so there is no Qloo signal.</span>
+          ) : q?.rule === "both" && parts.length === 2 ? (
+            <span>
+              {pct(row.qloo)} = √({parts[0].label} {parts[0].heat.toFixed(2)} over {parts[0].cells} cells × {parts[1].label} {parts[1].heat.toFixed(2)} over {parts[1].cells} cells), each against
+              its hottest city in the market.
+            </span>
+          ) : parts[0] && q?.hottest ? (
+            <span>
+              {pct(row.qloo)} = {parts[0].label}&apos; heat in {name}, {parts[0].heat.toFixed(3)} over {parts[0].cells} cells, ÷ their hottest city&apos;s,{" "}
+              {info.get(q.hottest.cityId)?.name ?? "the hottest city"} {q.hottest.heat.toFixed(3)}.
+            </span>
+          ) : (
+            <span>{pct(row.qloo)}, from the plan&apos;s city step.</span>
+          )}
+        </span>
+        {row.qloo !== null && q && (
+          <details>
+            <summary className="cursor-pointer text-acc-text">Qloo requests</summary>
+            <div className="pt-1.5">
+              <Calls calls={q.calls} />
+            </div>
+          </details>
+        )}
+      </div>
+      <span className="flex flex-wrap items-center gap-2">
+        <YourDataBadge />
+        {row.raw === null || !row.scale ? (
+          <span>{name} is not in {ranking.trace.upload.fileName}.</span>
+        ) : (
+          <span>
+            {pct(row.yours ?? 0)} = {metricLabel.toLowerCase()} in {name}, {n(row.raw)} (
+            {rows.map((x) => `row ${x.row} “${x.rawCity}” ${n(x.value)}`).join(" + ")} in {ranking.trace.upload.fileName}), ÷ your best city&apos;s,{" "}
+            {info.get(row.scale.cityId)?.name ?? "your best city"} {n(row.scale.raw)}.
+          </span>
+        )}
+      </span>
+      <span className="flex flex-wrap items-center gap-2">
+        <CombinedBadge />
+        <span>
+          {row.basis === "both"
+            ? `${pct(row.combined)} = ${(1 - w).toFixed(1)} × ${pct(row.qloo ?? 0)} + ${w.toFixed(1)} × ${pct(row.yours ?? 0)}.`
+            : row.basis === "qloo"
+              ? `${pct(row.combined)} = the Qloo signal alone: ${name} is not in your file.`
+              : `${pct(row.combined)} = your data alone: Qloo has no heat for ${name}.`}
+        </span>
+      </span>
+    </div>
   );
 }
 

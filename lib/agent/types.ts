@@ -113,8 +113,10 @@ export interface CityResult {
   tour: TourPlan;
   /** Up to ten cities for the map, best first. */
   map: Array<{ id: string; name: string; lat: number; lon: number; combined: number }>;
-  /** Every city with a score (up to 100), best first: id and combined score only. Absent on older plans. */
-  ranked?: Array<{ id: string; combined: number }>;
+  /** Every city with a score (up to 100), best first, with each audience's heat (0–1). Absent on older plans. */
+  ranked?: Array<{ id: string; combined: number; sA?: number; sB?: number; cellsA?: number; cellsB?: number }>;
+  /** The heatmap requests the scores came from (never the key). */
+  calls?: Array<{ endpoint: string; params: Record<string, string>; cached: boolean }>;
   level: "city" | "region";
   /** The country the cities were ranked in. */
   market: { code: string; name: string };

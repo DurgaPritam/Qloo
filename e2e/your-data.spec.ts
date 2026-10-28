@@ -39,6 +39,7 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
   const other = await newPage(browser);
   await signIn(page, `dara.${run}@e2e.test`);
   let datasetUrl = "";
+  let planUrl = "";
 
   await test.step("empty state, then upload a CSV and map its columns", async () => {
     await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Data" }).click();
@@ -81,6 +82,14 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
     await expect(la.nth(4)).toHaveText("100");
     // Brooklyn's tickets count towards New York City.
     await expect(table.locator('[data-city="New York City"]').getByRole("cell").nth(3)).toContainText("1,655");
+    // Every number in the row traces back: Qloo heat and its request, the file's rows, the arithmetic.
+    await table.locator('[data-city="Los Angeles"]').getByRole("button", { name: "Where these numbers come from" }).click();
+    const trace = page.locator('[data-trace="Los Angeles"]');
+    await expect(trace.getByText(/Phoebe Bridgers fans' heat in Los Angeles, \d\.\d{3} over \d+ cells, ÷ their hottest city's/)).toBeVisible();
+    await expect(trace.getByText(/row 2 “Los Angeles” 1,742 in ticket_sales_2026\.csv/)).toBeVisible();
+    await expect(trace.getByText(/= 0\.0 × \d+ \+ 1\.0 × 100\./)).toBeVisible();
+    await trace.getByText("Qloo requests").click();
+    await expect(trace.getByText("filter.type = urn:heatmap")).toBeVisible();
     await page.getByRole("tab", { name: "Map" }).click();
     await page.getByRole("tab", { name: "■ Your data" }).click();
     await expect(page.getByRole("img", { name: /Top cities by your data/ }).or(page.getByLabel(/Top cities by your data/)).first()).toBeVisible();
@@ -100,6 +109,10 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
     await expect(mine).toBeVisible();
     await expect(mine.getByText("ticket_sales_2026.csv", { exact: false })).toBeVisible();
     for (const h of ["◆ Qloo signal", "■ Your data", "◆■ Combined"]) await expect(mine.getByRole("columnheader", { name: h })).toBeVisible();
+    const first = mine.locator("[data-city]").first();
+    await first.getByRole("button", { name: "Where these numbers come from" }).click();
+    await expect(mine.locator("[data-trace]").getByText(/√\(Phoebe Bridgers fans/).or(mine.locator("[data-trace]").getByText(/is not in|has no heat/)).first()).toBeVisible();
+    planUrl = page.url();
   });
 
   await test.step("delete it with one click", async () => {
@@ -109,5 +122,15 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
     await expect(page.getByRole("heading", { name: "No data sources added" })).toBeVisible();
     await page.goto(datasetUrl);
     await expect(page.getByRole("heading", { name: "We couldn't find that page" })).toBeVisible();
+  });
+
+  await test.step("and gone from every view: the plan's city step and the activity log", async () => {
+    await page.goto(planUrl);
+    await expect(page.getByText("Complete · 7 / 7")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/With Qloo rank vs population rank/)).toBeVisible();
+    await expect(page.locator("[data-plan-your-data]")).toHaveCount(0);
+    await page.goto("/workspace/settings");
+    await expect(page.getByText("deleted data and its file")).toBeVisible();
+    await expect(page.getByText("ticket_sales_2026.csv")).toHaveCount(0);
   });
 });

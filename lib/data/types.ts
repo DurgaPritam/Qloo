@@ -66,6 +66,26 @@ export interface CityInfo {
  * What the ranking needs; the browser combines it with combineCityScores (engine code) as the
  * weight slider moves. Never sent outside the workspace.
  */
+/** Where a Qloo score in the ranking comes from. */
+export interface QlooTrace {
+  /** Per city: the heat values the score is built from (0–1) and how many heatmap cells were near it. */
+  byCity: Record<string, { parts: { label: string; heat: number; cells: number }[] }>;
+  /**
+   * "single": one audience's heat ÷ the hottest city's (named in `hottest`).
+   * "both": √(fanbase × partner), each already scaled against its own hottest city (plans).
+   */
+  rule: "single" | "both";
+  hottest: { cityId: string; heat: number } | null;
+  /** The Qloo requests behind the column (never the key). */
+  calls: { endpoint: string; params: Record<string, string>; cached: boolean }[];
+}
+
+/** Where a Your data value comes from: the file and its rows, per metric and city. */
+export interface UploadTrace {
+  fileName: string;
+  rows: Record<string, Record<string, { row: number; rawCity: string; value: number }[]>>;
+}
+
 export interface RankingData {
   /** Qloo's score per city (0–1), or null when no fanbase is attached. */
   qloo: { cityId: string; score: number }[] | null;
@@ -75,6 +95,7 @@ export interface RankingData {
   /** Metric key → value summed per matched city. */
   totals: Record<string, { cityId: string; value: number }[]>;
   cities: CityInfo[];
+  trace: { qloo: QlooTrace | null; upload: UploadTrace };
 }
 
 export interface DatasetView {
