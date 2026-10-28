@@ -103,3 +103,41 @@ of 20 requests a day, about three runs. After it ran out, runs moved to `gemini-
 which answered in 10–16 s per call (10 s for "Say ok."), so a run took about 100 s.
 `gemini-3.8-flash` returned 503 all day. A run uses about 9,000 tokens (207,078 for this matrix
 and the smoke tests). Qloo quota after this pass: 49,304.
+
+## Roadmap flows on live Qloo (roadmap/foundation, 28 Oct 2026)
+
+A local production build in live mode (`TAKEOVER_MOCK` unset, in-memory database, sign-in through
+the local outbox, scripted planner so only Qloo is exercised), driven through the UI by a
+Playwright script. Calls per flow are the drop in Qloo's `x-month-ratelimit-remaining` as the
+server saw it (`/api/health`), so cached answers (Upstash) count as 0. Quota read with
+`scripts/quota.mts`: **49,061 before, 48,989 after: 72 calls in all**, both passes and probes included.
+
+| Flow | Result | Qloo calls | Pass |
+|---|---|---|---|
+| Plan (agent run), saved to the workspace | Hozier, 7 / 7 steps, saved privately to the workspace | 12 | ✅ |
+| Pipeline | Plan's two drafts added; one opened and marked sent; nothing emailed | 2 (the plan page's audience panel) | ✅ |
+| Outcomes | 820 of 1,000 logged: 82% sell-through; "too few events to judge" | 0 | ✅ |
+| Roster | 4 acts added by search; refresh estimated 23, used 20 ("never more"); 12 matrix scores link to evidence | 21 | ✅ |
+| Your data | CSV of 5 cities uploaded, attached to Phoebe Bridgers: 5 ranked from the file, 10 untested cities listed by Qloo signal | 3 | ✅ |
+| Market watch | Ali Wong (fanbase) and Chicago (city): first snapshots, no alerts | 4 | ✅ |
+| Sponsorship, brand view | Liquid Death: 7 matches (top: The Human Upgrade with Dave Asprey), the saved plan shown under Your events | 13, then 2 (cache) | ✅ |
+| Sponsorship, rights view | Golden State Warriors: 1 brand after the filters (Foot Locker), shortlisted and sent to the pipeline | 4 | ✅ |
+| Sponsorship, one roster act | 11 brands for the first act, no search call | 6 | ✅ |
+| Tour optimizer, US and Canada | Victoria → Portland → Denver → Toronto → Boston on one scale; per-country switch shown; saved to the workspace | 2 | ✅ |
+| Tour optimizer, US West | Denver → Los Angeles → San Francisco → Portland → Seattle | 0 (cache) | ✅ |
+
+First pass problems, all in the test set-up, not the app: the build had been made by the e2e run
+with `TAKEOVER_MOCK=1`, so the layout's "Sample data" banner was baked in although the data was
+live (health reported `mock: false`); fixed by rebuilding without it. "Phoebe Bridgers" replayed
+the stored live run from 26 Oct (a cached example saves to My plans, not the workspace), so the
+second pass planned Hozier. The CSV was set before the upload page had hydrated; the second pass
+clicks through to it as a user would.
+
+Observations to follow up:
+- Upstash reads timed out at the 4 s limit 21 times during bursts (roster refresh, sponsorship),
+  while `/api/health` pinged Redis in about 30 ms. The cache falls back to memory, so nothing
+  failed, but bursts lose the shared cache. Worth checking the Upstash plan's request limits
+  before judging.
+- The Warriors' rights view kept only one brand once teams, leagues and non-brands were removed;
+  the same call on 25 Oct gave three sponsors in the plan flow. Qloo's brand list for a team is
+  thin after filtering.
