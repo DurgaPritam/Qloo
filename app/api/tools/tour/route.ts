@@ -1,5 +1,5 @@
 import { toolRequest, text } from "@/lib/server/tool-route";
-import { DISTANCE_WEIGHT, optimizeFanTour, REGIONS } from "@/lib/tools/tour";
+import { DISTANCE_WEIGHT, optimizeFanTour, REGIONS, saveTourDraft } from "@/lib/tools/tour";
 
 export const maxDuration = 30;
 
@@ -20,8 +20,7 @@ export async function POST(req: Request): Promise<Response> {
   const region = text(r.body.region, 20);
   const weight = Number(r.body.distanceWeight);
   try {
-    return Response.json(
-      await optimizeFanTour(
+    const result = await optimizeFanTour(
         fanbase,
         text(r.body.entityId, 200) || undefined,
         {
@@ -36,8 +35,9 @@ export async function POST(req: Request): Promise<Response> {
         },
         r.source,
         { runId: r.runId },
-      ),
-    );
+      );
+    // A finished tour is kept for a day so a signed-in user can save exactly this result.
+    return Response.json(result.status === "done" && !result.route.infeasible ? { ...result, draftId: await saveTourDraft(result) } : result);
   } catch (err) {
     console.error("[api/tools/tour] failed:", err instanceof Error ? err.name : "unknown");
     return Response.json({ error: "Qloo didn't answer. Try again.", mock: r.mock }, { status: 502 });

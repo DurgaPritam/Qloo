@@ -44,6 +44,7 @@ const ACTIONS: Record<string, string> = {
   "outreach.added": "added outreach to the pipeline",
   "outreach.moved": "moved outreach",
   "outreach.sent": "marked outreach sent",
+  "tour.saved": "saved a tour",
 };
 
 function detail(action: string, d: Record<string, string | number | boolean | null> | null): string {

@@ -92,6 +92,13 @@
       "when": 1793202105146,
       "tag": "0012_outcome_sponsor_promo",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793202446424,
+      "tag": "0013_tours",
+      "breakpoints": true
     }
   ]
 }

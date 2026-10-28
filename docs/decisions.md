@@ -902,3 +902,13 @@ those states is reported as not in the region (it used to be accepted if it was 
 distance-weight slider (0–20 points per 1,000 km, default 5, the engine's) is sent with the request
 and shown in the objective line. Considered: comparing heat across countries is an assumption; it
 is the one the user chose, and the per-country view stays available.
+
+**D138. Save tours to a workspace** (halfway review). Signed in, the Tour optimizer shows "Save to
+workspace". As with sponsor matches, the browser never sends the route: every finished tour is
+kept server-side for a day as a draft (Upstash, or memory locally) and the save names only the
+draft id, plus the user's own window and per-stop dates and venue sizes (validated: real dates,
+one of the four bands, only stops on that route). Saved tours (new `tours` table, scoped, members
+save, viewers read) are listed under the planner and reopen at `/tour?saved=<id>`, showing the
+route as Qloo scored it then, labelled with the date, until a new fanbase is asked for. Saving
+costs no Qloo call. Considered: re-running the optimizer on reopen (would spend calls and could
+show a different route than the one the team agreed).

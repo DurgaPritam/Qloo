@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import type { TourResult } from "@/lib/tools/tour";
+import type { SavedTourResult, TourResult } from "@/lib/tools/tour";
+import { VENUE_BANDS } from "@/lib/tools/venue-bands";
 
 import { FIELD } from "../account/fields";
 import { GeoMap } from "../geo-map";
@@ -28,7 +30,6 @@ const REGION_OPTIONS = [
   { value: "w-europe", label: "Western Europe" },
   { value: "au-nz", label: "Australia and New Zealand" },
 ];
-const VENUE_BANDS = ["", "Club · under 500", "Theater · 500–3k", "Arena · 3k+"];
 
 interface Constraints {
   region: string;
@@ -47,15 +48,25 @@ const DEFAULT_WEIGHT = 5;
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
-export function TourPlanner() {
+export interface SavedTourView {
+  id: string;
+  name: string;
+  result: SavedTourResult;
+  userData: { window: { from: string; to: string }; stops: Record<string, { band: string; date: string }> };
+  createdAt: string;
+}
+
+export function TourPlanner({ workspace, saved }: { workspace: { name: string; tours: { id: string; name: string; createdAt: string }[] } | null; saved?: SavedTourView }) {
   const [c, setC] = useState<Constraints>({ region: "", stops: 5, maxLegKm: "", start: "", end: "", include: "", exclude: "", distanceWeight: DEFAULT_WEIGHT });
   /** Multi-country tours: which scale the scores are shown on. The route always uses one scale. */
   const [scale, setScale] = useState<"region" | "country">("region");
-  const [dates, setDates] = useState({ from: "", to: "" });
-  const [stopInfo, setStopInfo] = useState<Record<string, { band: string; date: string }>>({});
+  const [dates, setDates] = useState(saved?.userData.window ?? { from: "", to: "" });
+  const [stopInfo, setStopInfo] = useState<Record<string, { band: string; date: string }>>(saved?.userData.stops ?? {});
+  const [saving, setSaving] = useState<{ busy: boolean; text: string | null }>({ busy: false, text: null });
+  const router = useRouter();
   // The request builder is kept from the first render, so it reads the constraints from a ref.
   const ref = useRef(c);
-  const { value, state, submit, pick, retry } = useToolQuery<TourResult>("/api/tools/tour", "q", (fanbase, entityId) => ({
+  const { value, state, submit, pick, retry } = useToolQuery<TourResult & { draftId?: string }>("/api/tools/tour", "q", (fanbase, entityId) => ({
     fanbase,
     entityId,
     region: ref.current.region,
@@ -67,13 +78,22 @@ export function TourPlanner() {
     exclude: list(ref.current.exclude),
     distanceWeight: ref.current.distanceWeight,
   }));
-  const r = state.data;
+  // A saved tour is shown as it was saved until another fanbase is asked for.
+  const viewingSaved = Boolean(saved && !value);
+  const r: (TourResult & { draftId?: string }) | undefined = viewingSaved ? saved!.result : state.data;
   const set = (patch: Partial<Constraints>) => {
     const next = { ...c, ...patch };
     ref.current = next;
     setC(next);
   };
   const info = (id: string) => stopInfo[id] ?? { band: "", date: "" };
+  const save = async (draftId: string) => {
+    setSaving({ busy: true, text: null });
+    const res = await fetch("/api/workspace/tours", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ draftId, window: dates, stops: stopInfo }) }).catch(() => null);
+    const data = ((await res?.json().catch(() => null)) ?? {}) as { id?: string; error?: string };
+    setSaving({ busy: false, text: res?.ok && data.id ? `Saved to ${workspace?.name}.` : (data.error ?? "That didn't work.") });
+    if (res?.ok) router.refresh();
+  };
   const multi = r?.status === "done" && r.markets.length > 1;
   const perCountry = multi && scale === "country";
   const shown = (city: { score: number; countryScore?: number }) => (perCountry ? (city.countryScore ?? city.score) : city.score);
@@ -174,9 +194,14 @@ export function TourPlanner() {
         </Panel>
 
         <div className="flex min-w-0 flex-col gap-[18px]">
-          {!value && !state.loading && <Banner tone="neutral">Type a fanbase above to route its tour.</Banner>}
+          {viewingSaved && saved && (
+            <Banner tone="neutral">
+              Saved tour · {saved.name}. Scores are as Qloo gave them when it was saved on {saved.createdAt.slice(0, 10)}; optimize again for today&apos;s.
+            </Banner>
+          )}
+          {!value && !viewingSaved && !state.loading && <Banner tone="neutral">Type a fanbase above to route its tour.</Banner>}
           {state.error && <ToolError message={state.error} onRetry={retry} />}
-          {state.loading && <Sk.map />}
+          {!viewingSaved && state.loading && <Sk.map />}
           {r?.status === "none" && <Banner tone="neutral">We couldn&apos;t find a fanbase called “{value}”. Try one of the examples.</Banner>}
           {r?.status === "choose" && r.choices && <ChoicePicker question={r.question ?? "Which one?"} choices={r.choices} onPick={pick} />}
           {r?.status === "done" && (
@@ -311,14 +336,39 @@ export function TourPlanner() {
                   </ul>
                 </Panel>
               )}
-              <Link href={planHref(r.fanbase.name)} className="self-start rounded-btn bg-acc px-3.5 py-2 text-chip font-medium text-on-acc no-underline">
-                Plan the opening takeover →
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={planHref(r.fanbase.name)} className="rounded-btn bg-acc px-3.5 py-2 text-chip font-medium text-on-acc no-underline">
+                  Plan the opening takeover →
+                </Link>
+                {workspace && r.draftId && !viewingSaved && (
+                  <Button onClick={() => void save(r.draftId!)} loading={saving.busy}>
+                    Save to workspace
+                  </Button>
+                )}
+                {saving.text && (
+                  <span className="text-chip text-mute" role="status">
+                    {saving.text}
+                  </span>
+                )}
+              </div>
               <CallsUsed calls={r.calls} />
             </>
           )}
         </div>
       </div>
+      {workspace && workspace.tours.length > 0 && (
+        <Panel>
+          <MonoLabel>Saved tours · {workspace.name}</MonoLabel>
+          <ul className="m-0 flex list-none flex-col p-0" aria-label="Saved tours">
+            {workspace.tours.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-2">
+                <Link href={`/tour?saved=${t.id}`}>{t.name}</Link>
+                <span className="tabular font-mono text-chip text-mute">{t.createdAt.slice(0, 10)}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
     </>
   );
 }

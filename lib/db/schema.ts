@@ -11,6 +11,7 @@ import type { PitchInput } from "@/lib/export/sponsor";
 import type { Prediction } from "@/lib/engine/outcomes";
 import type { DeckFont } from "@/lib/export/branding";
 import type { OutreachKind, OutreachStage } from "@/lib/pipeline/stages";
+import type { SavedTourResult } from "@/lib/tools/tour";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -681,6 +682,34 @@ export const outreachEvents = pgTable(
   (t) => [index("outreach_events_card_idx").on(t.workspaceId, t.outreachId, t.at)],
 );
 
+/* ---------- Saved tours ---------- */
+
+/** The user's own additions to a tour: their window and, per stop, a venue size and a date. */
+export interface TourUserData {
+  window: { from: string; to: string };
+  stops: Record<string, { band: string; date: string }>;
+}
+
+/**
+ * A tour from the Tour optimizer, saved to the workspace: the engine's result exactly as it was
+ * computed (taken from the server-side draft, never from the browser) and the user's dates and venue sizes.
+ */
+export const tours = pgTable(
+  "tours",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    result: jsonb("result").$type<SavedTourResult>().notNull(),
+    userData: jsonb("user_data").$type<TourUserData>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("tours_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -705,4 +734,5 @@ export const TENANT_TABLES = [
   "deck_settings",
   "outreach",
   "outreach_events",
+  "tours",
 ] as const;

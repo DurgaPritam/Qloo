@@ -10,6 +10,7 @@ import type { City, Entity } from "@/lib/engine/types";
 import { FANBASE_CATEGORIES } from "@/lib/qloo/api";
 import { BudgetExceededError } from "@/lib/qloo/errors";
 import type { QlooSource } from "@/lib/qloo/source";
+import { kvGet, kvSet } from "@/lib/server/kv";
 
 import { describeFailure, metroPool, resolveEntity, view, type CallView, type Resolved } from "./shared";
 
@@ -73,6 +74,23 @@ export type TourResult =
       calls: CallView[];
       mock: boolean;
     };
+
+/** A finished tour, as saved to a workspace. */
+export type SavedTourResult = Extract<TourResult, { status: "done" }>;
+
+const TOUR_DRAFT_TTL = 24 * 60 * 60;
+const tourDraftKey = (id: string) => `takeover:tour:draft:v1:${id}`;
+
+/** Keeps a finished tour server-side for a day, so saving it stores the engine's result, not the browser's copy. */
+export async function saveTourDraft(result: SavedTourResult): Promise<string> {
+  const id = crypto.randomUUID();
+  await kvSet(tourDraftKey(id), result, TOUR_DRAFT_TTL);
+  return id;
+}
+
+export async function tourDraft(id: string): Promise<SavedTourResult | null> {
+  return /^[0-9a-f-]{36}$/.test(id) ? kvGet<SavedTourResult>(tourDraftKey(id)) : null;
+}
 
 let index: CityIndex | undefined;
 const cities = () => (index ??= cityIndex(CITIES, metroPool()));

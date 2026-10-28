@@ -15,6 +15,7 @@ import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
 import { predictionsFromPlan } from "@/lib/outcomes/predict";
 import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
 import type { OutreachStage } from "@/lib/pipeline/stages";
+import type { SavedTourResult } from "@/lib/tools/tour";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -45,6 +46,7 @@ import {
   rosters,
   snapshots,
   sponsorMatches,
+  tours,
   users,
   watchItems,
   workspaces,
@@ -53,6 +55,7 @@ import {
   type MatchStatus,
   type WatchKind,
   type Role,
+  type TourUserData,
   type Visibility,
 } from "./schema";
 
@@ -901,6 +904,35 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async remove(id: string) {
         need("pipeline.edit");
         await db.delete(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+      },
+    },
+
+    /** Tours saved from the Tour optimizer. */
+    tours: {
+      async list() {
+        need("plan.read");
+        return db
+          .select({ id: tours.id, name: tours.name, createdAt: tours.createdAt, author: users.name, authorEmail: users.email })
+          .from(tours)
+          .leftJoin(users, eq(users.id, tours.createdBy))
+          .where(eq(tours.workspaceId, ws))
+          .orderBy(desc(tours.createdAt))
+          .limit(50);
+      },
+      async get(id: string) {
+        need("plan.read");
+        return (await db.select().from(tours).where(and(eq(tours.workspaceId, ws), eq(tours.id, id))).limit(1))[0] ?? null;
+      },
+      async save(name: string, result: SavedTourResult, userData: TourUserData) {
+        need("plan.create");
+        const id = crypto.randomUUID();
+        await db.insert(tours).values({ id, workspaceId: ws, name: name.slice(0, 120), result, userData, createdBy: ctx.userId });
+        await log("tour.saved", { type: "tour", id }, { name });
+        return id;
+      },
+      async remove(id: string) {
+        need("plan.create");
+        await db.delete(tours).where(and(eq(tours.workspaceId, ws), eq(tours.id, id)));
       },
     },
 
