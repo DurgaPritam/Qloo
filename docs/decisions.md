@@ -939,3 +939,13 @@ Francisco …", matched to our city list inside the entity's country); when the 
 none, it is the fans' strongest city from the heatmap, and the card says which. Fallback fits are
 one direction and say so; they are never ranked with the national list, but can be shortlisted and
 pitched, with the local request as their source. The act-or-team call estimate rises from 9 to 10.
+
+**D141. The hourly tick runs each workspace once, at its Monday 07:xx** (answer of 28 Oct). The
+tick now queues a workspace's weekly watch only while that workspace's local time is Monday 07:xx
+(UTC when no time zone is set). The run then claims its week in `watch_runs` (keyed by workspace and
+the local Monday's date) before doing anything, so a redelivered QStash message, a manual tick or a
+second tick in the same hour does nothing ("Already ran for the week of …"). A finished week never
+runs again. An unfinished claim older than 30 minutes is a run that crashed, and the next delivery
+may take it over (items already checked that week are not due, so they are not checked twice).
+Items skipped for budget wait for the first Monday 07:xx after their limit resets. Pipeline
+reminders still run on any hourly tick: they have their own once-per-due-date guard.

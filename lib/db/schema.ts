@@ -480,6 +480,23 @@ export const alerts = pgTable(
 );
 
 /**
+ * One row per workspace and week (the local Monday's date): the weekly run claims its week before
+ * doing anything, so a repeated or redelivered tick can never process a workspace twice in a week.
+ */
+export const watchRuns = pgTable(
+  "watch_runs",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    week: text("week").notNull(),
+    claimedAt: timestamp("claimed_at", { mode: "date", withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { mode: "date", withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.week] })],
+);
+
+/**
  * The weekly digest, per person and workspace: off until the person turns it on. Unsubscribe
  * links carry a signed token (lib/watch/digest.ts), so nothing secret is stored here.
  */
@@ -746,4 +763,5 @@ export const TENANT_TABLES = [
   "outreach",
   "outreach_events",
   "tours",
+  "watch_runs",
 ] as const;

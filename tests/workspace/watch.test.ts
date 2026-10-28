@@ -12,6 +12,7 @@ import { MockQlooSource } from "@/lib/qloo/mock";
 import type { QlooSource } from "@/lib/qloo/source";
 import { digestLines, sendDigests } from "@/lib/watch/digest";
 import { runWatchJob } from "@/lib/watch/jobs";
+import { isWatchHour, watchWeek } from "@/lib/watch/schedule";
 import { addWatch, checkItem, FIRST_SNAPSHOT_NOTE, nextCheck, recordSnapshot, runWatchWorkspace, seededWeek, scheduleWatchJobs, watchView, WATCH_INTERVAL_MS } from "@/lib/watch/service";
 import { readUnsubscribeToken, unsubscribeToken } from "@/lib/watch/token";
 import { ForbiddenError } from "@/lib/workspace/permissions";
@@ -282,6 +283,45 @@ describe("weekly job", () => {
     expect(job).toMatchObject({ kind: "watch.refresh", status: "done" });
     expect(job.note).toMatch(/Checked 1 of 1/);
     expect((await repo.watch.snapshots((await repo.watch.items())[0].id, 5)).length).toBe(2);
+  });
+
+  it("never processes a workspace twice in one week, however often the run is delivered", async () => {
+    const { repo } = await person("once@watch.test");
+    await addWatch(repo, { kind: "fanbase", query: "Phoebe Bridgers" }, { source: new MockQlooSource(), now: MONDAY });
+    queries.length = 0;
+    const first = await runWatchWorkspace(repo, { source: new MockQlooSource(), now: NEXT_MONDAY, workspaceName: "W", appUrl: APP });
+    expect(first).toMatchObject({ already: false, checked: 1 });
+    // A redelivery an hour later, and another the same week: nothing runs.
+    const again = await runWatchWorkspace(repo, { source: new MockQlooSource(), now: new Date(NEXT_MONDAY.getTime() + 60 * 60 * 1000), workspaceName: "W", appUrl: APP });
+    expect(again).toMatchObject({ already: true, checked: 0, calls: 0 });
+    expect(again.note).toMatch(/never processed twice in a week/);
+    const thursday = await runWatchWorkspace(repo, { source: new MockQlooSource(), now: new Date(NEXT_MONDAY.getTime() + 3 * 86_400_000), workspaceName: "W", appUrl: APP });
+    expect(thursday.already).toBe(true);
+    expect((await repo.watch.snapshots((await repo.watch.items())[0].id, 5)).length).toBe(2);
+    expectAllScoped(queries, TENANT_TABLES);
+    // The next week runs again.
+    const next = await runWatchWorkspace(repo, { source: new MockQlooSource(), now: new Date(NEXT_MONDAY.getTime() + WATCH_INTERVAL_MS), workspaceName: "W", appUrl: APP });
+    expect(next.already).toBe(false);
+  });
+
+  it("takes over a run that crashed (an unfinished claim over 30 minutes old), but not one in progress", async () => {
+    const { repo } = await person("crash@watch.test");
+    expect(await repo.watch.claimWeek("2026-11-09", NEXT_MONDAY)).toBe(true);
+    expect(await repo.watch.claimWeek("2026-11-09", new Date(NEXT_MONDAY.getTime() + 10 * 60 * 1000))).toBe(false);
+    expect(await repo.watch.claimWeek("2026-11-09", new Date(NEXT_MONDAY.getTime() + 31 * 60 * 1000))).toBe(true);
+    await repo.watch.finishWeek("2026-11-09", NEXT_MONDAY);
+    expect(await repo.watch.claimWeek("2026-11-09", new Date(NEXT_MONDAY.getTime() + 3 * 60 * 60 * 1000))).toBe(false);
+  });
+
+  it("queues a workspace only during its own Monday 07:xx, and names its week by the local Monday", () => {
+    expect(isWatchHour(new Date("2026-11-09T07:30:00Z"), null)).toBe(true);
+    expect(isWatchHour(new Date("2026-11-09T08:00:00Z"), null)).toBe(false);
+    expect(isWatchHour(new Date("2026-11-09T15:10:00Z"), "America/Los_Angeles")).toBe(true); // 07:10 PST
+    expect(isWatchHour(new Date("2026-11-09T07:30:00Z"), "America/Los_Angeles")).toBe(false); // Sunday 23:30
+    expect(isWatchHour(new Date("2026-11-08T20:45:00Z"), "Australia/Sydney")).toBe(true); // Monday 07:45 AEDT
+    expect(watchWeek(new Date("2026-11-12T10:00:00Z"), null)).toBe("2026-11-09");
+    expect(watchWeek(new Date("2026-11-09T03:00:00Z"), "America/Los_Angeles")).toBe("2026-11-02"); // still Sunday there
+    expect(watchWeek(new Date("2026-11-08T20:45:00Z"), "Australia/Sydney")).toBe("2026-11-09");
   });
 
   it("skips and logs items that would go over the workspace allowance, until next month", async () => {

@@ -126,7 +126,7 @@ export async function unscopedEnsurePersonalWorkspace(db: DB, user: { id: string
  * For the weekly market watch tick: the workspaces with a watch item due, each with a member to
  * act as (its earliest owner). The job then works through forWorkspace() only.
  */
-export async function unscopedWatchWorkspacesDue(db: DB, now: Date): Promise<{ workspaceId: string; userId: string }[]> {
+export async function unscopedWatchWorkspacesDue(db: DB, now: Date): Promise<{ workspaceId: string; userId: string; timeZone: string | null }[]> {
   const due = await db
     .selectDistinct({ workspaceId: watchItems.workspaceId })
     .from(watchItems)
@@ -139,7 +139,10 @@ export async function unscopedWatchWorkspacesDue(db: DB, now: Date): Promise<{ w
     .orderBy(asc(memberships.createdAt));
   const first = new Map<string, string>();
   for (const o of owners) if (!first.has(o.workspaceId)) first.set(o.workspaceId, o.userId);
-  return [...first].map(([workspaceId, userId]) => ({ workspaceId, userId }));
+  const zones = new Map(
+    (await db.select({ id: workspaces.id, timeZone: workspaces.timeZone }).from(workspaces).where(inArray(workspaces.id, [...first.keys()]))).map((w) => [w.id, w.timeZone]),
+  );
+  return [...first].map(([workspaceId, userId]) => ({ workspaceId, userId, timeZone: zones.get(workspaceId) ?? null }));
 }
 
 /** For the digest's unsubscribe link (no sign-in): turns that person's digest off in that workspace. */

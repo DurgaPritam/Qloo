@@ -44,3 +44,26 @@ export function nextCheck(now: Date, timeZone: string | null = null): Date {
   if (monday.getTime() - now.getTime() >= 4 * 24 * 60 * 60 * 1000) return monday;
   return zonedInstant(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + ahead + 7, WATCH_HOUR, tz);
 }
+
+
+/** The local weekday (0 Sunday … 6 Saturday), hour and date in a time zone (UTC when none). */
+export function localParts(now: Date, timeZone: string | null): { weekday: number; hour: number; date: string } {
+  const tz = timeZone && isTimeZone(timeZone) ? timeZone : "UTC";
+  const local = new Date(now.getTime() + zoneOffset(now, tz) * 60_000);
+  return { weekday: local.getUTCDay(), hour: local.getUTCHours(), date: local.toISOString().slice(0, 10) };
+}
+
+/** True during the workspace's Monday 07:xx: the only hour the hourly tick runs its weekly watch. */
+export function isWatchHour(now: Date, timeZone: string | null): boolean {
+  const p = localParts(now, timeZone);
+  return p.weekday === 1 && p.hour === WATCH_HOUR;
+}
+
+/** The week a run belongs to: the local date of that week's Monday (YYYY-MM-DD). */
+export function watchWeek(now: Date, timeZone: string | null): string {
+  const p = localParts(now, timeZone);
+  const back = (p.weekday + 6) % 7;
+  const d = new Date(`${p.date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}

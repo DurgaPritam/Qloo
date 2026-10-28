@@ -47,7 +47,12 @@ test("watch a fanbase and a city, first snapshot, weekly check, digest test and 
   });
 
   await test.step("next Monday's check runs through the job queue and compares two snapshots", async () => {
-    const nextWeek = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
+    // The tick only queues a workspace during its Monday 07:xx (UTC here: no time zone set), at
+    // least a week on, so the item's next check is due.
+    const at = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
+    at.setUTCDate(at.getUTCDate() + ((8 - at.getUTCDay()) % 7));
+    at.setUTCHours(7, 30, 0, 0);
+    const nextWeek = at.toISOString();
     const tick = await request.post("/api/jobs/watch-tick", { data: { now: nextWeek } });
     expect(tick.ok()).toBe(true);
     expect((await tick.json()).queued).toBeGreaterThanOrEqual(1);

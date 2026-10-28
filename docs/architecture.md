@@ -115,6 +115,7 @@ starts with it.
 | `outreach` (Feature 7, second part) | adds contact name, follow-up date, notes (user data) and the date last reminded; any member can own a card | workspace |
 | `outreach_events` (*Built*) | every stage move: who, when, from, to; a move to sent keeps a copy of what was sent and to whom | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry. Not built: Takeover does not send outreach (decision D128); needed only if a Send button is added | workspace |
+| `watch_runs` (*Built*) | one row per workspace and local week: claimed when the weekly run starts, finished at its end; a week never runs twice | workspace |
 | `watch_items` (*Built*) | a fanbase (Qloo entity) or city (GeoNames metro) to watch, last and next check, last note | workspace |
 | `snapshots` (*Built*) | per item and week: ranked top lists (entity ids, ranks, values) and the Qloo requests | workspace |
 | `alerts` (*Built*) | a change between two snapshots: kind, list, entity, before, after, templated title and body | workspace |

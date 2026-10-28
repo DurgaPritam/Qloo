@@ -49,6 +49,7 @@ import {
   tours,
   users,
   watchItems,
+  watchRuns,
   workspaces,
   type CommentTarget,
   type JobStatus,
@@ -619,6 +620,26 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async remove(id: string) {
         need("watch.edit");
         await db.delete(watchItems).where(and(eq(watchItems.workspaceId, ws), eq(watchItems.id, id)));
+      },
+      /**
+       * Claims this week's run. False when the week already ran, or another run claimed it in the
+       * last 30 minutes; an older unfinished claim (a run that crashed) can be taken over.
+       */
+      async claimWeek(week: string, now: Date) {
+        const stale = new Date(now.getTime() - 30 * 60 * 1000);
+        const rows = await db
+          .insert(watchRuns)
+          .values({ workspaceId: ws, week, claimedAt: now })
+          .onConflictDoUpdate({
+            target: [watchRuns.workspaceId, watchRuns.week],
+            set: { claimedAt: now },
+            setWhere: and(eq(watchRuns.workspaceId, ws), isNull(watchRuns.finishedAt), lt(watchRuns.claimedAt, stale)),
+          })
+          .returning({ week: watchRuns.week });
+        return rows.length > 0;
+      },
+      async finishWeek(week: string, now: Date) {
+        await db.update(watchRuns).set({ finishedAt: now }).where(and(eq(watchRuns.workspaceId, ws), eq(watchRuns.week, week)));
       },
       /** Items with no snapshot yet, or whose week is up. */
       async due(now: Date) {

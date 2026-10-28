@@ -21,7 +21,7 @@ import { digestEmail, digestLines, sendDigests, unsubscribeUrls, weekOf } from "
 import { citySnapshot, fanbaseSnapshot, SNAPSHOT_CALLS, type SnapshotSummary } from "./snapshot";
 import { alertText, tagFor } from "./wording";
 
-import { FIRST_SNAPSHOT_NOTE, nextCheck, WATCH_INTERVAL_MS } from "./schedule";
+import { FIRST_SNAPSHOT_NOTE, nextCheck, WATCH_INTERVAL_MS, watchWeek } from "./schedule";
 
 export { FIRST_SNAPSHOT_NOTE, isTimeZone, nextCheck, WATCH_HOUR, WATCH_INTERVAL_MS } from "./schedule";
 
@@ -146,6 +146,10 @@ export async function runWatchWorkspace(
   deps: { source: QlooSource; now: Date; workspaceName: string; appUrl: string; jobId?: string },
 ) {
   const scope: QlooScope = { kind: "job", workspaceId: repo.context.workspaceId };
+  const week = watchWeek(deps.now, (await repo.workspace.get())?.timeZone ?? null);
+  if (!(await repo.watch.claimWeek(week, deps.now))) {
+    return { checked: 0, skipped: 0, calls: 0, digests: 0, already: true, note: `Already ran for the week of ${week}; a workspace is never processed twice in a week.` };
+  }
   const items = await repo.watch.due(deps.now);
   let calls = 0;
   let skipped = 0;
@@ -184,7 +188,8 @@ export async function runWatchWorkspace(
   }
   if (skipped) notes.push(`skipped: budget, ${skipped} item${skipped === 1 ? "" : "s"} not checked`);
   const sent = await sendDigests(repo, { workspaceName: deps.workspaceName, appUrl: deps.appUrl, now: deps.now });
-  return { checked, skipped, calls, digests: sent.length, note: [`Checked ${checked} of ${items.length}, ${calls} Qloo calls`, ...notes, `${sent.length} digest${sent.length === 1 ? "" : "s"} sent`].join("; ") + "." };
+  await repo.watch.finishWeek(week, deps.now);
+  return { checked, skipped, calls, digests: sent.length, already: false, note: [`Checked ${checked} of ${items.length}, ${calls} Qloo calls`, ...notes, `${sent.length} digest${sent.length === 1 ? "" : "s"} sent`].join("; ") + "." };
 }
 
 /** "Send me a test": this week's digest to the person who clicked, whether or not they subscribed. */

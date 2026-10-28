@@ -1,12 +1,14 @@
 import { verifyQstashSignature } from "@/lib/jobs/qstash";
 import { enqueue, queueMode } from "@/lib/jobs/queue";
 import { isE2eRequest } from "@/lib/server/rate-limit";
+import { isWatchHour } from "@/lib/watch/schedule";
 import { scheduleWatchJobs } from "@/lib/watch/service";
 import { reminderWorkspaces, watchWorkspacesDue } from "@/lib/workspace/session";
 
 /**
  * The tick (an hourly QStash schedule): one staggered job per workspace with a watch due. Items
- * fall due on Monday 07:00 in their workspace's time zone, so hourly catches every zone.
+ * fall due on Monday 07:00 in their workspace's time zone, so hourly catches every zone; a workspace
+ * is queued only during its own Monday 07:xx, and its run claims the week (never twice).
  * Locally there is no scheduler, so a request carrying the e2e token may run it, optionally as of
  * a later date ({now}) to stand in for next Monday.
  */
@@ -25,7 +27,8 @@ export async function POST(req: Request): Promise<Response> {
   } else {
     return Response.json({ error: "Not found." }, { status: 404 });
   }
-  const due = await watchWorkspacesDue(now);
+  // Only workspaces whose local time is Monday 07:xx; the job's weekly claim stops any repeat.
+  const due = (await watchWorkspacesDue(now)).filter((w) => isWatchHour(now, w.timeZone));
   const queued = await scheduleWatchJobs(due, asOf);
   // The same tick sends overdue pipeline reminders (no Qloo calls).
   const reminders = await reminderWorkspaces(now);
