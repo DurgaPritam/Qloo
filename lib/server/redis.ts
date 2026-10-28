@@ -14,7 +14,10 @@ export function getRedis(env: Record<string, string | undefined> = process.env):
   const url = env.UPSTASH_REDIS_REST_URL;
   const token = env.UPSTASH_REDIS_REST_TOKEN;
   client = url && token
-    ? new Redis({ url, token, retry: false, signal: () => AbortSignal.timeout(timeoutMs(env)), enableTelemetry: false })
+    ? // No auto-pipelining: it merged concurrent reads into one HTTP response (14 recordings, about
+      // 1.2 MB), which could not arrive inside the timeout. Separate requests run in parallel and
+      // the command count is the same.
+      new Redis({ url, token, retry: false, signal: () => AbortSignal.timeout(timeoutMs(env)), enableTelemetry: false, enableAutoPipelining: false })
     : null;
   return client;
 }
