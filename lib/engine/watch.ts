@@ -20,7 +20,7 @@ export interface Snapshot {
   lists: Record<string, SnapshotEntry[]>;
 }
 
-export type ChangeKind = "new" | "rank_up" | "rank_down" | "value_up" | "value_down";
+export type ChangeKind = "new" | "dropped" | "rank_up" | "rank_down" | "value_up" | "value_down";
 
 export interface WatchChange {
   list: string;
@@ -30,22 +30,24 @@ export interface WatchChange {
   kind: ChangeKind;
   /** The previous snapshot's values; null for a new entry. */
   before: { rank: number; value: number } | null;
-  after: { rank: number; value: number };
+  /** This snapshot's values; null when an entry dropped out and is not listed at all any more. */
+  after: { rank: number; value: number } | null;
 }
 
 type WatchConfig = typeof ENGINE_CONFIG.watch;
 
 /**
  * Changes between two snapshots of the same item, by the thresholds in config: an entry new to a
- * top list, a move of `rankMove` places or more, or a value change of `valueChange` or more. One
- * change per entry (a rank move first, it is the headline), each with both snapshots' values. A
- * list the previous snapshot did not have is not compared, so nothing is claimed from one reading.
+ * top list, an entry gone from it ("dropped"), a move of `rankMove` places or more, or a value
+ * change of `valueChange` or more. One change per entry (a rank move first, it is the headline),
+ * each with both snapshots' values. A list the previous snapshot did not have, or that is empty this
+ * time (Qloo gave nothing), is not compared, so nothing is claimed from one reading.
  */
 export function diffSnapshots(prev: Snapshot, curr: Snapshot, cfg: WatchConfig = ENGINE_CONFIG.watch): WatchChange[] {
   const changes: WatchChange[] = [];
   for (const [list, entries] of Object.entries(curr.lists)) {
     const before = prev.lists[list];
-    if (!before) continue;
+    if (!before || !entries.length) continue;
     const old = new Map(before.filter((e) => e.rank <= cfg.topN).map((e) => [e.id, e]));
     for (const e of entries) {
       if (e.rank > cfg.topN) continue;
@@ -62,7 +64,26 @@ export function diffSnapshots(prev: Snapshot, curr: Snapshot, cfg: WatchConfig =
         Math.abs(moved) >= cfg.rankMove ? (moved > 0 ? "rank_up" : "rank_down") : Math.abs(delta) >= cfg.valueChange - 1e-9 ? (delta > 0 ? "value_up" : "value_down") : null;
       if (kind) changes.push({ ...base, kind, before: { rank: was.rank, value: was.value } });
     }
+    const now = new Map(entries.map((e) => [e.id, e]));
+    for (const was of old.values()) {
+      const e = now.get(was.id);
+      if (e && e.rank <= cfg.topN) continue;
+      changes.push({
+        list,
+        entityId: was.id,
+        name: was.name,
+        ...(was.category ? { category: was.category } : {}),
+        kind: "dropped",
+        before: { rank: was.rank, value: was.value },
+        after: e ? { rank: e.rank, value: e.value } : null,
+      });
+    }
   }
-  const weight = (c: WatchChange) => (c.kind === "new" ? 1000 - c.after.rank : Math.abs((c.before?.rank ?? 0) - c.after.rank) * 10 + Math.abs(c.after.value - (c.before?.value ?? 0)) * 100);
+  const weight = (c: WatchChange) =>
+    c.kind === "new"
+      ? 1000 - (c.after?.rank ?? 0)
+      : c.kind === "dropped" || !c.after
+        ? 500 - (c.before?.rank ?? 0)
+        : Math.abs((c.before?.rank ?? 0) - c.after.rank) * 10 + Math.abs(c.after.value - (c.before?.value ?? 0)) * 100;
   return changes.sort((a, b) => weight(b) - weight(a) || a.list.localeCompare(b.list) || a.entityId.localeCompare(b.entityId));
 }

@@ -29,4 +29,11 @@ describe("alert wording", () => {
     expect(safeRephrase(t, "", names)).toBe(t);
     expect(safeRephrase(t, null, names)).toBe(t);
   });
+
+  it("words a drop out of the top list from the two snapshots only", () => {
+    const item = { name: "Ali Wong", kind: "fanbase" as const };
+    const lower = alertText({ list: "partners", entityId: "4", name: "Bon Appétit", kind: "dropped", before: { rank: 3, value: 0.8 }, after: { rank: 12, value: 0.61 } }, item);
+    expect(lower).toEqual({ title: "Bon Appétit dropped out of the top crossover partners for Ali Wong", body: "Was #3 at 80 / 100 last week; now #12 at 61 / 100, below the top list." });
+    expect(tagFor({ kind: "dropped" })).toBe("Falling");
+  });
 });

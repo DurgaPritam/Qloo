@@ -631,7 +631,7 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           entityId: string;
           entityName: string;
           before: { rank: number; value: number } | null;
-          after: { rank: number; value: number };
+          after: { rank: number; value: number } | null;
           title: string;
           body: string;
           /** When the snapshot behind it was taken. */

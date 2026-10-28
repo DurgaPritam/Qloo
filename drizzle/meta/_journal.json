@@ -71,6 +71,13 @@
       "when": 1793199980955,
       "tag": "0009_outreach",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793201620244,
+      "tag": "0010_alerts_dropped",
+      "breakpoints": true
     }
   ]
 }

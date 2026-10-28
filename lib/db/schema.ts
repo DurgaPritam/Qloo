@@ -460,7 +460,8 @@ export const alerts = pgTable(
     entityId: text("entity_id").notNull(),
     entityName: text("entity_name").notNull(),
     before: jsonb("before").$type<{ rank: number; value: number } | null>(),
-    after: jsonb("after").$type<{ rank: number; value: number }>().notNull(),
+    /** Null when the entry dropped out of the list entirely. */
+    after: jsonb("after").$type<{ rank: number; value: number } | null>(),
     /** Filled from templates (lib/watch/wording.ts), never written by the model. */
     title: text("title").notNull(),
     body: text("body").notNull(),

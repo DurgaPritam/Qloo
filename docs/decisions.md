@@ -863,3 +863,10 @@ direction only (an event is a combined audience, as in the rights view), so conf
 medium. Each card keeps its request as evidence, its plan's cities, and can be shortlisted and
 pitched like any match. The brand view's call estimate rises from 14 to 17. If the run's calls run
 out, the remaining events are skipped with a note.
+
+**D134. "Dropped out of the top list" alerts** (halfway review). `diffSnapshots` now also reports an
+entry that was in last week's top list and is not in it this week (kind `dropped`, tagged Falling,
+the design's existing tag). The alert keeps last week's rank and value; this week's are given only
+when the entry is still listed lower down, otherwise `after` is null (migration 0010 lets the column
+be null) rather than a made-up zero. A list that comes back empty this week is not compared at all,
+so a Qloo hiccup cannot turn into "everything dropped out".

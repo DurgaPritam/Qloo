@@ -54,4 +54,16 @@ describe("diffSnapshots", () => {
     const s = snap({ cities: [e("a", 1, 0.9), e("b", 2, 0.8)], partners: [e("x", 1, 0.95)] });
     expect(diffSnapshots(s, structuredClone(s))).toEqual([]);
   });
+
+  it("reports an entry that left the top list, with its old place, and its new one when still listed", () => {
+    const prev = snap({ cities: [e("a", 1, 0.9), e("b", 2, 0.8), e("c", 3, 0.7)] });
+    const gone = diffSnapshots(prev, snap({ cities: [e("a", 1, 0.9), e("c", 2, 0.7), e("d", 3, 0.6)] }), cfg);
+    expect(gone.find((c) => c.entityId === "b")).toEqual({ list: "cities", entityId: "b", name: "B", kind: "dropped", before: { rank: 2, value: 0.8 }, after: null });
+    const lower = diffSnapshots(prev, snap({ cities: [e("a", 1, 0.9), e("c", 2, 0.7), e("b", 11, 0.5)] }), cfg);
+    expect(lower.find((c) => c.entityId === "b")).toMatchObject({ kind: "dropped", after: { rank: 11, value: 0.5 } });
+  });
+
+  it("does not report everything as dropped when Qloo gave an empty list this week", () => {
+    expect(diffSnapshots(snap({ cities: [e("a", 1, 0.9)] }), snap({ cities: [] }), cfg)).toEqual([]);
+  });
 });

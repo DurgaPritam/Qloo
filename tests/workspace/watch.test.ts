@@ -102,7 +102,7 @@ describe("market watch", () => {
     expect(alerts).toHaveLength(r.changes.length);
     const [now, before] = await repo.watch.snapshots(id, 2);
     for (const a of alerts) {
-      expect(a.after).toBeTruthy();
+      if (a.kind !== "dropped") expect(a.after).toBeTruthy();
       if (a.kind !== "new") expect(a.before).toBeTruthy();
       expect(a.title).toContain(a.entityName);
     }
@@ -191,6 +191,15 @@ describe("two seeded snapshots", () => {
         body: "Rank #6 → #2; Qloo value 70 → 79 among Ali Wong fans.",
       },
       {
+        kind: "dropped",
+        list: "partners",
+        entity: "Bon Appétit",
+        before: { rank: 3, value: 0.8 },
+        after: null,
+        title: "Bon Appétit dropped out of the top crossover partners for Ali Wong",
+        body: "Was #3 at 80 / 100 last week; not in the list this week.",
+      },
+      {
         kind: "value_down",
         list: "partners",
         entity: "Hot Ones",
@@ -210,7 +219,7 @@ describe("two seeded snapshots", () => {
       },
     ]);
     // Los Angeles (no change), New York City (one place, under 3) and SmartLess (no change) stay quiet.
-    expect(second.note).toBe("3 changes since last week.");
+    expect(second.note).toBe("4 changes since last week.");
     const [now, before] = await repo.watch.snapshots(id, 2);
     const rows = (await db.query.alerts.findMany()).filter((a) => a.itemId === id);
     expect(rows.every((a) => a.snapshotId === now.id && a.previousSnapshotId === before.id)).toBe(true);

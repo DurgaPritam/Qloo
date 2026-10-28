@@ -20,6 +20,7 @@ export function listLabel(list: string): string {
 /** The design's tags: Rising, Falling, New entry. */
 export function tagFor(change: Pick<WatchChange, "kind">): "Rising" | "Falling" | "New entry" {
   if (change.kind === "new") return "New entry";
+  if (change.kind === "dropped") return "Falling";
   return change.kind === "rank_up" || change.kind === "value_up" ? "Rising" : "Falling";
 }
 
@@ -28,6 +29,13 @@ export function alertText(change: WatchChange, item: { name: string; kind: Watch
   const list = listLabel(change.list);
   const a = change.after;
   const b = change.before;
+  if (change.kind === "dropped" && b) {
+    return {
+      title: `${change.name} dropped out of the ${list} for ${item.name}`,
+      body: `Was #${b.rank} at ${points(b.value)} / 100 last week; ${a ? `now #${a.rank} at ${points(a.value)} / 100, below the top list` : "not in the list this week"}.`,
+    };
+  }
+  if (!a) return { title: `${change.name} changed in the ${list} for ${item.name}`, body: "" };
   if (change.kind === "new" || !b) {
     return {
       title: `${change.name} entered the ${list} for ${item.name}`,
