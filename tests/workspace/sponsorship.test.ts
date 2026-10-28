@@ -172,6 +172,42 @@ describe("done when: a brand and a team, and a deck that opens with every figure
     }
   });
 
+  it("pitches one act from a roster on its own, from its stored entity, with no search call", async () => {
+    const { repo } = await person("kai@sp.test");
+    const roster = await repo.rosters.create("Comedy clients");
+    const found = await findAct("Ali Wong", undefined, new MockQlooSource(), { kind: "visitor" });
+    if (found.status !== "resolved") throw new Error("mock should resolve Ali Wong");
+    await repo.rosters.addActs(roster, [{ entity: found.entity }], "search");
+    const [act] = await repo.rosters.acts(roster);
+    const source = new MockQlooSource();
+    const spy = vi.spyOn(source, "searchEntities");
+    const r = done(await runRightsView(repo, { kind: "roster", rosterId: roster, actId: act.id }, source));
+    expect(spy).not.toHaveBeenCalled();
+    expect(r.subject.name).toBe("Ali Wong");
+    expect(r.subject.meta).toMatch(/· from Comedy clients/);
+    const solo = done(await runRightsView(repo, { kind: "entity", query: "Ali Wong", entityId: found.entity.id }, new MockQlooSource()));
+    expect(matches(r).map((m) => [m.key, m.fit.fit])).toEqual(matches(solo).map((m) => [m.key, m.fit.fit]));
+    await expect(runRightsView(repo, { kind: "roster", rosterId: roster, actId: crypto.randomUUID() }, new MockQlooSource())).rejects.toBeInstanceOf(InputError);
+  });
+
+  it("shows the workspace's saved plans as events in the brand view, one direction each, and they can be shortlisted", async () => {
+    const { repo } = await person("lea@sp.test");
+    const id = crypto.randomUUID();
+    const plan = await runAgent({ query: "Phoebe Bridgers" }, { runId: id, source: new MockQlooSource(), planner: new ScriptedPlanner(), emit: () => {} });
+    await repo.plans.create({ id, query: "Phoebe Bridgers", result: plan });
+    const r = done(await runBrandView(repo, { query: "Liquid Death" }, new MockQlooSource()));
+    expect(r.calls).toBeLessThanOrEqual(17);
+    const event = r.groups.find((g) => g.label === "Your events")!.matches[0];
+    const partner = plan.partners!.picks.find((p) => p.pick.entity.id === plan.partners!.chosenId)!.pick.entity;
+    expect(event).toMatchObject({ key: `event:${id}`, kind: "Event", name: `Phoebe Bridgers × ${partner.name}` });
+    expect(event.fit.backward).toBeNull();
+    expect(event.fit.confidence).not.toBe("high");
+    expect(event.pitch.sources![0].params["signal.interests.entities"]).toContain(plan.fanbase!.id);
+    const saved = await shortlistMatch(repo, r.draftId, event.key);
+    const [row] = (await repo.sponsorship.shortlist()).filter((x) => x.id === saved);
+    expect(row.holderKey).toBe([plan.fanbase!.id, partner.id].sort((a, b) => a.localeCompare(b)).join(","));
+  });
+
   it("adds this week's Market watch lines when the workspace watches the act or a city where the brand ranks", async () => {
     const { repo } = await person("joy@sp.test");
     const first = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, new MockQlooSource()));

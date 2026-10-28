@@ -4,17 +4,18 @@ import type { WorkspaceRepo } from "@/lib/db/scoped";
 import { InputError } from "@/lib/db/scoped";
 import { CATEGORY_LABEL } from "@/lib/engine/explain";
 import { isComedian } from "@/lib/engine/match";
-import type { SponsorFit } from "@/lib/engine/sponsor";
+import { rankByFit, scoreSponsorFit, type SponsorFit } from "@/lib/engine/sponsor";
 import type { Category, Entity } from "@/lib/engine/types";
 import type { PitchInput, PitchSource } from "@/lib/export/sponsor";
 import type { QlooScope } from "@/lib/qloo/allowance";
 import { QLOO_RUN_BUDGET } from "@/lib/qloo/client";
+import { BudgetExceededError } from "@/lib/qloo/errors";
 import type { QlooSource } from "@/lib/qloo/source";
 import { findAct } from "@/lib/roster/resolve";
 import { withBudget } from "@/lib/agent/budget";
 import { kvGet, kvSet } from "@/lib/server/kv";
 import { matchBrand } from "@/lib/tools/brand";
-import type { CallView, Choice } from "@/lib/tools/shared";
+import { describeFailure, view, type CallView, type Choice } from "@/lib/tools/shared";
 import { brandsToPitch, type RightsHolder } from "@/lib/tools/sponsor";
 import { THIS_WEEK_DAYS, thisWeekLines, type WatchContext, type WatchLine } from "./this-week";
 import { can, ForbiddenError } from "@/lib/workspace/permissions";
@@ -60,9 +61,19 @@ interface Draft {
 
 const DRAFT_TTL = 24 * 60 * 60;
 const draftKey = (id: string) => `takeover:sponsor:draft:v1:${id}`;
-const scope = (repo: WorkspaceRepo): QlooScope => ({ kind: "workspace", workspaceId: repo.context.workspaceId });
+const scope = (repo: WorkspaceRepo): QlooScope => ({
+  kind: "workspace",
+  workspaceId: repo.context.workspaceId,
+});
 
-const KIND: Partial<Record<Category, string>> = { artist: "Music artist", person: "Talent", podcast: "Podcast", tv_show: "TV show", brand: "Team", movie: "Film" };
+const KIND: Partial<Record<Category, string>> = {
+  artist: "Music artist",
+  person: "Talent",
+  podcast: "Podcast",
+  tv_show: "TV show",
+  brand: "Team",
+  movie: "Film",
+};
 const kindOf = (category: Category, list?: string) => (list === "Teams" ? "Team" : (KIND[category] ?? CATEGORY_LABEL[category]));
 
 function audienceOf(name: string, a: { summary: { skewsTo: string[]; gender: "female" | "male" | "balanced" } } | null | undefined): PitchInput["audience"] {
@@ -106,7 +117,14 @@ export async function runBrandView(repo: WorkspaceRepo, input: { query: string; 
   const runId = `sponsor-${crypto.randomUUID()}`;
   const budgeted = withBudget(source, runId, QLOO_RUN_BUDGET);
   const r = await matchBrand(input.query, input.entityId, budgeted, { runId, scope: scope(repo) }, { teams: true, audience: true, reverse: 6 });
-  if (r.status !== "done") return r.status === "choose" ? { status: "choose", question: r.question ?? "Which brand?", choices: r.choices ?? [] } : { status: "none" };
+  if (r.status !== "done")
+    return r.status === "choose"
+      ? {
+          status: "choose",
+          question: r.question ?? "Which brand?",
+          choices: r.choices ?? [],
+        }
+      : { status: "none" };
 
   const cities = r.cities.slice(0, 5).map((c) => ({ name: c.city.name, score: c.combined }));
   const audience = audienceOf(r.brand.name, r.audience);
@@ -134,27 +152,96 @@ export async function runBrandView(repo: WorkspaceRepo, input: { query: string; 
       mock: source.mock,
     },
   }));
+  const events = await eventCards(repo, budgeted, { runId, scope: scope(repo) }, { id: r.brand.id, name: r.brand.name }, watched, now, source.mock);
+  const all = [...matches, ...events.matches];
   const draftId = await saveDraft({
     workspaceId: repo.context.workspaceId,
     view: "brand",
-    holderKeys: Object.fromEntries(matches.map((m) => [m.key, m.key])),
-    brandIds: Object.fromEntries(matches.map((m) => [m.key, r.brand.id])),
-    matches: Object.fromEntries(matches.map((m) => [m.key, m.pitch])),
+    holderKeys: Object.fromEntries([...matches.map((m) => [m.key, m.key]), ...events.holderKeys]),
+    brandIds: Object.fromEntries(all.map((m) => [m.key, r.brand.id])),
+    matches: Object.fromEntries(all.map((m) => [m.key, m.pitch])),
   });
   const skew = audience && audience.skewsTo.length ? ` · fans most often ${audience.skewsTo.slice(0, 2).join(" or ")}` : "";
   return {
     status: "done",
     view: "brand",
     draftId,
-    subject: { name: r.brand.name, meta: `${r.brand.description ?? "Brand"}${skew}${cities[0] ? ` · strongest in ${cities[0].name}` : ""}. Talent and teams that fit:` },
-    groups: [{ label: "Matches", matches }],
-    notes: matches.length ? [] : ["No talent, show or team had Qloo affinity with this brand both ways."],
+    subject: {
+      name: r.brand.name,
+      meta: `${r.brand.description ?? "Brand"}${skew}${cities[0] ? ` · strongest in ${cities[0].name}` : ""}. Talent and teams that fit:`,
+    },
+    groups: [{ label: "Matches", matches }, ...(events.matches.length ? [{ label: "Your events", matches: events.matches }] : [])],
+    notes: [...(matches.length ? [] : ["No talent, show or team had Qloo affinity with this brand both ways."]), ...events.notes],
     calls: budgeted.used(),
     mock: source.mock,
   };
 }
 
-export type HolderInput = { kind: "entity"; query: string; entityId?: string } | { kind: "event"; planId: string } | { kind: "roster"; rosterId: string };
+/** How many of the workspace's newest finished plans the brand view checks: one Qloo call each. */
+export const EVENT_CARDS = 3;
+
+/**
+ * The workspace's saved plans as events a brand could sponsor: the brand among the event's fans
+ * (fanbase and partner as one signal), one direction only, as in the rights view.
+ */
+async function eventCards(
+  repo: WorkspaceRepo,
+  source: QlooSource,
+  opts: { runId: string; scope: QlooScope },
+  brand: { id: string; name: string },
+  watched: WatchContext,
+  now: Date,
+  mock: boolean,
+): Promise<{ matches: MatchView[]; holderKeys: [string, string][]; notes: string[] }> {
+  const rows = (await repo.plans.list(20)).filter((p) => p.result.status === "complete").slice(0, EVENT_CARDS);
+  const out: MatchView[] = [];
+  const holderKeys: [string, string][] = [];
+  const notes: string[] = [];
+  for (const row of rows) {
+    const plan = row.result;
+    const partner = plan.partners?.picks.find((p) => p.pick.entity.id === plan.partners?.chosenId)?.pick.entity;
+    if (!plan.fanbase || !partner) continue;
+    const ids = [plan.fanbase.id, partner.id];
+    const name = `${plan.fanbase.name} × ${partner.name}`;
+    let res;
+    try {
+      res = await source.affinityOf(ids, brand.id, "brand", opts);
+    } catch (err) {
+      if (err instanceof BudgetExceededError) {
+        notes.push("This run's Qloo calls ran out before every saved event was checked.");
+        break;
+      }
+      console.warn("[sponsorship] event check failed:", describeFailure(err));
+      continue;
+    }
+    const fit = scoreSponsorFit({ name }, brand, { forward: res.data?.affinity ?? null, backward: null });
+    if (!fit) continue;
+    const key = `event:${row.id}`;
+    const call = view(res.meta);
+    holderKeys.push([key, [...ids].sort((a, b) => a.localeCompare(b)).join(",")]);
+    out.push({
+      key,
+      kind: "Event",
+      name,
+      meta: `Your saved plan${plan.room?.cityName ? ` · ${plan.room.cityName}` : ""}. An event is a combined audience: one direction measured.`,
+      fit,
+      thisWeek: thisWeekLines(watched, { ids }, brand, now),
+      pitch: {
+        holder: name,
+        brand: brand.name,
+        fit,
+        audience: null,
+        cities: (plan.city?.table ?? []).slice(0, 5).map((t) => ({ name: t.pick.city.name, score: t.pick.combined })),
+        sources: sources([[`${brand.name} among ${name} fans (fit, forward)`, call]]),
+        mock,
+      },
+    });
+  }
+  return { matches: rankByFit(out), holderKeys, notes };
+}
+
+/** A roster pitches as one audience, or (with actId) for one of its acts on its own. */
+export type HolderInput = { kind: "entity"; query: string; entityId?: string } | { kind: "event"; planId: string } | { kind: "roster"; rosterId: string; actId?: string };
 
 /** Rights-holder view: brands to pitch for an act or team, a saved plan (event) or a roster. */
 export async function runRightsView(repo: WorkspaceRepo, input: HolderInput, source: QlooSource): Promise<SponsorRun> {
@@ -168,57 +255,89 @@ export async function runRightsView(repo: WorkspaceRepo, input: HolderInput, sou
   if (input.kind === "entity") {
     const found = await findAct(input.query, input.entityId, budgeted, scope(repo));
     if (found.status === "none") return { status: "none" };
-    if (found.status === "choose") return { status: "choose", question: found.question, choices: found.choices };
-    holder = { kind: "entity", entity: { ...found.entity, popularity: found.entity.popularity ?? 0 } };
-    meta = describeEntity({ ...found.entity, popularity: found.entity.popularity ?? 0 });
+    if (found.status === "choose")
+      return {
+        status: "choose",
+        question: found.question,
+        choices: found.choices,
+      };
+    holder = {
+      kind: "entity",
+      entity: { ...found.entity, popularity: found.entity.popularity ?? 0 },
+    };
+    meta = describeEntity({
+      ...found.entity,
+      popularity: found.entity.popularity ?? 0,
+    });
   } else if (input.kind === "event") {
     const row = await repo.plans.get(input.planId);
     const plan = row?.result;
     const partner = plan?.partners?.picks.find((p) => p.pick.entity.id === plan.partners?.chosenId)?.pick.entity;
     if (!plan?.fanbase || !partner) throw new InputError("Pick a finished plan with a partner.");
-    holder = { kind: "event", name: `${plan.fanbase.name} × ${partner.name}`, ids: [plan.fanbase.id, partner.id], cities: plan.city?.table.map((t) => t.pick) ?? [] };
+    holder = {
+      kind: "event",
+      name: `${plan.fanbase.name} × ${partner.name}`,
+      ids: [plan.fanbase.id, partner.id],
+      cities: plan.city?.table.map((t) => t.pick) ?? [],
+    };
     meta = `Event · ${plan.room?.cityName ?? plan.city?.chosen?.pick.city.name ?? "city to choose"}`;
   } else {
     const roster = await repo.rosters.get(input.rosterId);
     const acts = roster ? await repo.rosters.acts(roster.id) : [];
     if (!roster || !acts.length) throw new InputError("Pick a roster with acts on it.");
-    holder = { kind: "roster", name: roster.name, ids: acts.slice(0, 10).map((a) => a.qlooEntityId) };
-    meta = `Roster · ${acts.length} act${acts.length === 1 ? "" : "s"}${acts.length > 10 ? " (the first 10 as one audience)" : ""}`;
+    if (input.actId) {
+      // One act from the roster: its stored resolver snapshot, so no search call.
+      const act = acts.find((a) => a.id === input.actId);
+      if (!act) throw new InputError("That act isn't on this roster.");
+      holder = {
+        kind: "entity",
+        entity: { ...act.entity, popularity: act.entity.popularity ?? 0 },
+      };
+      meta = `${describeEntity({ ...act.entity, popularity: act.entity.popularity ?? 0 })} · from ${roster.name}`;
+    } else {
+      holder = {
+        kind: "roster",
+        name: roster.name,
+        ids: acts.slice(0, 10).map((a) => a.qlooEntityId),
+      };
+      meta = `Roster · ${acts.length} act${acts.length === 1 ? "" : "s"}${acts.length > 10 ? " (the first 10 as one audience)" : ""}`;
+    }
   }
 
   const r = await brandsToPitch(holder, budgeted, opts);
   const holderKey = [...r.holder.ids].sort((a, b) => a.localeCompare(b)).join(",");
-  const cities = r.cities.map((c) => ({ name: c.city.name, score: c.combined }));
+  const cities = r.cities.map((c) => ({
+    name: c.city.name,
+    score: c.combined,
+  }));
   const audience = audienceOf(r.holder.name, r.audience);
   const now = new Date();
   const watched = await watchContext(repo, now);
   const groups = r.groups.map((g) => ({
     label: g.sector,
-    matches: g.brands.map(
-      (b): MatchView => ({
-        key: b.id,
-        thisWeek: thisWeekLines(watched, { ids: r.holder.ids }, { id: b.id, name: b.name }, now),
-        kind: g.sector === "Other" ? "Brand" : g.sector,
-        name: b.name,
-        meta: b.description ?? "Brand",
+    matches: g.brands.map((b): MatchView => ({
+      key: b.id,
+      thisWeek: thisWeekLines(watched, { ids: r.holder.ids }, { id: b.id, name: b.name }, now),
+      kind: g.sector === "Other" ? "Brand" : g.sector,
+      name: b.name,
+      meta: b.description ?? "Brand",
+      fit: b.fit,
+      pitch: {
+        holder: r.holder.name,
+        brand: b.name,
+        sector: g.sector,
         fit: b.fit,
-        pitch: {
-          holder: r.holder.name,
-          brand: b.name,
-          sector: g.sector,
-          fit: b.fit,
-          audience,
-          cities,
-          sources: sources([
-            [`${b.name} among ${r.holder.name} fans (fit, forward)`, r.sourceCalls.brands],
-            [`${r.holder.name} among ${b.name} fans (fit, backward)`, b.backwardCall],
-            [`Cities: ${r.holder.name} fans' heat`, r.sourceCalls.heat],
-            [`Audience: ${r.holder.name} fans`, r.sourceCalls.audience],
-          ]),
-          mock: source.mock,
-        },
-      }),
-    ),
+        audience,
+        cities,
+        sources: sources([
+          [`${b.name} among ${r.holder.name} fans (fit, forward)`, r.sourceCalls.brands],
+          [`${r.holder.name} among ${b.name} fans (fit, backward)`, b.backwardCall],
+          [`Cities: ${r.holder.name} fans' heat`, r.sourceCalls.heat],
+          [`Audience: ${r.holder.name} fans`, r.sourceCalls.audience],
+        ]),
+        mock: source.mock,
+      },
+    })),
   }));
   const all = groups.flatMap((g) => g.matches);
   const draftId = await saveDraft({
@@ -232,7 +351,10 @@ export async function runRightsView(repo: WorkspaceRepo, input: HolderInput, sou
     status: "done",
     view: "rights",
     draftId,
-    subject: { name: r.holder.name, meta: `${meta}${cities[0] ? ` · strongest in ${cities[0].name}` : ""}. Brands to pitch:` },
+    subject: {
+      name: r.holder.name,
+      meta: `${meta}${cities[0] ? ` · strongest in ${cities[0].name}` : ""}. Brands to pitch:`,
+    },
     groups,
     notes: r.notes,
     calls: budgeted.used(),
@@ -246,5 +368,10 @@ export async function shortlistMatch(repo: WorkspaceRepo, draftId: string, key: 
   if (!draft || draft.workspaceId !== repo.context.workspaceId) throw new InputError("These results have expired. Run the search again.");
   const pitch = draft.matches[key];
   if (!pitch) throw new InputError("That match is not in these results.");
-  return repo.sponsorship.save({ view: draft.view, holderKey: draft.holderKeys[key], brandId: draft.brandIds[key], pitch });
+  return repo.sponsorship.save({
+    view: draft.view,
+    holderKey: draft.holderKeys[key],
+    brandId: draft.brandIds[key],
+    pitch,
+  });
 }

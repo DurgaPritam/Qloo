@@ -13,7 +13,8 @@ async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/sponsorship");
   const { ctx, repo } = found;
-  const [plans, rosters, shortlist] = await Promise.all([repo.plans.list(50), repo.rosters.list(), repo.sponsorship.shortlist()]);
+  const [plans, rosterRows, shortlist] = await Promise.all([repo.plans.list(50), repo.rosters.list(), repo.sponsorship.shortlist()]);
+  const rosters = await Promise.all(rosterRows.map(async (r) => ({ id: r.id, name: r.name, acts: (await repo.rosters.acts(r.id)).map((a) => ({ id: a.id, name: a.name })) })));
   const events = plans.flatMap((p) => {
     const plan = p.result;
     const partner = plan.partners?.picks.find((x) => x.pick.entity.id === plan.partners?.chosenId)?.pick.entity;
@@ -24,7 +25,7 @@ async function Content() {
       <SponsorshipScreen
         canEdit={can(ctx.role, "sponsor.edit")}
         plans={events}
-        rosters={rosters.map((r) => ({ id: r.id, name: r.name, acts: r.acts }))}
+        rosters={rosters}
         initialShortlist={shortlist.map((s) => ({ id: s.id, view: s.view, pitch: s.pitch, createdAt: s.createdAt.toISOString() }))}
       />
     </>

@@ -849,3 +849,17 @@ titles or snapshot readings, so they cost no Qloo call and add no number of thei
 reading is stated as a rank, never as a move. The fit is unchanged by them. The lines are not put
 into the pitch deck (a deck is a lasting document; a weekly reading would age in it). Also fixed the
 stale note that branded deck settings were not set up.
+
+**D132. Pitch for one act of a roster** (halfway review). The rights view's roster option gains a
+"Pitch for" select: the whole roster as one audience (as before) or one act alone. One act runs the
+act-or-team path from the act's stored resolver snapshot, so it needs no search call (measured: 5
+Qloo calls in mock, under the act-or-team bound of 9 shown to the user). Running every act in one
+go was not built: ten acts would need more than the 25-call run cap.
+
+**D133. Saved plans as events in the brand view** (halfway review). After the talent, shows and
+teams, the brand view lists up to 3 of the workspace's newest finished plans under "Your events":
+the brand among the event's fans (fanbase and partner as one Qloo signal), one call each, one
+direction only (an event is a combined audience, as in the rights view), so confidence is at most
+medium. Each card keeps its request as evidence, its plan's cities, and can be shortlisted and
+pitched like any match. The brand view's call estimate rises from 14 to 17. If the run's calls run
+out, the remaining events are skipped with a note.

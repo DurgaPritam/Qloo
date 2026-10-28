@@ -29,7 +29,7 @@ test("brand view, shortlist, pitch deck and rights-holder view", async ({ page }
   let first = "";
   await test.step("brand view: talent and teams that fit, with Qloo evidence both ways", async () => {
     await page.getByRole("textbox", { name: "Brand" }).fill("Liquid Death");
-    await expect(page.getByText(/Uses up to 14 Qloo calls/)).toBeVisible();
+    await expect(page.getByText(/Uses up to 17 Qloo calls/)).toBeVisible();
     await page.getByRole("button", { name: "Find talent" }).click();
     const cards = page.locator("[data-match]");
     await expect(cards.first()).toBeVisible();

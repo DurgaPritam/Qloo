@@ -4,23 +4,10 @@ import Link from "next/link";
 import { useEffect, useState, type DragEvent } from "react";
 
 import { mailto } from "@/components/run/format";
-import {
-  OUTREACH_STAGES,
-  STAGE_LABEL,
-  type OutreachKind,
-  type OutreachStage,
-} from "@/lib/pipeline/stages";
+import { OUTREACH_STAGES, STAGE_LABEL, type OutreachKind, type OutreachStage } from "@/lib/pipeline/stages";
 
 import { FIELD } from "../account/fields";
-import {
-  Banner,
-  Button,
-  cx,
-  MonoLabel,
-  Panel,
-  useCopy,
-  YourDataBadge,
-} from "../ui";
+import { Banner, Button, cx, MonoLabel, Panel, useCopy, YourDataBadge } from "../ui";
 import { initials } from "./shell";
 
 /**
@@ -88,38 +75,21 @@ const day = (iso: string) =>
     timeZone: "UTC",
   });
 
-async function call(
-  url: string,
-  method: string,
-  body?: unknown,
-): Promise<string | null> {
+async function call(url: string, method: string, body?: unknown): Promise<string | null> {
   const res = await fetch(url, {
     method,
     headers: { "content-type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   }).catch(() => null);
   if (res?.ok) return null;
-  return (
-    ((await res?.json().catch(() => null)) as { error?: string } | null)
-      ?.error ?? "That didn't work."
-  );
+  return ((await res?.json().catch(() => null)) as { error?: string } | null)?.error ?? "That didn't work.";
 }
 
-export function PipelineBoard({
-  initial,
-  canEdit,
-  openId,
-}: {
-  initial: CardView[];
-  canEdit: boolean;
-  openId?: string;
-}) {
+export function PipelineBoard({ initial, canEdit, openId }: { initial: CardView[]; canEdit: boolean; openId?: string }) {
   const [cards, setCards] = useState(initial);
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<OutreachStage | null>(null);
-  const [open, setOpen] = useState<string | null>(
-    openId && initial.some((c) => c.id === openId) ? openId : null,
-  );
+  const [open, setOpen] = useState<string | null>(openId && initial.some((c) => c.id === openId) ? openId : null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = async () => {
@@ -139,11 +109,7 @@ export function PipelineBoard({
     setOver(null);
     if (!card || card.stage === stage) return;
     setError(null);
-    setCards((all) =>
-      all.map((c) =>
-        c.id === id ? { ...c, stage, movedAt: new Date().toISOString() } : c,
-      ),
-    );
+    setCards((all) => all.map((c) => (c.id === id ? { ...c, stage, movedAt: new Date().toISOString() } : c)));
     const err = await call(`/api/workspace/pipeline/${id}`, "PATCH", {
       stage,
       seenHash: card.hash,
@@ -160,17 +126,9 @@ export function PipelineBoard({
       <>
         <MonoLabel>Pipeline</MonoLabel>
         <section className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-line px-panel py-12 sm:px-12">
-          <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">
-            Nothing in the pipeline
-          </h2>
-          <p className="m-0 max-w-[400px] text-body text-mute">
-            Track a plan from first outreach to a confirmed date. Move a plan
-            here from its brief.
-          </p>
-          <Link
-            href="/workspace"
-            className="rounded-btn bg-acc px-4 py-2.5 font-semibold text-on-acc no-underline hover:text-on-acc"
-          >
+          <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">Nothing in the pipeline</h2>
+          <p className="m-0 max-w-[400px] text-body text-mute">Track a plan from first outreach to a confirmed date. Move a plan here from its brief.</p>
+          <Link href="/workspace" className="rounded-btn bg-acc px-4 py-2.5 font-semibold text-on-acc no-underline hover:text-on-acc">
             Go to plans
           </Link>
         </section>
@@ -183,16 +141,12 @@ export function PipelineBoard({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <section className="flex flex-col gap-1.5">
           <MonoLabel>Pipeline</MonoLabel>
-          <h1 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">
-            Outreach
-          </h1>
+          <h1 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">Outreach</h1>
           <p className="tabular m-0 text-chip text-mute" data-summary>
             {cards.length} outreach · {n("booked")} booked · {n("lost")} lost
           </p>
         </section>
-        <p className="m-0 text-chip text-mute">
-          Drag a card, or use its menu, to move it. Takeover never sends email.
-        </p>
+        <p className="m-0 text-chip text-mute">Drag a card, or use its menu, to move it. Takeover never sends email.</p>
       </div>
       {error && <Banner tone="err">{error}</Banner>}
 
@@ -217,27 +171,14 @@ export function PipelineBoard({
                 }}
                 className={cx(
                   "flex min-h-[320px] flex-col gap-2 rounded-[14px] border-th p-2.5 transition-colors",
-                  hot
-                    ? "border-dashed border-acc-line bg-acc-soft"
-                    : "border-transparent bg-track",
+                  hot ? "border-dashed border-acc-line bg-acc-soft" : "border-transparent bg-track",
                 )}
               >
                 <div className="flex items-center justify-between px-1.5 py-1">
-                  <span
-                    className={cx(
-                      "font-mono text-label uppercase tracking-[0.08em]",
-                      stage === "booked"
-                        ? "text-acc-text"
-                        : stage === "lost"
-                          ? "text-mute"
-                          : "text-ink",
-                    )}
-                  >
+                  <span className={cx("font-mono text-label uppercase tracking-[0.08em]", stage === "booked" ? "text-acc-text" : stage === "lost" ? "text-mute" : "text-ink")}>
                     {STAGE_LABEL[stage]}
                   </span>
-                  <span className="tabular font-mono text-[11px] text-mute">
-                    {list.length}
-                  </span>
+                  <span className="tabular font-mono text-[11px] text-mute">{list.length}</span>
                 </div>
                 {list.map((c) => (
                   <article
@@ -261,9 +202,7 @@ export function PipelineBoard({
                     )}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-label uppercase tracking-[0.06em] text-acc-text">
-                        {KIND_LABEL[c.kind]}
-                      </span>
+                      <span className="font-mono text-label uppercase tracking-[0.06em] text-acc-text">{KIND_LABEL[c.kind]}</span>
                       <span className="flex-1" />
                       <span
                         title={c.owner ?? undefined}
@@ -277,12 +216,8 @@ export function PipelineBoard({
                       onClick={() => setOpen(open === c.id ? null : c.id)}
                       className="flex cursor-pointer flex-col gap-0.5 border-0 bg-transparent p-0 text-left text-ink"
                     >
-                      <span className="font-semibold leading-[1.3]">
-                        {c.recipient}
-                      </span>
-                      <span className="text-chip leading-[1.4] text-mute">
-                        {c.context}
-                      </span>
+                      <span className="font-semibold leading-[1.3]">{c.recipient}</span>
+                      <span className="text-chip leading-[1.4] text-mute">{c.context}</span>
                     </button>
                     <div className="flex items-center gap-2 border-t border-line pt-1.5">
                       <span className="min-w-0 flex-1 truncate font-mono text-label text-mute">
@@ -291,9 +226,7 @@ export function PipelineBoard({
                       <select
                         value={c.stage}
                         disabled={!canEdit}
-                        onChange={(e) =>
-                          void move(c.id, e.target.value as OutreachStage)
-                        }
+                        onChange={(e) => void move(c.id, e.target.value as OutreachStage)}
                         aria-label={`Move ${c.recipient}`}
                         className="min-h-8 max-w-[8.5em] cursor-pointer rounded-badge border-th border-line bg-bg px-1.5 py-1 font-body text-chip text-ink"
                       >
@@ -306,11 +239,7 @@ export function PipelineBoard({
                     </div>
                   </article>
                 ))}
-                {list.length === 0 && (
-                  <div className="px-1.5 py-3.5 text-center text-chip text-mute">
-                    {EMPTY[stage]}
-                  </div>
-                )}
+                {list.length === 0 && <div className="px-1.5 py-3.5 text-center text-chip text-mute">{EMPTY[stage]}</div>}
               </section>
             );
           })}
@@ -361,20 +290,13 @@ function CardDetail({
   const [busy, setBusy] = useState(false);
   const { copied, copy } = useCopy();
   const editable = canEdit && card.stage === "drafted";
-  const dirty =
-    draft.recipient !== card.recipient ||
-    draft.recipientEmail !== (card.recipientEmail ?? "") ||
-    draft.subject !== card.subject ||
-    draft.body !== card.body;
+  const dirty = draft.recipient !== card.recipient || draft.recipientEmail !== (card.recipientEmail ?? "") || draft.subject !== card.subject || draft.body !== card.body;
 
   useEffect(() => {
     let live = true;
     fetch(`/api/workspace/pipeline/${card.id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then(
-        (d: { events: EventView[] } | null) =>
-          live && setEvents(d?.events ?? []),
-      )
+      .then((d: { events: EventView[] } | null) => live && setEvents(d?.events ?? []))
       .catch(() => {});
     return () => {
       live = false;
@@ -383,16 +305,12 @@ function CardDetail({
 
   const save = async () => {
     setBusy(true);
-    setError(
-      await call(`/api/workspace/pipeline/${card.id}`, "PATCH", { draft }),
-    );
+    setError(await call(`/api/workspace/pipeline/${card.id}`, "PATCH", { draft }));
     setBusy(false);
     await onChanged();
   };
 
-  const to = card.recipientEmail
-    ? `mailto:${encodeURIComponent(card.recipientEmail)}`
-    : "mailto:";
+  const to = card.recipientEmail ? `mailto:${encodeURIComponent(card.recipientEmail)}` : "mailto:";
   const link = to + mailto(card.subject, card.body).slice("mailto:".length);
 
   return (
@@ -422,15 +340,7 @@ function CardDetail({
           <div className="flex flex-col gap-2.5">
             <label className="flex flex-col gap-1.5">
               <MonoLabel>To</MonoLabel>
-              <input
-                value={draft.recipient}
-                onChange={(e) =>
-                  setDraft({ ...draft, recipient: e.target.value })
-                }
-                maxLength={200}
-                aria-label="Recipient"
-                className={FIELD}
-              />
+              <input value={draft.recipient} onChange={(e) => setDraft({ ...draft, recipient: e.target.value })} maxLength={200} aria-label="Recipient" className={FIELD} />
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="flex items-center gap-2">
@@ -440,9 +350,7 @@ function CardDetail({
               <input
                 type="email"
                 value={draft.recipientEmail}
-                onChange={(e) =>
-                  setDraft({ ...draft, recipientEmail: e.target.value })
-                }
+                onChange={(e) => setDraft({ ...draft, recipientEmail: e.target.value })}
                 maxLength={200}
                 placeholder="Optional: who you will send it to"
                 aria-label="Email address"
@@ -451,33 +359,14 @@ function CardDetail({
             </label>
             <label className="flex flex-col gap-1.5">
               <MonoLabel>Subject</MonoLabel>
-              <input
-                value={draft.subject}
-                onChange={(e) =>
-                  setDraft({ ...draft, subject: e.target.value })
-                }
-                maxLength={300}
-                aria-label="Subject"
-                className={FIELD}
-              />
+              <input value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} maxLength={300} aria-label="Subject" className={FIELD} />
             </label>
             <label className="flex flex-col gap-1.5">
               <MonoLabel>Body</MonoLabel>
-              <textarea
-                rows={9}
-                value={draft.body}
-                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                maxLength={10_000}
-                aria-label="Body"
-                className={FIELD}
-              />
+              <textarea rows={9} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} maxLength={10_000} aria-label="Body" className={FIELD} />
             </label>
             <div>
-              <Button
-                onClick={() => void save()}
-                loading={busy}
-                disabled={!dirty}
-              >
+              <Button onClick={() => void save()} loading={busy} disabled={!dirty}>
                 Save draft
               </Button>
             </div>
@@ -487,9 +376,7 @@ function CardDetail({
             <div className="font-mono text-[11px]">
               <span className="text-mute">To </span>
               {card.recipient}
-              {card.recipientEmail && (
-                <span className="text-mute"> · {card.recipientEmail}</span>
-              )}
+              {card.recipientEmail && <span className="text-mute"> · {card.recipientEmail}</span>}
             </div>
             <div className="font-mono text-[11px]">
               <span className="text-mute">Subject </span>
@@ -500,37 +387,21 @@ function CardDetail({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            onClick={() =>
-              copy(
-                card.id,
-                `To: ${card.recipient}${card.recipientEmail ? ` <${card.recipientEmail}>` : ""}\nSubject: ${card.subject}\n\n${card.body}`,
-              )
-            }
-          >
+          <Button onClick={() => copy(card.id, `To: ${card.recipient}${card.recipientEmail ? ` <${card.recipientEmail}>` : ""}\nSubject: ${card.subject}\n\n${card.body}`)}>
             {copied === card.id ? "Copied" : "Copy"}
           </Button>
-          <a
-            href={link}
-            className="rounded-btn border-th border-line px-3 py-1.5 text-chip text-ink no-underline hover:bg-acc-soft"
-          >
+          <a href={link} className="rounded-btn border-th border-line px-3 py-1.5 text-chip text-ink no-underline hover:bg-acc-soft">
             Open in mail
           </a>
           {canEdit && card.stage === "drafted" && (
-            <Button
-              variant="primary"
-              disabled={dirty}
-              onClick={() => void onMove("sent")}
-            >
+            <Button variant="primary" disabled={dirty} onClick={() => void onMove("sent")}>
               I sent it
             </Button>
           )}
           {canEdit && (
             <Button
               onClick={async () => {
-                setError(
-                  await call(`/api/workspace/pipeline/${card.id}`, "DELETE"),
-                );
+                setError(await call(`/api/workspace/pipeline/${card.id}`, "DELETE"));
                 onRemoved();
               }}
             >
@@ -548,24 +419,16 @@ function CardDetail({
         {events === null ? (
           <span className="text-chip text-mute">Loading…</span>
         ) : (
-          <ol
-            className="m-0 flex list-none flex-col gap-1.5 p-0"
-            aria-label="History"
-          >
+          <ol className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="History">
             {events.map((e) => (
               <li key={e.id} className="text-chip">
                 <span className="font-mono text-mute">{day(e.at)} · </span>
                 {e.actor ?? e.actorEmail ?? "Someone"}{" "}
-                {e.fromStage === null
-                  ? "added it as a draft"
-                  : e.toStage === "sent"
-                    ? "marked it sent"
-                    : `moved it to ${STAGE_LABEL[e.toStage]}`}
+                {e.fromStage === null ? "added it as a draft" : e.toStage === "sent" ? "marked it sent" : `moved it to ${STAGE_LABEL[e.toStage]}`}
                 {e.sent && (
                   <span className="text-mute">
                     {" "}
-                    · “{e.sent.subject}” to{" "}
-                    {e.sent.recipientEmail ?? e.sent.recipient}
+                    · “{e.sent.subject}” to {e.sent.recipientEmail ?? e.sent.recipient}
                   </span>
                 )}
               </li>

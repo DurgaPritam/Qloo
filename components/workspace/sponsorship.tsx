@@ -11,7 +11,12 @@ import { AddToPipeline } from "./pipeline-add";
 
 type View = "brand" | "rights";
 type HolderKind = "entity" | "event" | "roster";
-type Choice = { entityId: string; name: string; category: string; detail?: string };
+type Choice = {
+  entityId: string;
+  name: string;
+  category: string;
+  detail?: string;
+};
 export interface ShortlistRow {
   id: string;
   view: View;
@@ -19,17 +24,38 @@ export interface ShortlistRow {
   createdAt: string;
 }
 
-/** Upper bounds, from the code paths: search, lists, teams, heatmap, demographics, reverse checks. */
-const ESTIMATE: Record<View | HolderKind, number> = { brand: 14, rights: 9, entity: 9, event: 1, roster: 1 };
+/** Upper bounds, from the code paths: search, lists, teams, heatmap, demographics, reverse checks (and, for a brand, up to 3 saved events). */
+const ESTIMATE: Record<View | HolderKind, number> = {
+  brand: 17,
+  rights: 9,
+  entity: 9,
+  event: 1,
+  roster: 1,
+};
 
 async function send<T>(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, { method, headers: body === undefined ? undefined : { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null);
-  return { ok: Boolean(res?.ok), data: ((await res?.json().catch(() => null)) ?? { error: "That didn't work. Try again." }) as T & { error?: string } };
+  const res = await fetch(url, {
+    method,
+    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch(() => null);
+  return {
+    ok: Boolean(res?.ok),
+    data: ((await res?.json().catch(() => null)) ?? {
+      error: "That didn't work. Try again.",
+    }) as T & { error?: string },
+  };
 }
 
 async function deck(p: PitchInput) {
   const [{ pitchOutline, pitchFooter, pitchFileName }, { renderDeck, loadBranding }] = await Promise.all([import("@/lib/export/sponsor"), import("../run/exports")]);
-  await renderDeck(pitchOutline(p), { title: `${p.holder} × ${p.brand}`, footer: pitchFooter(p), mock: p.mock, fileName: pitchFileName(p), branding: await loadBranding() });
+  await renderDeck(pitchOutline(p), {
+    title: `${p.holder} × ${p.brand}`,
+    footer: pitchFooter(p),
+    mock: p.mock,
+    fileName: pitchFileName(p),
+    branding: await loadBranding(),
+  });
 }
 
 export function SponsorshipScreen({
@@ -40,7 +66,7 @@ export function SponsorshipScreen({
 }: {
   canEdit: boolean;
   plans: { id: string; label: string }[];
-  rosters: { id: string; name: string; acts: number }[];
+  rosters: { id: string; name: string; acts: { id: string; name: string }[] }[];
   initialShortlist: ShortlistRow[];
 }) {
   const [view, setView] = useState<View>("brand");
@@ -48,9 +74,14 @@ export function SponsorshipScreen({
   const [q, setQ] = useState("");
   const [planId, setPlanId] = useState(plans[0]?.id ?? "");
   const [rosterId, setRosterId] = useState(rosters[0]?.id ?? "");
+  /** Empty: the whole roster as one audience. */
+  const [actId, setActId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [choices, setChoices] = useState<{ question: string; list: Choice[] } | null>(null);
+  const [choices, setChoices] = useState<{
+    question: string;
+    list: Choice[];
+  } | null>(null);
   const [result, setResult] = useState<Extract<SponsorRun, { status: "done" }> | null>(null);
   const [shortlist, setShortlist] = useState(initialShortlist);
   const [saved, setSaved] = useState<Set<string>>(new Set());
@@ -62,7 +93,10 @@ export function SponsorshipScreen({
     const body =
       view === "brand"
         ? { view, query: name ?? q, entityId }
-        : { view, holder: kind === "entity" ? { kind, query: name ?? q, entityId } : kind === "event" ? { kind, planId } : { kind, rosterId } };
+        : {
+            view,
+            holder: kind === "entity" ? { kind, query: name ?? q, entityId } : kind === "event" ? { kind, planId } : { kind, rosterId, actId: actId || undefined },
+          };
     const { ok, data } = await send<SponsorRun>("/api/workspace/sponsorship", "POST", body);
     setBusy(false);
     if (!ok) return setError(data.error ?? "That didn't work.");
@@ -77,12 +111,14 @@ export function SponsorshipScreen({
     const { ok, data } = await send<{ id: string }>("/api/workspace/sponsorship/shortlist", "POST", { draftId: result.draftId, key: m.key });
     if (!ok) return setError(data.error ?? "That didn't work.");
     setSaved(new Set([...saved, m.key]));
-    const list = await send<{ shortlist: (ShortlistRow & { createdAt: string })[] }>("/api/workspace/sponsorship/shortlist", "GET");
+    const list = await send<{
+      shortlist: (ShortlistRow & { createdAt: string })[];
+    }>("/api/workspace/sponsorship/shortlist", "GET");
     if (list.ok) setShortlist(list.data.shortlist);
   };
 
   const ready = view === "brand" ? q.trim() : kind === "entity" ? q.trim() : kind === "event" ? planId : rosterId;
-  const estimate = view === "brand" ? ESTIMATE.brand : ESTIMATE[kind];
+  const estimate = view === "brand" ? ESTIMATE.brand : kind === "roster" && actId ? ESTIMATE.entity : ESTIMATE[kind];
 
   return (
     <div className="flex flex-col gap-[18px]">
@@ -140,13 +176,43 @@ export function SponsorshipScreen({
           )}
           {view === "rights" && kind === "event" && (
             <select aria-label="Event" value={planId} onChange={(e) => setPlanId(e.target.value)} className={cx(FIELD, "min-w-0 flex-1 basis-[220px] cursor-pointer")}>
-              {plans.length ? plans.map((p) => <option key={p.id} value={p.id}>{p.label}</option>) : <option value="">No finished plans in this workspace yet</option>}
+              {plans.length ? (
+                plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))
+              ) : (
+                <option value="">No finished plans in this workspace yet</option>
+              )}
             </select>
           )}
           {view === "rights" && kind === "roster" && (
-            <select aria-label="Roster" value={rosterId} onChange={(e) => setRosterId(e.target.value)} className={cx(FIELD, "min-w-0 flex-1 basis-[220px] cursor-pointer")}>
-              {rosters.length ? rosters.map((r) => <option key={r.id} value={r.id}>{`${r.name} (${r.acts} acts)`}</option>) : <option value="">No rosters yet</option>}
-            </select>
+            <>
+              <select
+                aria-label="Roster"
+                value={rosterId}
+                onChange={(e) => {
+                  setRosterId(e.target.value);
+                  setActId("");
+                }}
+                className={cx(FIELD, "min-w-0 flex-1 basis-[220px] cursor-pointer")}
+              >
+                {rosters.length ? rosters.map((r) => <option key={r.id} value={r.id}>{`${r.name} (${r.acts.length} acts)`}</option>) : <option value="">No rosters yet</option>}
+              </select>
+              {(rosters.find((r) => r.id === rosterId)?.acts.length ?? 0) > 0 && (
+                <select aria-label="Pitch for" value={actId} onChange={(e) => setActId(e.target.value)} className={cx(FIELD, "min-w-0 flex-1 basis-[200px] cursor-pointer")}>
+                  <option value="">The whole roster, as one audience</option>
+                  {rosters
+                    .find((r) => r.id === rosterId)!
+                    .acts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {`${a.name} alone`}
+                      </option>
+                    ))}
+                </select>
+              )}
+            </>
           )}
           <Button type="submit" variant="primary" loading={busy} disabled={!ready} className="min-h-[44px] px-4">
             {view === "brand" ? "Find talent" : "Find brands"}
@@ -183,15 +249,15 @@ export function SponsorshipScreen({
           ))}
           {result.groups.map((g) => (
             <div key={g.label} className="flex flex-col gap-2">
-              {result.view === "rights" && <MonoLabel>{g.label}</MonoLabel>}
+              {(result.view === "rights" || result.groups.length > 1) && <MonoLabel>{g.label}</MonoLabel>}
               {g.matches.map((m) => (
                 <MatchCard key={m.key} m={m} canEdit={canEdit} saved={saved.has(m.key)} onSave={() => void save(m)} />
               ))}
             </div>
           ))}
           <span className="text-chip text-mute">
-            Pitch decks use this workspace&apos;s branded deck settings (or the house style) and include the evidence above with its Qloo source. Reach, impressions and fees
-            are always to confirm.
+            Pitch decks use this workspace&apos;s branded deck settings (or the house style) and include the evidence above with its Qloo source. Reach, impressions and fees are
+            always to confirm.
           </span>
         </section>
       )}
@@ -233,7 +299,14 @@ function MatchCard({ m, canEdit, saved, onSave }: { m: MatchView; canEdit: boole
                 <li key={l.text} className="flex gap-2 text-body">
                   <span className="text-acc-text">◆</span>
                   <span>
-                    {l.text} <span className="font-mono text-label text-mute">{new Date(l.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}</span>
+                    {l.text}{" "}
+                    <span className="font-mono text-label text-mute">
+                      {new Date(l.at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        timeZone: "UTC",
+                      })}
+                    </span>
                   </span>
                 </li>
               ))}
