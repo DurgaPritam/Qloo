@@ -965,3 +965,18 @@ parties", "38% also follow Hot Ones", "×" affinities vs a national average) are
 returns, so the brief shows Qloo's age and gender skews and 0–1 affinities instead (as D75 did for
 "% shared fans"). Considered: Qloo tag insights for genre-level interests (an endpoint the app has
 not used yet; it would need live probing first). The sidebar's Campaign brief link is restored.
+
+**D143. Lineup optimizer** (roadmap Prompt 10; its text was not given, so built from the design).
+At /workspace/lineup a member starts from a saved plan (its fanbase is the headliner, so no search
+call) or types a headliner. Qloo gives the candidate pool: acts the headliner's fans over-index on in
+its own category and one other (two candidate calls; up to 4 with a search), each with fit = Qloo
+affinity × 100, kept server-side as a draft for a day. The total budget, slots (2–4), the fee for
+tiers A, B and C, and each act's tier are the user's data; every act starts at tier B, because a
+default from popularity would amount to guessing fees. `bestLineup` (engine) keeps the headliner
+on the bill and searches every combination of the other slots for the highest total fit within
+budget, ties to the cheaper bill, so the same inputs always give the same lineup; roles follow fit
+(Feature, Support, Opener). When nothing fits it says so rather than suggesting a bill. "Add
+lineup to plan" sends only the draft id and the user's numbers: the server re-runs the engine on
+the draft's own fits and stores the result (`plan_lineups`, one per plan), which the plan page
+shows. In the sidebar, Tools now lists Lineup optimizer (as in the design); the public Lineup
+builder poster tool stays at /lineup.

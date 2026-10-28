@@ -46,6 +46,7 @@ const ACTIONS: Record<string, string> = {
   "outreach.sent": "marked outreach sent",
   "tour.saved": "saved a tour",
   "brief.created": "made a campaign brief",
+  "lineup.saved": "added a lineup to a plan",
   "outreach.assigned": "reassigned outreach",
 };
 

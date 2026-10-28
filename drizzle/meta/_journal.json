@@ -120,6 +120,13 @@
       "when": 1793205337840,
       "tag": "0016_campaign_briefs",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793205760900,
+      "tag": "0017_plan_lineups",
+      "breakpoints": true
     }
   ]
 }

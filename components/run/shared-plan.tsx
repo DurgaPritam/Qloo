@@ -12,6 +12,7 @@ import { TeamVote } from "../team-vote";
 import { audiencePeople } from "./run-screen";
 import { PlanComments } from "../workspace/plan-comments";
 import { PlanSharing, type MemberView } from "../workspace/plan-sharing";
+import { PlanLineup } from "../workspace/lineup";
 import { AddToPipeline } from "../workspace/pipeline-add";
 import { PlanYourData } from "../workspace/your-data";
 
@@ -40,6 +41,7 @@ export function SharedPlan({ plan, member }: { plan: Plan; member?: MemberView }
       <RoomSection view={view} />
       <BriefSection view={view} shareUrl={typeof window !== "undefined" ? window.location.href : undefined} />
       <OutreachSection view={view} action={member && plan.outreach?.length ? <AddToPipeline planId={plan.runId} /> : undefined} />
+      {member && <PlanLineup planId={plan.runId} />}
       {member && <PlanComments planId={plan.runId} />}
     </Page>
   );
