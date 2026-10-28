@@ -130,6 +130,81 @@ describe("workspace report", () => {
   });
 });
 
+describe("done when: three seeded plans", () => {
+  /** A plan whose chosen city and partner are set, so the three plans differ. */
+  function seeded(city: { id: string; name: string; combined: number }, partner: { name: string; score: number }): Plan {
+    const p = structuredClone(template);
+    Object.assign(p.city!.chosen!.pick.city, { id: city.id, name: city.name });
+    p.city!.chosen!.pick.combined = city.combined;
+    const chosen = p.partners!.picks.find((x) => x.pick.entity.id === p.partners!.chosenId)!.pick;
+    chosen.entity.name = partner.name;
+    chosen.entity.id = `partner-${partner.name}`;
+    p.partners!.chosenId = chosen.entity.id;
+    chosen.score = partner.score;
+    return p;
+  }
+
+  it("give a report with the right sample sizes, every figure from the entries or the frozen plans", async () => {
+    const { repo } = await person("seed@out.test");
+    const plansIn = [
+      seeded({ id: "c-austin", name: "Austin", combined: 0.91 }, { name: "Hot Ones", score: 0.72 }),
+      seeded({ id: "c-austin", name: "Austin", combined: 0.88 }, { name: "SmartLess", score: 0.64 }),
+      seeded({ id: "c-seattle", name: "Seattle", combined: 0.77 }, { name: "Hot Ones", score: 0.7 }),
+    ];
+    const ids: string[] = [];
+    for (const p of plansIn) {
+      const id = crypto.randomUUID();
+      await repo.plans.create({ id, query: "Ali Wong", result: { ...p, runId: id } });
+      ids.push(id);
+    }
+    const entries = [
+      { ticketsSold: 1790, capacity: 1850, attendance: 1760, gross: 121400, sponsorRenewed: true },
+      { ticketsSold: 640, capacity: 1000, attendance: 600 },
+      { attendance: 450, notes: "No box office report yet" },
+    ];
+    for (const [i, e] of entries.entries()) await logOutcome(repo, ids[i], fields(e));
+
+    // The stored plans change afterwards; the report must not.
+    for (const id of ids) {
+      const changed = seeded({ id: "c-x", name: "Changed City", combined: 0.123 }, { name: "Changed Partner", score: 0.456 });
+      await db.update(plans).set({ result: changed }).where(eq(plans.id, id));
+    }
+
+    const v = await reportView(repo, "Seed");
+    // Three logged, two with both tickets sold and capacity.
+    expect(v.rows).toHaveLength(3);
+    expect(v).toMatchObject({ sample: 2, judged: false, minSample: 5 });
+    expect(v.median).toBeCloseTo((1790 / 1850 + 0.64) / 2);
+    expect(v.cities.map((c) => [c.name, c.events, c.judged])).toEqual([["Austin", 2, false]]);
+    expect(v.partners.map((c) => [c.name, c.events]).sort()).toEqual([
+      ["Hot Ones", 1],
+      ["SmartLess", 1],
+    ]);
+    expect(v.rows.map((r) => [r.city, r.partner, r.predictedCity, r.predictedPartner])).toEqual(
+      expect.arrayContaining([
+        ["Austin", "Hot Ones", 0.91, 0.72],
+        ["Austin", "SmartLess", 0.88, 0.64],
+        ["Seattle", "Hot Ones", 0.77, 0.7],
+      ]),
+    );
+    const seattle = v.rows.find((r) => r.city === "Seattle")!;
+    expect([seattle.sellThrough, seattle.aboveMedian]).toEqual([null, null]);
+
+    // Every number in the CSV and the deck is an entry, a frozen prediction, or computed from them.
+    const pct = (x: number) => String(Math.round(x * 100));
+    const allowed = new Set<string>([
+      ...entries.flatMap((e) => Object.values(e).filter((x): x is number => typeof x === "number").map(String)),
+      "0.91", "0.72", "0.88", "0.64", "0.77", "0.70",
+      pct(1790 / 1850), pct(0.64), pct(v.median!),
+      String(v.sample), String(v.minSample), String(v.rows.length), "0", "1", "2",
+    ]);
+    const text = [outcomesCsv(v), ...outcomesOutline(v).flatMap((s) => [s.title, s.subtitle ?? "", s.note ?? "", ...(s.bullets ?? []), ...(s.table?.rows.flat() ?? [])])].join("\n");
+    for (const n of text.match(/\d+(?:\.\d+)?/g) ?? []) expect(allowed.has(n), `unexpected figure ${n}`).toBe(true);
+    expect(text).not.toContain("Changed");
+    expect(text).not.toMatch(/0\.123|0\.456|\b12\b|\b46\b/);
+  });
+});
+
 describe("scoping and roles", () => {
   it("keeps outcomes, predictions and calibration pairs inside their workspace", async () => {
     const a = await person("eve@out.test");

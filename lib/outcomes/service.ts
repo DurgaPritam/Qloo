@@ -125,7 +125,7 @@ export async function planOutcome(repo: WorkspaceRepo, planId: string) {
       ]
     : [];
   return {
-    plan: { id: plan.id, input: plan.input, title: plan.result.brief?.title ?? plan.input, city: plan.result.room?.cityName ?? p?.city?.name ?? null, venue: p?.venue?.name ?? null, createdAt: plan.createdAt.toISOString() },
+    plan: { id: plan.id, input: plan.input, title: plan.result.brief?.title ?? plan.input, city: p?.city?.name ?? null, venue: p?.venue?.name ?? null, createdAt: plan.createdAt.toISOString() },
     prediction: p,
     predictedAt: pred?.at.toISOString() ?? null,
     backfilled: pred?.backfilled ?? false,

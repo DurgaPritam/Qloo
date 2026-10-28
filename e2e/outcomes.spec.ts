@@ -66,3 +66,31 @@ test("log results on a plan, see predicted vs actual, and the workspace report",
     expect(csv).toContain("too few events to judge");
   });
 });
+
+test("three logged plans give a report with the right sample sizes", async ({ page }) => {
+  test.setTimeout(150_000);
+  await signIn(page, `trio.${run}@e2e.test`);
+  const plans = ["Phoebe Bridgers", "John Mulaney", "Clairo"];
+  for (const q of plans) {
+    await page.goto(`/run?q=${encodeURIComponent(q)}`);
+    await expect(page.getByText("Complete · 7 / 7")).toBeVisible({ timeout: 45_000 });
+  }
+  const entries: Record<string, Record<string, string>> = {
+    "Phoebe Bridgers": { "Tickets sold": "900", "Sellable capacity": "1000" },
+    "John Mulaney": { "Tickets sold": "600", "Sellable capacity": "1000", Attendance: "580" },
+    Clairo: { Attendance: "300" },
+  };
+  for (const q of plans) {
+    await page.goto("/workspace/outcomes");
+    await page.locator(`[data-plan^="${q}"]`).getByRole("link").click();
+    for (const [label, value] of Object.entries(entries[q])) await page.getByLabel(label).fill(value);
+    await page.getByRole("button", { name: "Save and compare" }).click();
+    await expect(page.getByRole("table", { name: "Predicted vs actual" })).toBeVisible();
+  }
+  await page.goto("/workspace/outcomes");
+  // Three logged; two have both tickets sold and capacity; median of 90% and 60% is 75%.
+  await expect(page.getByText("3 logged in all")).toBeVisible();
+  await expect(page.getByText(/Too few events to judge: 2 of the 5 needed/)).toBeVisible();
+  await expect(page.getByText("75%").first()).toBeVisible();
+  for (const q of plans) await expect(page.locator(`[data-plan^="${q}"]`).getByRole("link", { name: "Predicted vs actual →" })).toBeVisible();
+});

@@ -777,6 +777,11 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .where(eq(outcomes.workspaceId, ws))
           .orderBy(desc(outcomes.loggedAt));
       },
+      /** Every plan's frozen predictions, for labels that never read the stored plan. */
+      async predictions() {
+        need("outcome.read");
+        return db.select({ planId: planPredictions.planId, predicted: planPredictions.predicted }).from(planPredictions).where(eq(planPredictions.workspaceId, ws));
+      },
       async calibration() {
         need("outcome.read");
         return db.select().from(calibrationPairs).where(eq(calibrationPairs.workspaceId, ws)).orderBy(asc(calibrationPairs.recordedAt));

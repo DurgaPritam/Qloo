@@ -727,3 +727,10 @@ them to change a score. Later, with enough pairs:
   never automatically, and never across workspaces without their consent.
 - Minimum before any of this: the same minSample per group, and a hold-out check that the fit
   predicts better than the workspace median alone.
+
+**D119. Outcomes "done when" (28 Oct).** Three seeded plans with different frozen predictions (two
+in Austin with different partners, one in Seattle), results logged on each (one without capacity):
+the report counts 3 logged, a sample of 2 with sell-through, Austin with 2 events and not yet judged,
+and Seattle out of the sample. The stored plans are then changed and the report does not move. A test
+checks every number in the CSV and the deck is an entry, a frozen prediction or computed from them.
+Plan labels on the Outcomes pages now come from the frozen predictions too, never the stored plan.

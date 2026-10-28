@@ -16,13 +16,15 @@ async function Content() {
   if (!found) redirect("/signin?next=/workspace/outcomes");
   const { ctx, repo, memberships } = found;
   const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
-  const [view, plans, logged] = await Promise.all([reportView(repo, current.name), repo.plans.list(100), repo.outcomes.logged()]);
+  const [view, plans, logged, predictions] = await Promise.all([reportView(repo, current.name), repo.plans.list(100), repo.outcomes.logged(), repo.outcomes.predictions()]);
   const done = new Set(logged.map((l) => l.planId));
+  const frozen = new Map(predictions.map((p) => [p.planId, p.predicted]));
+  // Labels from the frozen predictions (what the plan chose when it was made), not the stored plan.
   const list = plans
     .filter((p) => p.result.status === "complete")
     .map((p) => {
-      const partner = p.result.partners?.picks.find((x) => x.pick.entity.id === p.result.partners?.chosenId)?.pick.entity.name;
-      return { id: p.id, label: `${p.result.fanbase?.name ?? p.input}${partner ? ` × ${partner}` : ""}${p.result.room?.cityName ? `, ${p.result.room.cityName}` : ""}`, logged: done.has(p.id) };
+      const f = frozen.get(p.id);
+      return { id: p.id, label: `${p.input}${f?.partner ? ` × ${f.partner.name}` : ""}${f?.city ? `, ${f.city.name}` : ""}`, logged: done.has(p.id) };
     });
   return (
     <>
