@@ -90,6 +90,11 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
     await expect(trace.getByText(/= 0\.0 × \d+ \+ 1\.0 × 100\./)).toBeVisible();
     await trace.getByText("Qloo requests").click();
     await expect(trace.getByText("filter.type = urn:heatmap")).toBeVisible();
+    // Cities Qloo scores that the file lacks are listed apart, by Qloo signal, never ranked with the file's.
+    const untested = page.getByRole("region", { name: "Untested cities" });
+    await expect(untested.getByText("Untested: strong Qloo signal, no data from you yet")).toBeVisible();
+    const firstUntested = await untested.locator("[data-untested-city]").first().getAttribute("data-untested-city");
+    await expect(table.locator(`[data-city="${firstUntested}"]`)).toHaveCount(0);
     await page.getByRole("tab", { name: "Map" }).click();
     await page.getByRole("tab", { name: "■ Your data" }).click();
     await expect(page.getByRole("img", { name: /Top cities by your data/ }).or(page.getByLabel(/Top cities by your data/)).first()).toBeVisible();
@@ -107,11 +112,12 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
     await expect(page.getByText("Complete · 7 / 7")).toBeVisible({ timeout: 45_000 });
     const mine = page.locator("[data-plan-your-data]");
     await expect(mine).toBeVisible();
-    await expect(mine.getByText("ticket_sales_2026.csv", { exact: false })).toBeVisible();
+    await expect(mine.getByText("ticket_sales_2026.csv", { exact: false }).first()).toBeVisible();
+    await expect(mine.locator("[data-untested]")).toBeVisible();
     for (const h of ["◆ Qloo signal", "■ Your data", "◆■ Combined"]) await expect(mine.getByRole("columnheader", { name: h })).toBeVisible();
     const first = mine.locator("[data-city]").first();
     await first.getByRole("button", { name: "Where these numbers come from" }).click();
-    await expect(mine.locator("[data-trace]").getByText(/√\(Phoebe Bridgers fans/).or(mine.locator("[data-trace]").getByText(/is not in|has no heat/)).first()).toBeVisible();
+    await expect(mine.locator("[data-trace]").getByText(/√\(Phoebe Bridgers fans/).or(mine.locator("[data-trace]").getByText(/has no heat/)).first()).toBeVisible();
     planUrl = page.url();
   });
 

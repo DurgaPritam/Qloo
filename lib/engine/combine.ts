@@ -5,7 +5,9 @@
  *   yours    = city metric ÷ the best city's metric          (0–1, "scaled against your best city")
  *   combined = (1 − weight) × qloo + weight × yours
  *
- * A city missing from one side is combined from the other side alone and says so (`basis`).
+ * Only cities in the user's data are ranked. A city in their data that Qloo did not score is ranked
+ * on their data alone and says so (`basis`). A city Qloo scores but their data lacks is not ranked:
+ * untestedCities lists those separately, by Qloo signal ("strong Qloo signal, no data from you yet").
  */
 export interface CityQlooScore {
   cityId: string;
@@ -32,7 +34,14 @@ export interface CombinedCity {
   combined: number;
   /** Weight on the user's data, 0–1, as used for this row. */
   weight: number;
-  basis: "both" | "qloo" | "yours";
+  basis: "both" | "yours";
+  rank: number;
+}
+
+/** A city Qloo scores that the user's data does not cover yet. */
+export interface UntestedCity {
+  cityId: string;
+  qloo: number;
   rank: number;
 }
 
@@ -55,21 +64,30 @@ export function clampWeight(weight: number): number {
   return finite(weight) ? Math.min(1, Math.max(0, weight)) : DEFAULT_USER_WEIGHT;
 }
 
+const qlooMap = (qlooScores: readonly CityQlooScore[]) => new Map(qlooScores.filter((q) => finite(q.score)).map((q) => [q.cityId, Math.min(1, Math.max(0, q.score))]));
+
 export function combineCityScores(qlooScores: readonly CityQlooScore[], userMetric: readonly CityMetric[], weight: number = DEFAULT_USER_WEIGHT): CombinedCity[] {
   const w = clampWeight(weight);
-  const qloo = new Map(qlooScores.filter((q) => finite(q.score)).map((q) => [q.cityId, Math.min(1, Math.max(0, q.score))]));
+  const qloo = qlooMap(qlooScores);
   const yours = normaliseMetric(userMetric);
-  const ids = new Set([...qloo.keys(), ...yours.keys()]);
   const best = [...yours].sort((a, b) => b[1].raw - a[1].raw || a[0].localeCompare(b[0]))[0];
   const scale = best ? { cityId: best[0], raw: best[1].raw } : null;
-  const rows = [...ids].map((cityId) => {
+  const rows = [...yours].map(([cityId, y]) => {
     const q = qloo.get(cityId) ?? null;
-    const y = yours.get(cityId) ?? null;
-    const basis: CombinedCity["basis"] = q !== null && y !== null ? "both" : q !== null ? "qloo" : "yours";
-    const combined = basis === "both" ? (1 - w) * q! + w * y!.norm : basis === "qloo" ? q! : y!.norm;
-    return { cityId, qloo: q, yours: y?.norm ?? null, raw: y?.raw ?? null, scale, combined, weight: w, basis, rank: 0 };
+    const basis: CombinedCity["basis"] = q !== null ? "both" : "yours";
+    const combined = q !== null ? (1 - w) * q + w * y.norm : y.norm;
+    return { cityId, qloo: q, yours: y.norm, raw: y.raw, scale, combined, weight: w, basis, rank: 0 };
   });
   return rows
     .sort((a, b) => b.combined - a.combined || (b.qloo ?? -1) - (a.qloo ?? -1) || a.cityId.localeCompare(b.cityId))
     .map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+/** Cities Qloo scores that are not in the user's data, best Qloo signal first; never blended or ranked with them. */
+export function untestedCities(qlooScores: readonly CityQlooScore[], userMetric: readonly CityMetric[]): UntestedCity[] {
+  const yours = normaliseMetric(userMetric);
+  return [...qlooMap(qlooScores)]
+    .filter(([cityId, q]) => !yours.has(cityId) && q > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([cityId, qloo], i) => ({ cityId, qloo, rank: i + 1 }));
 }

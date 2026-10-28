@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { combineCityScores, DEFAULT_USER_WEIGHT, type CombinedCity } from "@/lib/engine/combine";
+import { combineCityScores, DEFAULT_USER_WEIGHT, untestedCities, type CombinedCity } from "@/lib/engine/combine";
 import { fileKind, MAX_FILE_BYTES, readTable, type Table } from "@/lib/data/table";
 import { METRIC_LABEL, type CityOption, type ColumnRole, type DatasetView, type MetricKind, type RankingData, type ReviewItem } from "@/lib/data/types";
 
@@ -207,18 +207,21 @@ export function CityRanking({ ranking, title, chosenCityId, onUseCity }: { ranki
     () => combineCityScores(ranking.qloo ?? [], ranking.totals[metric] ?? [], weight).filter((r) => info.has(r.cityId)),
     [ranking, metric, weight, info],
   );
+  const untested = useMemo(() => untestedCities(ranking.qloo ?? [], ranking.totals[metric] ?? []).filter((r) => info.has(r.cityId)), [ranking, metric, info]);
   const shown = rows.slice(0, 25);
   // One template for every row, so the columns line up whether a row has a button or not.
   const grid = onUseCity || chosenCityId ? "grid-cols-[2.5em_minmax(0,1fr)_6em_6em_6em_8.5em]" : "grid-cols-[2.5em_minmax(0,1fr)_6em_6em_6em]";
   const value = (r: (typeof rows)[number], l: Lens) => (l === "qloo" ? r.qloo : l === "yours" ? r.yours : r.combined);
   const w = pct(weight);
-  const points: GeoPoint[] = rows
-    .filter((r) => value(r, lens) !== null)
-    .sort((a, b) => (value(b, lens) ?? 0) - (value(a, lens) ?? 0))
+  // The Qloo view also shows untested cities: their Qloo signal is real, only your data is missing.
+  const mapped = lens === "qloo" ? [...rows.map((r) => ({ cityId: r.cityId, v: r.qloo })), ...untested.map((u) => ({ cityId: u.cityId, v: u.qloo }))] : rows.map((r) => ({ cityId: r.cityId, v: value(r, lens) }));
+  const points: GeoPoint[] = mapped
+    .filter((r) => r.v !== null)
+    .sort((a, b) => (b.v ?? 0) - (a.v ?? 0))
     .slice(0, 10)
     .map((r, i) => {
       const c = info.get(r.cityId)!;
-      const v = pct(value(r, lens) ?? 0);
+      const v = pct(r.v ?? 0);
       return { id: c.id, name: c.name, lat: c.lat, lon: c.lon, value: String(v), size: Math.max(8, Math.round(8 + v * 0.14)), tone: i === 0 ? "acc" : "mute", ring: i === 0 };
     });
 
@@ -362,8 +365,41 @@ export function CityRanking({ ranking, title, chosenCityId, onUseCity }: { ranki
         </div>
       )}
       <span className="text-chip text-mute">
-        A dash means the city is missing on that side; its combined score then uses the other side alone. {rows.length > shown.length ? `Top ${shown.length} of ${rows.length} cities.` : ""}
+        Only cities in your data are ranked. A dash under Qloo signal means Qloo has no heat there, so its combined score is your data alone.{" "}
+        {rows.length > shown.length ? `Top ${shown.length} of ${rows.length} cities.` : ""}
       </span>
+      {untested.length > 0 && (
+        <section className="flex flex-col gap-2 border-t border-line pt-3" aria-label="Untested cities" data-untested>
+          <div className="flex flex-wrap items-center gap-2">
+            <MonoLabel>Untested: strong Qloo signal, no data from you yet</MonoLabel>
+            <SourceBadge />
+          </div>
+          <span className="text-chip text-mute">Not in {ranking.trace.upload.fileName}, so not blended or ranked with your cities. Ranked by Qloo signal alone.</span>
+          <ol className="m-0 flex list-none flex-col p-0">
+            {untested.slice(0, 10).map((u) => {
+              const c = info.get(u.cityId)!;
+              return (
+                <li key={u.cityId} className="flex items-center gap-3 border-b border-line py-2" data-untested-city={c.name}>
+                  <span className="tabular w-[2.5em] font-mono text-label text-mute">{String(u.rank).padStart(2, "0")}</span>
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                    {c.name}
+                    <span className="text-chip text-mute">, {c.admin1 || c.country}</span>
+                  </span>
+                  <Num>{pct(u.qloo)}</Num>
+                  {chosenCityId === u.cityId ? (
+                    <span className="font-mono text-label uppercase tracking-[0.06em] text-acc-text">Chosen</span>
+                  ) : onUseCity ? (
+                    <Button variant="pick" onClick={() => onUseCity(u.cityId)}>
+                      Use this city
+                    </Button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+          {untested.length > 10 && <span className="text-chip text-mute">Top 10 of {untested.length} untested cities.</span>}
+        </section>
+      )}
     </section>
   );
 }
@@ -440,9 +476,7 @@ function Trace({
         <span>
           {row.basis === "both"
             ? `${pct(row.combined)} = ${(1 - w).toFixed(1)} × ${pct(row.qloo ?? 0)} + ${w.toFixed(1)} × ${pct(row.yours ?? 0)}.`
-            : row.basis === "qloo"
-              ? `${pct(row.combined)} = the Qloo signal alone: ${name} is not in your file.`
-              : `${pct(row.combined)} = your data alone: Qloo has no heat for ${name}.`}
+            : `${pct(row.combined)} = your data alone: Qloo has no heat for ${name}.`}
         </span>
       </span>
     </div>

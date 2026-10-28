@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampWeight, combineCityScores, DEFAULT_USER_WEIGHT, normaliseMetric } from "@/lib/engine/combine";
+import { clampWeight, combineCityScores, DEFAULT_USER_WEIGHT, normaliseMetric, untestedCities } from "@/lib/engine/combine";
 
 const qloo = [
   { cityId: "la", score: 0.91 },
@@ -56,16 +56,25 @@ describe("combineCityScores", () => {
     expect(clampWeight(Number.NaN)).toBe(0.5);
   });
 
-  it("uses the side that exists when a city is missing on the other, and labels it", () => {
+  it("ranks a city Qloo did not score on your data alone, and labels it", () => {
     const rows = combineCityScores(qloo, sales, 0.5);
-    expect(row(rows, "atl")).toMatchObject({ yours: null, basis: "qloo", combined: 0.58 });
     expect(row(rows, "sea")).toMatchObject({ qloo: null, basis: "yours" });
     expect(row(rows, "sea").combined).toBeCloseTo(610 / 1742);
   });
 
+  it("leaves cities missing from your data out of the ranking and lists them as untested, by Qloo signal", () => {
+    const rows = combineCityScores(qloo, sales, 0.5);
+    expect(rows.find((r) => r.cityId === "atl")).toBeUndefined();
+    expect(untestedCities(qloo, sales)).toEqual([{ cityId: "atl", qloo: 0.58, rank: 1 }]);
+    const more = [...qloo, { cityId: "mia", score: 0.7 }, { cityId: "cold", score: 0 }];
+    expect(untestedCities(more, sales).map((c) => c.cityId)).toEqual(["mia", "atl"]);
+    expect(untestedCities(qloo, []).map((c) => c.cityId)).toEqual(["la", "ny", "atl"]);
+    expect(combineCityScores(qloo, [], 0.5)).toEqual([]);
+  });
+
   it("ranks by combined score, deterministically", () => {
     const rows = combineCityScores(qloo, sales, 0.5);
-    expect(rows.map((r) => r.rank)).toEqual([1, 2, 3, 4]);
+    expect(rows.map((r) => r.rank)).toEqual([1, 2, 3]);
     for (let i = 1; i < rows.length; i++) expect(rows[i - 1].combined).toBeGreaterThanOrEqual(rows[i].combined);
     expect(combineCityScores([...qloo].reverse(), [...sales].reverse(), 0.5)).toEqual(rows);
   });

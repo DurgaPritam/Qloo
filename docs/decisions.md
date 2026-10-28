@@ -824,3 +824,12 @@ recipient and context. Considered: building `sendOutreach` now (it would email t
 our domain, which needs a verified sending domain and a policy the user has not asked for; saved as
 a question), and a separate "sent" confirmation dialog (the "I sent it" click is the user's own
 statement, and the hash check already guards against a changed draft).
+
+**D129. Untested cities stay out of the combined ranking** (halfway review, answer 5). The combined
+ranking now holds only cities in the user's data: blended with Qloo where Qloo scores the city, on
+their data alone (labelled) where it does not. A city Qloo scores but the upload lacks is no longer
+ranked on Qloo alone beside them; `untestedCities` lists it separately under "Untested: strong Qloo
+signal, no data from you yet", by Qloo signal, with no Your data or Combined value. The Qloo-signal
+map view shows both groups (their Qloo values are real); the Your data and Combined views show only
+the ranked cities. A plan's chosen city can sit in the untested list and is marked there.
+Considered: ranking untested cities with a penalty (that would be a number we invented).
