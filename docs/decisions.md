@@ -339,3 +339,14 @@ Upstash returns numeric strings as numbers, so values are normalised to strings.
 **D57. Navigation regrouped** to Plan · Daily · Tools · Explore · My plans · How it works; `/tools`
 lists every tool and the footer links them all. The nav is in a Suspense boundary because dynamic
 routes cannot read the path while prerendering.
+
+**D58. Landing page cut to one of each thing.** The page repeated itself: nine identical tool
+cards (the same list as `/tools` and the footer), two plan grids, a hero paragraph and step cards
+that said the same thing, and an FAQ entry about the tools. Now: a shorter hero with a rotating
+line of real preloaded results ("John Mulaney × Mythic Quest → Seattle, only #18 by population"),
+the four steps as one numbered strip, the with/without Qloo comparison moved up, a "Play with Qloo"
+row (round 1 of today's Daily playable in place, sharing its progress with `/daily`, beside Fan
+overlap), the other tools as one row of chips, one plan grid with Featured / Just planned tabs,
+trending, and four FAQs. Considered: a scrolling marquee of plan cards (new motion the design
+does not define; the ticker reuses the design's 250 ms dim) and an inline lineup builder (too
+heavy for a landing page). Every value shown still comes from a stored run or a Qloo-backed API.

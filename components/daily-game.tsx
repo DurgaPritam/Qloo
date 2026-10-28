@@ -8,14 +8,14 @@ import type { DailyPuzzle } from "@/lib/server/daily";
 import { planHref } from "./showcase";
 import { Banner, Button, MonoLabel, OutlineChip, Panel, Sk, SourceBadge, cx, useCopy } from "./ui";
 
-interface Result {
+export interface Result {
   option: string;
   correct: boolean;
   answer: string;
   reveal: Record<string, string>;
 }
 
-interface Saved {
+export interface Saved {
   date: string;
   results: Result[];
   query?: string;
@@ -29,17 +29,17 @@ interface Stats {
   lastDate: string | null;
 }
 
-const GAME_KEY = "takeover:daily:v1";
+export const GAME_KEY = "takeover:daily:v1";
 const STATS_KEY = "takeover:daily:stats:v1";
 
-function read<T>(key: string): T | null {
+export function read<T>(key: string): T | null {
   try {
     return JSON.parse(localStorage.getItem(key) ?? "null") as T | null;
   } catch {
     return null;
   }
 }
-function write(key: string, value: unknown) {
+export function write(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -50,7 +50,7 @@ function write(key: string, value: unknown) {
 const dayBefore = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
 
 /** Updates the streak when the last round of a day is played. */
-function finishDay(date: string, results: Result[]): Stats {
+export function finishDay(date: string, results: Result[]): Stats {
   const s = read<Stats>(STATS_KEY) ?? { played: 0, perfect: 0, streak: 0, best: 0, lastDate: null };
   if (s.lastDate === date) return s;
   const streak = s.lastDate === dayBefore(date) ? s.streak + 1 : 1;

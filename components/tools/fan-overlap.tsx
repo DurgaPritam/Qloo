@@ -42,7 +42,7 @@ export function OverlapForm({ initial = ["", ""] as const, onSubmit }: { initial
   useEffect(() => setA(ia), [ia]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setB(ib), [ib]);
-  const field = "min-w-0 flex-1 rounded-btn border-th border-line bg-bg px-3 py-2.5 font-body text-[17px] text-ink outline-none focus:border-acc-line";
+  const field = "min-w-0 flex-1 basis-[180px] rounded-btn border-th border-line bg-bg px-3 py-2.5 font-body text-[17px] text-ink outline-none focus:border-acc-line";
   return (
     <form
       onSubmit={(e) => {
