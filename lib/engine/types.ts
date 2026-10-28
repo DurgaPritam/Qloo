@@ -89,6 +89,8 @@ export interface Brand {
   /** Qloo's brand_type, e.g. ["Media Brand"]. */
   brandTypes?: string[];
   description?: string;
+  /** Qloo's genre:brand tags, its sectors, e.g. ["Beverage"]. */
+  sectors?: string[];
 }
 
 export type DropReason =

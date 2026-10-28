@@ -107,6 +107,7 @@ starts with it.
 | `datasets` (*Built*, in place of `user_facts` for uploads) | file name, kind, private file key, city and country columns, metrics, attached fanbase, `source = 'user'`, uploaded by, uploaded at | workspace |
 | `dataset_rows` (*Built*) | raw city and country, matched GeoNames metro, match status (matched, manual, ambiguous, unmatched, skipped), metric values, `source = 'user'` | workspace |
 | `user_facts` | single facts typed in: fees, constraints | workspace |
+| `sponsor_matches` (*Built*) | a rights holder and a brand on the shortlist, with the engine's fit, evidence and pitch input | workspace |
 | `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |
 | `watch_items` (*Built*) | a fanbase (Qloo entity) or city (GeoNames metro) to watch, last and next check, last note | workspace |

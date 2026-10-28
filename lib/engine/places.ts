@@ -1,5 +1,6 @@
 import { ENGINE_CONFIG, NON_SPONSOR_BRAND_TYPES } from "./config";
 import { byScoreThenId, describeDropped, nicheScore, screen, screenRelative } from "./shared";
+import { isSportsOrganisation } from "./sponsor";
 import type { Brand, BrandPick, Confidence, Place, PlacePick, RankResult } from "./types";
 
 /**
@@ -76,8 +77,9 @@ export function rankBrands(
   count: number = ENGINE_CONFIG.brands.count,
 ): RankResult<BrandPick, Brand> {
   const cfg = ENGINE_CONFIG.brands;
-  // Nonprofits and government programmes are not sponsors (Qloo brand_type).
-  const notSponsors = results.filter((b) => b.brandTypes?.some((t) => NON_SPONSOR_BRAND_TYPES.includes(t)));
+  // Nonprofits, government programmes, teams and leagues are not sponsors (Qloo brand_type, and the
+  // "Sports Organization" tag, which teams carry even when they have no brand_type).
+  const notSponsors = results.filter((b) => b.brandTypes?.some((t) => NON_SPONSOR_BRAND_TYPES.includes(t)) || isSportsOrganisation(b));
   const sponsors = results.filter((b) => !notSponsors.includes(b));
   const screened = screenRelative(sponsors, cfg, () => "brand");
   const relOf = (b: { id: string }) => screened.rel.get(b.id) ?? 0;

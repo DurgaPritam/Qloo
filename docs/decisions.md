@@ -639,3 +639,40 @@ the email's own HTML. The email uses inline hex colours copied from each theme's
 reads app/globals.css and fails on any other colour), table layout with bgcolor, no CSS variables,
 classes or style blocks, and fonts every client has. Gen Z keeps its hard ink outline and offset
 shadow (clients without box-shadow keep the outline). Text, links and the button are at least 4.5:1.
+
+## Sponsorship (28 Oct, branch roadmap/foundation)
+
+**D107. `scoreSponsorFit(a, b)`** (lib/engine/sponsor.ts): Qloo affinity in each direction measured
+(the brand among the holder's fans; the holder among the brand's fans), fit = their mean × 100,
+level and confidence from the overlap thresholds (one direction: at most medium). Evidence is a
+list built from those values only, plus "Reach, impressions, fees and availability: to confirm".
+Both directions missing: no fit, the match is not shown. Considered: rankBrands' niche score as
+the fit; it is relative to the list, so it would not compare across searches.
+
+**D108. The design's "2.1× versus the US average" and "crossed 0.70 this week" are not shown.** Qloo
+gives a 0–1 affinity, not a multiplier against an average, and "this week" needs Market watch
+history; both would be invented here. Evidence shows Qloo's affinity both ways instead.
+
+**D109. Brand view extends Brand match** (`matchBrand` options): teams (brands with Qloo's "Sports
+Organization" tag among the brand's fans), the audience skew (demographics) and the reverse
+direction for the top six picks. The public Brand match tool keeps its six calls; the workspace
+view uses up to 14.
+
+**D110. Rights-holder view.** An act or team (resolver with picker), an event (a saved plan:
+fanbase and partner as one signal, its cities from the plan) or a roster (up to 10 acts as one
+signal). Brands come from `rankBrands`, whose non-sponsor rule now also drops any brand with the
+"Sports Organization" tag: real teams such as Arsenal F.C. have no brand_type, so before this a
+rival team could be pitched. The best five brands of an act or team get the reverse direction;
+events and rosters are combined audiences, so one direction, labelled. Grouped by Qloo's first
+genre:brand tag ("Other" when Qloo has none). Up to 9 calls.
+
+**D111. Pitch deck** (lib/export/sponsor.ts): cover, why it fits (the evidence), the audience
+(summariseAudience's reading), where the fans are (city heat) and a templated pitch, in the house
+deck (branded deck settings do not exist yet). No model step: the template uses names and Qloo's
+values only, so there is nothing for a model to add; a test checks every number in the deck is one
+the engine produced.
+
+**D112. Shortlist from the server's copy.** A run's matches are kept server-side for a day; saving
+sends the run id and the match, never a score, so a shortlisted fit is always the engine's.
+`sponsor_matches` stores the pitch input so a deck can be rebuilt without Qloo. Sending to the
+outreach pipeline waits for Feature 7.

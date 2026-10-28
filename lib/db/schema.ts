@@ -7,6 +7,7 @@ import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 import type { EmailTheme } from "@/lib/email/digest-html";
+import type { PitchInput } from "@/lib/export/sponsor";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -487,6 +488,34 @@ export const digestSubscriptions = pgTable(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
 
+/* ---------- Sponsorship ---------- */
+
+/**
+ * A rights holder and a brand saved to the workspace's shortlist, with the fit and evidence as the
+ * engine produced them (a pitch deck can be rebuilt from it without asking Qloo again).
+ */
+export const sponsorMatches = pgTable(
+  "sponsor_matches",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** "brand": found from the brand's side; "rights": from the rights holder's. */
+    view: text("view").$type<"brand" | "rights">().notNull(),
+    /** Stable key of the rights holder: its Qloo id(s), sorted. */
+    holderKey: text("holder_key").notNull(),
+    brandId: text("brand_id").notNull(),
+    pitch: jsonb("pitch").$type<PitchInput>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("sponsor_matches_pair_idx").on(t.workspaceId, t.holderKey, t.brandId),
+    check("sponsor_matches_view_check", sql`${t.view} in ('brand', 'rights')`),
+  ],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -504,4 +533,5 @@ export const TENANT_TABLES = [
   "snapshots",
   "alerts",
   "digest_subscriptions",
+  "sponsor_matches",
 ] as const;

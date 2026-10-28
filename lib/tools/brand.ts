@@ -3,8 +3,13 @@ import "server-only";
 import { scoreCities } from "@/lib/engine/cities";
 import { DEFAULT_MARKET, marketFor, type Market } from "@/lib/engine/markets";
 import { scorePartners } from "@/lib/engine/partners";
-import type { Category, CityScore, Entity, PartnerPick } from "@/lib/engine/types";
+import { isSportsOrganisation, rankByFit, scoreSponsorFit, type SponsorFit } from "@/lib/engine/sponsor";
+import type { Candidate, Category, CityScore, Entity, PartnerPick } from "@/lib/engine/types";
+import type { QlooCallOptions } from "@/lib/qloo/client";
+import { BudgetExceededError } from "@/lib/qloo/errors";
 import type { QlooSource } from "@/lib/qloo/source";
+
+import { audienceProfiles, type AudienceProfile } from "./audience";
 
 import { describeFailure, metroPool, resolveEntity, view, type CallView, type Resolved } from "./shared";
 
@@ -36,9 +41,21 @@ export type BrandResult =
       lists: BrandList[];
       cities: CityScore[];
       citiesError?: string;
+      /** Sponsorship only: who the brand's fans are (demographics), and the best fits both ways. */
+      audience?: AudienceProfile | null;
+      fits?: BrandFit[];
       calls: CallView[];
       mock: boolean;
     };
+
+export interface BrandFit {
+  /** The talent, show, podcast or team. */
+  name: string;
+  id: string;
+  category: Category;
+  list: string;
+  fit: SponsorFit;
+}
 
 /**
  * Brand match: resolve the brand, then one Qloo call per partner category and one heatmap in its
@@ -48,7 +65,9 @@ export async function matchBrand(
   query: string,
   entityId: string | undefined,
   source: QlooSource,
-  opts: { runId: string },
+  opts: QlooCallOptions,
+  /** Sponsorship's brand view adds teams, the audience skew and the reverse direction for the top `reverse` matches. */
+  more: { teams?: boolean; audience?: boolean; reverse?: number } = {},
 ): Promise<BrandResult> {
   const calls: CallView[] = [];
   const resolved = await resolveEntity(query, ["brand"], entityId, source, opts, calls);
@@ -83,6 +102,50 @@ export async function matchBrand(
     ),
   ]);
 
+  if (more.teams) {
+    try {
+      const res = await source.brands([brand.id], undefined, opts);
+      calls.push(view(res.meta));
+      // Teams are brands to Qloo; only sports organisations go in this list.
+      const teams: Candidate[] = res.data
+        .filter(isSportsOrganisation)
+        .map((b) => ({ id: b.id, name: b.name, category: "brand", affinity: b.affinity, popularity: b.popularity, tags: b.tags }));
+      const scored = scorePartners(teams, { count: 5, minCategories: 1, excludeIds: [brand.id] });
+      lists.push({ category: "brand", label: "Teams", picks: scored.picks, reason: scored.reason });
+    } catch (err) {
+      if (err instanceof BudgetExceededError) throw err;
+      console.warn("[tools/brand] teams failed:", describeFailure(err));
+      lists.push({ category: "brand", label: "Teams", picks: [], reason: "", error: "Qloo had no answer for this list; try again shortly." });
+    }
+  }
+  const audience = more.audience ? ((await audienceProfiles([brand.id], source, opts, calls))[0] ?? null) : undefined;
+
+  // The reverse direction for the strongest picks: the brand among each one's fans.
+  let fits: BrandFit[] | undefined;
+  if (more.reverse) {
+    const top = lists
+      .flatMap((l) => l.picks.map((p) => ({ list: l.label, pick: p })))
+      .sort((a, b) => b.pick.score - a.pick.score)
+      .slice(0, more.reverse);
+    const scored = await Promise.all(
+      top.map(async ({ list, pick }) => {
+        let forward: number | null = null;
+        try {
+          const res = await source.affinityOf([pick.entity.id], brand.id, "brand", opts);
+          calls.push(view(res.meta));
+          forward = res.data?.affinity ?? null;
+        } catch (err) {
+          if (err instanceof BudgetExceededError) throw err;
+          console.warn("[tools/brand] reverse failed:", describeFailure(err));
+        }
+        // The pick's own affinity is it among the brand's fans: the backward direction.
+        const fit = scoreSponsorFit(pick.entity, brand, { forward, backward: pick.entity.affinity });
+        return fit ? { name: pick.entity.name, id: pick.entity.id, category: pick.entity.category, list, fit } : null;
+      }),
+    );
+    fits = rankByFit(scored.filter((f): f is BrandFit => f !== null));
+  }
+
   // One audience, so it is scored against itself: combined = its own heat.
   const pool = metroPool().filter((c) => c.country === market.code);
   const cities = heat ? scoreCities(heat, heat, pool, MIN_POPULATION).filter((c) => c.combined > 0).slice(0, 8) : [];
@@ -93,6 +156,8 @@ export async function matchBrand(
     lists,
     cities,
     citiesError: heat ? undefined : "Qloo had no city data for this brand right now.",
+    ...(audience !== undefined ? { audience } : {}),
+    ...(fits ? { fits } : {}),
     calls,
     mock: source.mock,
   };

@@ -26,7 +26,7 @@ export interface RawEntity {
     brand_type?: string[] | null;
     address?: string;
   };
-  tags?: Array<{ id?: string; name?: string }>;
+  tags?: Array<{ id?: string; name?: string; type?: string }>;
 }
 
 export interface RawHeatCell {
@@ -79,7 +79,20 @@ export function toEntity(raw: RawEntity): Entity | null {
     disambiguation: raw.disambiguation || undefined,
     homeCountry: homeCountryOf(raw),
     aliases: aliasesOf(raw),
+    tags: tagNames(raw),
   };
+}
+
+/** Qloo's tag names (genres, sectors, "Sports Organization"…), for filters; capped, no aesthetic tags. */
+function tagNames(raw: RawEntity): string[] | undefined {
+  const names = (raw.tags ?? []).filter((t) => t.name && !t.type?.includes("aesthetic")).map((t) => t.name!.trim());
+  return names.length ? [...new Set(names)].slice(0, 12) : undefined;
+}
+
+/** A brand's sectors: Qloo's genre:brand tags ("Beverage", "Streaming Service App"), in Qloo's order. */
+function sectorsOf(raw: RawEntity): string[] | undefined {
+  const names = (raw.tags ?? []).filter((t) => t.name && (t.type === "urn:tag:genre:brand" || t.id?.startsWith("urn:tag:genre:brand"))).map((t) => t.name!.trim());
+  return names.length ? [...new Set(names)].slice(0, 5) : undefined;
 }
 
 function aliasesOf(raw: RawEntity): string[] | undefined {
@@ -142,6 +155,8 @@ export function toBrand(raw: RawEntity): Brand | null {
     popularity: typeof raw.popularity === "number" ? raw.popularity : Number.NaN,
     brandTypes: raw.properties?.brand_type ?? undefined,
     description: raw.properties?.short_description || undefined,
+    tags: tagNames(raw),
+    sectors: sectorsOf(raw),
   };
 }
 

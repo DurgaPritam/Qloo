@@ -9,6 +9,7 @@ import type { CityOption, MetricDef } from "@/lib/data/types";
 import type { Category } from "@/lib/engine/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 import type { EmailTheme } from "@/lib/email/digest-html";
+import type { PitchInput } from "@/lib/export/sponsor";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -32,6 +33,7 @@ import {
   rosterActs,
   rosters,
   snapshots,
+  sponsorMatches,
   users,
   watchItems,
   workspaces,
@@ -689,6 +691,29 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .update(digestSubscriptions)
           .set({ lastSentAt: at })
           .where(and(eq(digestSubscriptions.workspaceId, ws), inArray(digestSubscriptions.userId, [...userIds])));
+      },
+    },
+
+    /** Sponsorship: the workspace's shortlist of rights holder and brand matches. */
+    sponsorship: {
+      async shortlist() {
+        need("sponsor.read");
+        return db.select().from(sponsorMatches).where(eq(sponsorMatches.workspaceId, ws)).orderBy(desc(sponsorMatches.createdAt));
+      },
+      async save(input: { view: "brand" | "rights"; holderKey: string; brandId: string; pitch: PitchInput }) {
+        need("sponsor.edit");
+        const id = crypto.randomUUID();
+        const [row] = await db
+          .insert(sponsorMatches)
+          .values({ id, workspaceId: ws, createdBy: ctx.userId, ...input })
+          .onConflictDoUpdate({ target: [sponsorMatches.workspaceId, sponsorMatches.holderKey, sponsorMatches.brandId], set: { pitch: input.pitch, view: input.view } })
+          .returning({ id: sponsorMatches.id });
+        await log("sponsor.shortlisted", { type: "sponsor_match", id: row.id }, { holder: input.pitch.holder, brand: input.pitch.brand });
+        return row.id;
+      },
+      async remove(id: string) {
+        need("sponsor.edit");
+        await db.delete(sponsorMatches).where(and(eq(sponsorMatches.workspaceId, ws), eq(sponsorMatches.id, id)));
       },
     },
 
