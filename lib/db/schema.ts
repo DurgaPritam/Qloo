@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import type { Plan } from "@/lib/agent/types";
+import type { Category } from "@/lib/engine/types";
+import type { ActProfile, RosterEntity } from "@/lib/roster/types";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -218,5 +220,105 @@ export const activityLog = pgTable(
   (t) => [index("activity_workspace_idx").on(t.workspaceId, t.createdAt)],
 );
 
+/* ---------- Rosters ---------- */
+
+export const rosters = pgTable(
+  "rosters",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("rosters_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
+export const rosterActs = pgTable(
+  "roster_acts",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    rosterId: text("roster_id")
+      .notNull()
+      .references(() => rosters.id, { onDelete: "cascade" }),
+    qlooEntityId: text("qloo_entity_id").notNull(),
+    name: text("name").notNull(),
+    type: text("type").$type<Category>().notNull(),
+    /** What the resolver returned (description, tags, home country), for the format and market. */
+    entity: jsonb("entity").$type<RosterEntity>().notNull(),
+    /** From an imported CSV's home_city column: the user's data, shown with that label. */
+    homeCity: text("home_city"),
+    addedBy: text("added_by").references(() => users.id, { onDelete: "set null" }),
+    /** Qloo affinity of each other act (by entity id) among this act's fans. */
+    affinities: jsonb("affinities").$type<Record<string, number | null>>(),
+    /** The sorted entity ids the affinities were asked for; a different roster means stale. */
+    affinitiesFor: text("affinities_for"),
+    affinitiesAt: timestamp("affinities_at", { mode: "date", withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("roster_acts_entity_idx").on(t.rosterId, t.qlooEntityId),
+    index("roster_acts_workspace_idx").on(t.workspaceId, t.rosterId),
+  ],
+);
+
+/**
+ * Qloo picks per entity (best city, partner, sponsor), shared by every workspace: they are Qloo
+ * data about a public entity, not customer data, so there is no workspace_id. Keyed by source, so
+ * sample data never stands in for a live profile.
+ */
+export const entityProfiles = pgTable("entity_profiles", {
+  key: text("key").primaryKey(),
+  entityId: text("entity_id").notNull(),
+  mock: boolean("mock").notNull(),
+  profile: jsonb("profile").$type<ActProfile>().notNull(),
+  refreshedAt: timestamp("refreshed_at", { mode: "date", withTimezone: true }).notNull(),
+});
+
+export const JOB_STATUSES = ["queued", "running", "done", "failed", "skipped_budget"] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+/** Background work for one workspace, recorded whatever happens (docs/architecture.md). */
+export const jobRuns = pgTable(
+  "job_runs",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"roster.refresh">().notNull(),
+    /** What the job is about, e.g. the roster id. */
+    targetId: text("target_id"),
+    status: text("status").$type<JobStatus>().notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    /** Uncached Qloo calls the job made. */
+    qlooCalls: integer("qloo_calls").notNull().default(0),
+    note: text("note"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    startedAt: timestamp("started_at", { mode: "date", withTimezone: true }),
+    finishedAt: timestamp("finished_at", { mode: "date", withTimezone: true }),
+  },
+  (t) => [
+    index("job_runs_workspace_idx").on(t.workspaceId, t.targetId, t.createdAt),
+    check("job_runs_status_check", sql`${t.status} in ('queued', 'running', 'done', 'failed', 'skipped_budget')`),
+  ],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
-export const TENANT_TABLES = ["memberships", "invitations", "plans", "comments", "notifications", "activity_log"] as const;
+export const TENANT_TABLES = [
+  "memberships",
+  "invitations",
+  "plans",
+  "comments",
+  "notifications",
+  "activity_log",
+  "rosters",
+  "roster_acts",
+  "job_runs",
+] as const;

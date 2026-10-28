@@ -120,6 +120,21 @@ export class MockQlooSource implements QlooSource {
     });
   }
 
+  async affinitiesOf(signalIds: readonly string[], targetIds: readonly string[], category: Category): Promise<SourceResult<Candidate[]>> {
+    const data = targetIds.map((target) => ({
+      id: target,
+      name: target.replace(/^mock:seed:/, "").replace(/[-:]/g, " "),
+      category,
+      affinity: 0.8 + 0.19 * unit(`${signalIds.join(",")}|${target}`),
+      popularity: 0.9,
+    }));
+    return result(data, "/v2/insights", {
+      "filter.type": `urn:entity:${category}`,
+      "signal.interests.entities": signalIds,
+      "filter.results.entities": targetIds,
+    });
+  }
+
   async places(
     entityIds: readonly string[],
     cityQuery: string,

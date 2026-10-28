@@ -4,6 +4,7 @@ import { CITIES } from "@/lib/engine/data";
 import { classifyMatches } from "@/lib/engine/match";
 import { metroCities } from "@/lib/engine/metro";
 import type { Category, City, Entity } from "@/lib/engine/types";
+import type { QlooCallOptions } from "@/lib/qloo/client";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 export type CallView = Pick<SourceMeta, "endpoint" | "params" | "cached" | "ms">;
@@ -35,7 +36,7 @@ export async function resolveEntity(
   categories: readonly Category[] | undefined,
   entityId: string | undefined,
   source: QlooSource,
-  opts: { runId: string },
+  opts: QlooCallOptions,
   calls: CallView[],
 ): Promise<Resolved> {
   const res = await source.searchEntities(query, categories, opts);

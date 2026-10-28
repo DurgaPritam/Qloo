@@ -59,6 +59,16 @@ export interface QlooSource {
     category: Category,
     opts: QlooCallOptions,
   ): Promise<SourceResult<Candidate | null>>;
+  /**
+   * How strongly fans of `signalIds` over-index on each of `targetIds` (all of `category`), in one
+   * call: filter.results.entities. Targets Qloo does not return are absent from the result.
+   */
+  affinitiesOf(
+    signalIds: readonly string[],
+    targetIds: readonly string[],
+    category: Category,
+    opts: QlooCallOptions,
+  ): Promise<SourceResult<Candidate[]>>;
   places(
     entityIds: readonly string[],
     cityQuery: string,

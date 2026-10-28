@@ -4,13 +4,32 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { and, asc, count, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 
+import type { ActProfile, RosterEntity } from "@/lib/roster/types";
+
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
 import { assignableRoles, can, canManage, ForbiddenError, type Action } from "@/lib/workspace/permissions";
 import { isPlanTarget } from "@/lib/workspace/targets";
 
 import type { DB } from "./index";
-import { activityLog, comments, invitations, memberships, notifications, plans, users, workspaces, type CommentTarget, type Role, type Visibility } from "./schema";
+import {
+  activityLog,
+  comments,
+  entityProfiles,
+  invitations,
+  jobRuns,
+  memberships,
+  notifications,
+  plans,
+  rosterActs,
+  rosters,
+  users,
+  workspaces,
+  type CommentTarget,
+  type JobStatus,
+  type Role,
+  type Visibility,
+} from "./schema";
 
 /**
  * The scoped repository (docs/roadmap-rules.md, rule 3). Every query adds
@@ -33,6 +52,8 @@ export class InputError extends Error {
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_COMMENT = 2000;
 const MAX_NAME = 60;
+/** Pairings grow with the square of the roster, and each refresh asks Qloo once per act. */
+export const MAX_ROSTER_ACTS = 40;
 
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export const newToken = () => randomBytes(32).toString("base64url");
@@ -57,6 +78,15 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
 
   const planById = async (id: string) =>
     (await db.select().from(plans).where(and(eq(plans.workspaceId, ws), eq(plans.id, id))).limit(1))[0] ?? null;
+
+  const rosterById = async (id: string) =>
+    (await db.select().from(rosters).where(and(eq(rosters.workspaceId, ws), eq(rosters.id, id))).limit(1))[0] ?? null;
+  const actRows = (rosterId: string) =>
+    db
+      .select()
+      .from(rosterActs)
+      .where(and(eq(rosterActs.workspaceId, ws), eq(rosterActs.rosterId, rosterId)))
+      .orderBy(asc(rosterActs.createdAt), asc(rosterActs.id));
 
   const repo = {
     context: ctx,
@@ -286,6 +316,124 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .update(notifications)
           .set({ readAt: new Date() })
           .where(and(eq(notifications.workspaceId, ws), eq(notifications.userId, ctx.userId), isNull(notifications.readAt)));
+      },
+    },
+
+    rosters: {
+      async list() {
+        need("roster.read");
+        return db
+          .select({ id: rosters.id, name: rosters.name, createdAt: rosters.createdAt, acts: count(rosterActs.id) })
+          .from(rosters)
+          .leftJoin(rosterActs, and(eq(rosterActs.rosterId, rosters.id), eq(rosterActs.workspaceId, ws)))
+          .where(eq(rosters.workspaceId, ws))
+          .groupBy(rosters.id)
+          .orderBy(desc(rosters.createdAt));
+      },
+      async get(id: string) {
+        need("roster.read");
+        return rosterById(id);
+      },
+      async create(name: string) {
+        need("roster.edit");
+        const clean = name.trim().slice(0, MAX_NAME);
+        if (!clean) throw new InputError("Give the roster a name.");
+        const id = crypto.randomUUID();
+        await db.insert(rosters).values({ id, workspaceId: ws, name: clean, createdBy: ctx.userId });
+        await log("roster.created", { type: "roster", id }, { name: clean });
+        return id;
+      },
+      async rename(id: string, name: string) {
+        need("roster.edit");
+        const clean = name.trim().slice(0, MAX_NAME);
+        if (!clean) throw new InputError("Give the roster a name.");
+        await db.update(rosters).set({ name: clean }).where(and(eq(rosters.workspaceId, ws), eq(rosters.id, id)));
+      },
+      async remove(id: string) {
+        need("roster.edit");
+        await db.delete(rosters).where(and(eq(rosters.workspaceId, ws), eq(rosters.id, id)));
+        await log("roster.deleted", { type: "roster", id });
+      },
+      async acts(rosterId: string) {
+        need("roster.read");
+        return actRows(rosterId);
+      },
+      /** Adds the acts that are not on the roster yet; returns which were added and which were already there. */
+      async addActs(rosterId: string, entries: readonly { entity: RosterEntity; homeCity?: string | null }[], via: "search" | "csv") {
+        need("roster.edit");
+        if (!(await rosterById(rosterId))) throw new InputError("That roster isn't in this workspace.");
+        const existing = new Set((await actRows(rosterId)).map((a) => a.qlooEntityId));
+        const fresh = entries.filter((e, i) => !existing.has(e.entity.id) && entries.findIndex((x) => x.entity.id === e.entity.id) === i);
+        if (existing.size + fresh.length > MAX_ROSTER_ACTS) {
+          throw new InputError(`A roster holds up to ${MAX_ROSTER_ACTS} acts; this one has ${existing.size}.`);
+        }
+        if (fresh.length) {
+          await db.insert(rosterActs).values(
+            fresh.map(({ entity, homeCity }) => ({
+              workspaceId: ws,
+              rosterId,
+              qlooEntityId: entity.id,
+              name: entity.name,
+              type: entity.category,
+              entity,
+              homeCity: homeCity?.trim().slice(0, 80) || null,
+              addedBy: ctx.userId,
+            })),
+          );
+          await log("roster.acts_added", { type: "roster", id: rosterId }, { count: fresh.length, via });
+        }
+        return { added: fresh.map((e) => e.entity.id), already: entries.length - fresh.length };
+      },
+      async removeAct(rosterId: string, actId: string) {
+        need("roster.edit");
+        await db.delete(rosterActs).where(and(eq(rosterActs.workspaceId, ws), eq(rosterActs.rosterId, rosterId), eq(rosterActs.id, actId)));
+      },
+      async setAffinities(rosterId: string, actId: string, affinities: Record<string, number | null>, forKey: string, at: Date) {
+        need("roster.edit");
+        await db
+          .update(rosterActs)
+          .set({ affinities, affinitiesFor: forKey, affinitiesAt: at })
+          .where(and(eq(rosterActs.workspaceId, ws), eq(rosterActs.rosterId, rosterId), eq(rosterActs.id, actId)));
+      },
+    },
+
+    /**
+     * The shared per-entity cache of Qloo picks. Not customer data (no workspace_id): every
+     * workspace with the same act reads the same profile, so it is fetched once a week at most.
+     */
+    entityProfiles: {
+      async get(keys: readonly string[]) {
+        if (!keys.length) return [];
+        return db.select().from(entityProfiles).where(inArray(entityProfiles.key, [...keys]));
+      },
+      async put(key: string, profile: ActProfile, at: Date) {
+        await db
+          .insert(entityProfiles)
+          .values({ key, entityId: profile.entityId, mock: profile.mock, profile, refreshedAt: at })
+          .onConflictDoUpdate({ target: entityProfiles.key, set: { profile, mock: profile.mock, refreshedAt: at } });
+      },
+    },
+
+    jobs: {
+      async create(input: { kind: "roster.refresh"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
+        need("roster.edit");
+        const id = crypto.randomUUID();
+        await db.insert(jobRuns).values({ id, workspaceId: ws, createdBy: ctx.userId, ...input });
+        return id;
+      },
+      async get(id: string) {
+        return (await db.select().from(jobRuns).where(and(eq(jobRuns.workspaceId, ws), eq(jobRuns.id, id))).limit(1))[0] ?? null;
+      },
+      async update(id: string, patch: { status?: JobStatus; qlooCalls?: number; note?: string | null; startedAt?: Date; finishedAt?: Date }) {
+        await db.update(jobRuns).set(patch).where(and(eq(jobRuns.workspaceId, ws), eq(jobRuns.id, id)));
+      },
+      async listFor(targetId: string, limit = 20) {
+        return db
+          .select()
+          .from(jobRuns)
+          .where(and(eq(jobRuns.workspaceId, ws), eq(jobRuns.targetId, targetId)))
+          .orderBy(desc(jobRuns.createdAt))
+          .limit(limit);
       },
     },
 

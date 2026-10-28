@@ -155,7 +155,7 @@ export function citiesCsv(plan: Plan): string {
   return [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
 
-function csvCell(value: unknown): string {
+export function csvCell(value: unknown): string {
   const s = String(value ?? "");
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }

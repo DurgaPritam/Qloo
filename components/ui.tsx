@@ -333,6 +333,13 @@ export const SourceBadge = ({ children = "Qloo signal" }: { children?: ReactNode
   </span>
 );
 
+/** The user's own data (docs/roadmap-rules.md, rule 2); never on a Qloo number. From the design's Roster and Your data screens. */
+export const YourDataBadge = () => (
+  <span className="whitespace-nowrap rounded-badge border border-line bg-track px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-ink">
+    ■ Your data
+  </span>
+);
+
 export const NoSourceBadge = () => (
   <span className="rounded-badge border-th border-line px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-mute">
     No source

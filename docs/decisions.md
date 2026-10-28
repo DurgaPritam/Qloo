@@ -431,3 +431,75 @@ a run hang in e2e.
 
 **D73. Sign-in and invitation emails are rate-limited** at 10 per visitor per hour, so the forms
 cannot be used to flood someone's inbox.
+
+## Roster intelligence (28 Oct, branch roadmap/foundation)
+
+**D74. The roster screens live in the workspace pages, not the design's sidebar App Shell.** The
+new design (`Takeover design system (1).zip`, Roster and Empty rosters screens) draws them inside
+a sidebar shell with Pipeline, Watchlists and other pages that do not exist yet. Building that
+shell now would add empty pages; rosters get a "Rosters" tab next to Plans instead, with the
+design's header, import panel, acts table, confidence cell and pairing cards. Considered: the full
+shell first (larger, mostly placeholders).
+
+**D75. "% shared fans" in the design is shown as a shared-audience score, 0–100.** Qloo affinity
+says how strongly one fanbase over-indexes on an act; it is not a share of fans, so a percentage
+would invent a number. The score is the mean of the two directions (B among A's fans and A among
+B's), × 100, computed by `scoreRosterPairs`; both directions are shown as evidence. A pair with
+one direction uses it alone at most medium confidence; with none it is listed as unscored, never
+given a number. Considered: the higher direction (as the Fan overlap level does) — the mean keeps
+the score symmetric while penalising a one-sided pair.
+
+**D76. Pairings take one Qloo call per act and category.** `filter.results.entities` needs one
+`filter.type`, so an act is asked about the other acts of each category separately. An
+all-comedian roster is one call per act, as the brief asked; a mixed roster is two. The answers
+are stored on the act with the set of acts they were asked about, so adding or removing an act
+re-pairs every act at the next refresh, and nothing else is asked again within a week.
+
+**D77. An act's row reuses the plan's engine functions** — `scoreCities` (split into `cityHeat` and
+`scoreCityHeat`, with identical results, so a city's heat can be stored), `scorePartners` and
+`rankBrands` — on 4 calls: partner candidates in the first two categories the agent tries, one
+heatmap in the act's home market, one brand list. The row's confidence is the weakest of the
+three (`actConfidence`), shown as a level with a three-step bar and no number; the design's
+"91 / 100" city score is dropped because a single fanbase's top city is always 100 by
+construction. The pair's best shared city is scored from the two stored heats with no extra call.
+
+**D78. Profiles are cached per Qloo entity across workspaces** (`entity_profiles`, no
+`workspace_id`): they are Qloo data about a public entity, not customer data, and one cache
+saves every agency the same calls. Keyed live or sample, so sample data never stands in for a live
+profile. They are reused for 7 days; "Refresh all" re-asks Qloo with a new `fresh` option on the
+client that skips the cache read.
+
+**D79. Workspace allowance and daily cap built now** (architecture step 2), because the brief's
+budget block needs them. The default allowance is 500 uncached calls a month; there is no daily
+cap unless set. Adding an act costs one search and does not score it: scoring waits for the
+user to see the refresh estimate and click. The estimate is an upper bound (cache hits are free).
+CSV imports check that one search per name fits before searching, and stop at a budget, marking
+the rest unresolved with the reason.
+
+**D80. Large refreshes are staggered through QStash, without a new package.** A refresh is split
+into batches of at most 25 calls (one run's cap); one batch runs in the request, more go through
+the queue 30 s apart. QStash publishing and its JWT signature check are a few lines on `fetch` and
+`node:crypto`, so no `@upstash/qstash` dependency. Locally the queue is an in-process timer; a
+Vercel deployment without QStash refuses large refreshes rather than running them in a request
+that may be cut off.
+
+**D81. "Plan this pairing" keeps the roster partner.** The run opens with the act as the fanbase
+and the other act as the partner (`/run?q=&entity=&partner=&pc=`). The partner step asks Qloo for
+the chosen partner's affinity and scores it like a candidate; if its category is the fanbase's own
+(two comedians), that category's candidates are fetched only as its comparison group, so the
+shortlist is unchanged and a lone candidate is not rated "high" against itself. If it would not
+be shortlisted it is kept at low confidence and the plan says why.
+
+**D82. CSV import columns follow the design** (act_name required, qloo_id, home_city). The file is
+parsed in the browser, so the user sees the count, skips and search cost before anything is sent;
+up to 100 rows. home_city is stored as the user's data and shown with the Your data label; it does
+not change any score. Unresolved names come back for matching by hand with the resolver's choices.
+
+**D83. `roster_acts` carries workspace_id** although the brief listed only roster_id, per rule 3,
+and the act's resolver snapshot (description, tags, home country), which the format and market
+rules need. A roster holds at most 40 acts (780 pairs, 40–80 calls a full refresh).
+
+**D84. Exports.** The matrix CSV has one row per act with its picks and a shared-score column per
+act (symmetric), "no data" or "not scored yet" where there is none, and a source column; cells
+that start like a formula are quoted. Feature 10 (deck settings) does not exist yet, so the deck
+is the plain house deck: the plan deck's renderer now takes any outline.

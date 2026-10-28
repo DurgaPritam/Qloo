@@ -1,7 +1,7 @@
 "use client";
 
 import type { Plan } from "@/lib/agent/types";
-import { citiesCsv, deckOutline, exportFileName, exportFooter } from "@/lib/export/outline";
+import { citiesCsv, deckOutline, exportFileName, exportFooter, type SlideOutline } from "@/lib/export/outline";
 
 /** Design tokens (dark theme) as PowerPoint hex colours. */
 const C = { bg: "161826", surf: "232532", line: "3F424D", ink: "E9E9ED", mute: "9397AB", acc: "D4FF3A", warn: "E8B04A" };
@@ -18,7 +18,7 @@ function titleSize(chars: number, cover: boolean): number {
   return chars > 45 ? 22 : 26;
 }
 
-function save(blob: Blob, name: string) {
+export function save(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -33,13 +33,23 @@ export function downloadCsv(plan: Plan) {
 
 /** Builds the partner deck in the browser; the library loads only when asked for. */
 export async function downloadDeck(plan: Plan) {
+  await renderDeck(deckOutline(plan), {
+    title: plan.brief?.title ?? "Takeover plan",
+    footer: exportFooter(plan),
+    mock: plan.mock,
+    fileName: exportFileName(plan, "pptx"),
+  });
+}
+
+/** The house deck: dark theme, one outline slide per slide, the footer (or sample-data label) on each. */
+export async function renderDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean; fileName: string }) {
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 in
-  pptx.title = plan.brief?.title ?? "Takeover plan";
-  const footer = exportFooter(plan);
+  pptx.title = deck.title;
+  const footer = deck.footer;
 
-  for (const [i, s] of deckOutline(plan).entries()) {
+  for (const [i, s] of slides.entries()) {
     const slide = pptx.addSlide();
     slide.background = { color: C.bg };
     slide.addText("TAKEOVER", { x: 0.5, y: 0.3, w: 4, h: 0.4, fontFace: DISPLAY, fontSize: 14, color: C.ink, margin: 0 });
@@ -104,10 +114,10 @@ export async function downloadDeck(plan: Plan) {
       h: 0.35,
       fontFace: BODY,
       fontSize: 10,
-      color: plan.mock ? C.warn : C.mute,
-      bold: plan.mock,
+      color: deck.mock ? C.warn : C.mute,
+      bold: deck.mock,
       margin: 0,
     });
   }
-  await pptx.writeFile({ fileName: exportFileName(plan, "pptx") });
+  await pptx.writeFile({ fileName: deck.fileName });
 }

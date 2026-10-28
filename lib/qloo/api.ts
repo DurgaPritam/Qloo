@@ -109,6 +109,21 @@ export class QlooApiSource implements QlooSource {
     return { data: hit, meta: live(res.meta) };
   }
 
+  async affinitiesOf(signalIds: readonly string[], targetIds: readonly string[], category: Category, opts: { runId: string }) {
+    const res = await this.client.get<RawList>(
+      "/v2/insights",
+      {
+        "filter.type": urn(category),
+        "signal.interests.entities": signalIds,
+        "filter.results.entities": targetIds,
+        take: Math.max(1, targetIds.length),
+      },
+      opts,
+    );
+    const wanted = new Set(targetIds);
+    return { data: compact(entities(res.data).map((e) => toCandidate(e, category))).filter((c) => wanted.has(c.id)), meta: live(res.meta) };
+  }
+
   async places(entityIds: readonly string[], cityQuery: string, tags: readonly string[] | undefined, opts: { runId: string }) {
     const res = await this.client.get<RawList>(
       "/v2/insights",

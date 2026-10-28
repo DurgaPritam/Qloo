@@ -58,17 +58,34 @@ export class UpstreamError extends QlooError {
   }
 }
 
+export type BudgetLimitName = "run" | "daily" | "workspace" | "job_reserve";
+
+const LIMIT_TEXT: Record<BudgetLimitName, string> = {
+  run: "the per-run budget",
+  daily: "today's Qloo cap for the whole site",
+  workspace: "this workspace's monthly Qloo allowance",
+  job_reserve: "the share of today's Qloo cap kept for people using the site",
+};
+
 export class BudgetExceededError extends QlooError {
   readonly runId: string;
   readonly limit: number;
+  /** Which limit was reached; the message names it. */
+  readonly limitName: BudgetLimitName;
 
-  constructor(details: { endpoint: string; params: QlooErrorParams; runId: string; limit: number }) {
+  constructor(details: { endpoint: string; params: QlooErrorParams; runId: string; limit: number; limitName?: BudgetLimitName }) {
+    const limitName = details.limitName ?? "run";
     super(
       "budget_exceeded",
-      `Run ${details.runId} exceeded the budget of ${details.limit} Qloo calls`,
+      limitName === "run"
+        ? `Run ${details.runId} exceeded the budget of ${details.limit} Qloo calls`
+        : `Reached ${LIMIT_TEXT[limitName]} (${details.limit} calls)`,
       details,
     );
     this.runId = details.runId;
     this.limit = details.limit;
+    this.limitName = limitName;
   }
 }
+
+export const budgetLimitText = (name: BudgetLimitName) => LIMIT_TEXT[name];

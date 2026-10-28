@@ -8,12 +8,13 @@ import { CITIES } from "@/lib/engine/data";
 import { CATEGORY_LABEL, explain } from "@/lib/engine/explain";
 import { classifyMatches, foldName, isComedian } from "@/lib/engine/match";
 import { metroCities, nearestCities } from "@/lib/engine/metro";
-import { scorePartners } from "@/lib/engine/partners";
+import { scoreNamedPartner, scorePartners } from "@/lib/engine/partners";
 import { rankBrands, rankPlaces } from "@/lib/engine/places";
 import { planTour } from "@/lib/engine/tour";
-import type { Category, City, Entity, Pick } from "@/lib/engine/types";
+import type { Candidate, Category, City, Entity, Pick } from "@/lib/engine/types";
 import type { QlooCallOptions } from "@/lib/qloo/client";
 import type { JsonSchemaObject, ToolSpec } from "@/lib/llm/types";
+import { BudgetExceededError } from "@/lib/qloo/errors";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 import { safeProse, sanitizeProse, type Slots } from "./sanitize";
@@ -292,16 +293,57 @@ const findPartners: ToolDef = {
       state.candidates.set(category, fetched[i].data);
     });
 
-    // Exclude the fanbase and its own twin records (Qloo lists people as both person and artist).
-    const twins = [...state.candidates.values()].flat().filter((c) => foldName(c.name) === foldName(fanbase.name));
-    const result = scorePartners([...state.candidates.values()].flat(), {
-      excludeIds: [fanbase.id, ...twins.map((t) => t.id)],
-    });
+    // A partner chosen outside the shortlist (a roster pairing): ask Qloo for its affinity among
+    // the fanbase's fans, so it is scored on the same footing as the candidates. Its category may
+    // be one the shortlist never draws from (the fanbase's own); then that category's candidates
+    // are fetched only as its comparison group, and the shortlist itself is unchanged.
     const wantedPartner = state.overrides.partnerId;
+    const wantedCategory = state.overrides.partnerCategory;
+    const pooled = () => [...state.candidates.values()].flat();
+    let peers: Candidate[] = [];
+    let rosterPartner: Candidate | null = null;
+    if (wantedPartner && wantedCategory && wantedPartner !== fanbase.id && !pooled().some((c) => c.id === wantedPartner)) {
+      try {
+        const res = await source.affinityOf([fanbase.id], wantedPartner, wantedCategory, opts);
+        calls.push(res.meta);
+        rosterPartner = res.data;
+        if (rosterPartner && state.candidates.has(wantedCategory)) {
+          state.candidates.set(wantedCategory, [...state.candidates.get(wantedCategory)!, rosterPartner]);
+        } else if (rosterPartner) {
+          const group = await source.candidates([fanbase.id], wantedCategory, undefined, opts);
+          calls.push(group.meta);
+          peers = group.data;
+        }
+      } catch (err) {
+        if (err instanceof BudgetExceededError) throw err;
+      }
+    }
+
+    // Exclude the fanbase and its own twin records (Qloo lists people as both person and artist).
+    const twins = [...pooled(), ...peers].filter((c) => foldName(c.name) === foldName(fanbase.name));
+    const excludeIds = [fanbase.id, ...twins.map((t) => t.id)];
+    const result = scorePartners(pooled(), { excludeIds });
+    // The chosen partner is compared within its category: the shortlist pool, or its peers.
+    const namedPool = wantedCategory && !state.candidates.has(wantedCategory) ? [...peers.filter((c) => c.id !== wantedPartner), ...(rosterPartner ? [rosterPartner] : [])] : pooled();
+    const named =
+      wantedPartner && wantedCategory && !result.picks.some((p) => p.entity.id === wantedPartner)
+        ? scoreNamedPartner(namedPool, wantedPartner, { excludeIds })
+        : null;
+    if (named) {
+      result.picks.push({ ...named.pick, rank: result.picks.length + 1 });
+      state.notes.push(
+        `You chose ${named.pick.entity.name} from your roster. It is kept as the partner and scored the same way` +
+          (named.reason ? `, but it is outside the usual filters (${named.reason}), so its confidence is low.` : "."),
+      );
+    }
     const chosen =
       result.picks.find((p) => p.entity.id === wantedPartner) ?? result.picks[0] ?? null;
     if (wantedPartner && chosen?.entity.id !== wantedPartner) {
-      state.notes.push("The partner you picked is no longer shortlisted, so I used the top pick.");
+      state.notes.push(
+        wantedCategory
+          ? "Qloo has no affinity between the two you chose, so I used the top pick."
+          : "The partner you picked is no longer shortlisted, so I used the top pick.",
+      );
     }
     const untried = pool.filter((c) => !state.candidates.has(c));
     state.partner = chosen?.entity ?? null;

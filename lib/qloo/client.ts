@@ -7,6 +7,7 @@ import {
   type CacheStore,
   type QlooParams,
 } from "./cache";
+import { allowanceConfig, chargeFor, defaultCounters, type AllowanceConfig, type CounterStore, type QlooScope } from "./allowance";
 import { BudgetExceededError, NotFoundError, RateLimitedError, UpstreamError } from "./errors";
 
 export const QLOO_TIMEOUT_MS = 8_000;
@@ -43,6 +44,10 @@ export interface QlooResult<T> {
 
 export interface QlooCallOptions {
   runId: string;
+  /** Who pays for an uncached call. Visitors count only against the global daily cap. */
+  scope?: QlooScope;
+  /** Skip the cache read (an on-demand refresh); the response still refreshes the cache. */
+  fresh?: boolean;
 }
 
 export interface QlooClientDeps {
@@ -55,6 +60,10 @@ export interface QlooClientDeps {
   budget?: number;
   /** Cache lifetime for responses; 0 = no expiry (warm cache). Default 7 days. */
   ttlSeconds?: number;
+  /** Daily and workspace counters (lib/qloo/allowance.ts). */
+  counters?: CounterStore;
+  allowance?: () => AllowanceConfig;
+  clock?: () => Date;
 }
 
 export interface QlooClient {
@@ -74,6 +83,9 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
   const timeoutMs = deps.timeoutMs ?? QLOO_TIMEOUT_MS;
   const budget = deps.budget ?? QLOO_RUN_BUDGET;
   const ttlSeconds = deps.ttlSeconds ?? QLOO_CACHE_TTL_SECONDS;
+  const counters = () => deps.counters ?? defaultCounters();
+  const readAllowance = deps.allowance ?? (() => allowanceConfig());
+  const clock = deps.clock ?? (() => new Date());
 
   const runCalls = new Map<string, number>();
 
@@ -88,6 +100,12 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
       const oldest = runCalls.keys().next().value;
       if (oldest !== undefined) runCalls.delete(oldest);
     }
+  }
+
+  /** The daily cap, the job reserve and the workspace allowance, checked and counted together. */
+  async function chargeScope(scope: QlooScope, runId: string, endpoint: string, params: Record<string, string>) {
+    const result = await counters().charge(chargeFor(scope, readAllowance(), clock()));
+    if (!result.ok) throw new BudgetExceededError({ endpoint, params, runId, limit: result.cap, limitName: result.limit });
   }
 
   async function attempt(req: HttpRequest): Promise<HttpResponse> {
@@ -136,7 +154,7 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
   async function get<T>(
     path: string,
     params: QlooParams,
-    { runId }: QlooCallOptions,
+    { runId, scope = { kind: "visitor" }, fresh = false }: QlooCallOptions,
   ): Promise<QlooResult<T>> {
     const started = now();
     const env = readEnv();
@@ -157,13 +175,20 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
       ms: Math.round(now() - started),
     });
 
-    const hit = await cache.get<T>(key);
+    const hit = fresh ? null : await cache.get<T>(key);
     if (hit !== null) return { data: hit, meta: meta(true) };
 
     if (!apiKey) throw new Error("QLOO_API_KEY is not set");
     if (!baseUrl) throw new Error("QLOO_BASE_URL is not set");
 
     chargeRun(runId, endpoint, clean);
+    try {
+      await chargeScope(scope, runId, endpoint, clean);
+    } catch (err) {
+      // Refused by a wider limit: the call never happened, so the run keeps its slot.
+      runCalls.set(runId, Math.max(0, (runCalls.get(runId) ?? 1) - 1));
+      throw err;
+    }
 
     const url = buildUrl(baseUrl, path, params);
     const { data, quotaRemaining } = await send<T>({ url, apiKey, redact, fail: { endpoint, params: clean } });
@@ -246,7 +271,10 @@ export function getQlooClient(): QlooClient {
   return defaultClient;
 }
 
-/** The single entry point for Qloo calls: cached, timed out, retried once and budgeted per run. */
+/**
+ * The single entry point for Qloo calls: cached, timed out, retried once, budgeted per run and
+ * counted against the daily cap and the caller's workspace allowance.
+ */
 export function qlooGet<T>(
   path: string,
   params: QlooParams,

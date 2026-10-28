@@ -2,7 +2,9 @@ import "server-only";
 
 import { TokenBudgetExceededError } from "@/lib/llm/budget";
 import type { ToolResult } from "@/lib/llm/types";
-import { BudgetExceededError, QlooError } from "@/lib/qloo/errors";
+import type { QlooScope } from "@/lib/qloo/allowance";
+import type { QlooCallOptions } from "@/lib/qloo/client";
+import { BudgetExceededError, budgetLimitText, QlooError } from "@/lib/qloo/errors";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 import { withBudget, type BudgetedSource } from "./budget";
@@ -26,12 +28,14 @@ export interface RunAgentOptions {
   maxTurns?: number;
   budget?: number;
   signal?: AbortSignal;
+  /** Who pays for the run's uncached Qloo calls (lib/qloo/allowance.ts); visitors by default. */
+  scope?: QlooScope;
 }
 
 interface Ctx {
   state: RunState;
   source: BudgetedSource;
-  opts: { runId: string };
+  opts: QlooCallOptions;
   emit: RunAgentOptions["emit"];
 }
 
@@ -48,7 +52,7 @@ export async function runAgent(input: { query: string }, options: RunAgentOption
   const ctx: Ctx = {
     state,
     source: withBudget(options.source, runId, options.budget),
-    opts: { runId },
+    opts: { runId, scope: options.scope },
     emit: options.emit,
   };
 
@@ -165,6 +169,7 @@ async function runCall(call: ToolCall, ctx: Ctx, note?: string): Promise<ToolRes
 function describeError(err: unknown, state: RunState): string {
   if (err instanceof BudgetExceededError) {
     state.budgetHit = true;
+    if (err.limitName !== "run") return `Reached ${budgetLimitText(err.limitName)}, so I'm finishing with what I have.`;
     return `Hit the ${err.limit}-call Qloo budget for this run, so I'm finishing with what I have.`;
   }
   if (err instanceof QlooError) {

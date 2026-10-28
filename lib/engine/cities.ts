@@ -3,7 +3,7 @@ import { distanceKm, isLatLon } from "./geo";
 import { confidenceFor, isUnit } from "./shared";
 import type { City, CityScore, Confidence, HeatCell } from "./types";
 
-interface Heat {
+export interface Heat {
   mean: number;
   cells: number;
 }
@@ -22,17 +22,30 @@ export function scoreCities(
   minPopulation: number,
   opts: { radiusKm?: number } = {},
 ): CityScore[] {
-  const radiusKm = opts.radiusKm ?? ENGINE_CONFIG.cities.radiusKm;
-  const eligible = cities.filter(
-    (c) => c.population >= minPopulation && isLatLon(c.lat, c.lon),
-  );
-  const cellsA = heatA.filter(validCell);
-  const cellsB = heatB.filter(validCell);
+  const eligible = eligibleCities(cities, minPopulation);
+  return scoreCityHeat(cityHeat(heatA, eligible, opts), cityHeat(heatB, eligible, opts), cities, minPopulation);
+}
 
+/** Each city's heat (by city id) for one fanbase: the first half of scoreCities, kept so it can be stored. */
+export function cityHeat(cells: readonly HeatCell[], cities: readonly City[], opts: { radiusKm?: number } = {}): Map<string, Heat> {
+  const radiusKm = opts.radiusKm ?? ENGINE_CONFIG.cities.radiusKm;
+  const valid = cells.filter(validCell);
+  return new Map(cities.filter((c) => isLatLon(c.lat, c.lon)).map((city) => [city.id, heatNear(valid, city, radiusKm)]));
+}
+
+/** The second half of scoreCities, from per-city heat. A city missing from a map has no heat for that side. */
+export function scoreCityHeat(
+  heatA: ReadonlyMap<string, Heat>,
+  heatB: ReadonlyMap<string, Heat>,
+  cities: readonly City[],
+  minPopulation: number,
+): CityScore[] {
+  const eligible = eligibleCities(cities, minPopulation);
+  const none: Heat = { mean: 0, cells: 0 };
   const raw = eligible.map((city) => ({
     city,
-    a: heatNear(cellsA, city, radiusKm),
-    b: heatNear(cellsB, city, radiusKm),
+    a: heatA.get(city.id) ?? none,
+    b: heatB.get(city.id) ?? none,
   }));
   const maxA = Math.max(0, ...raw.map((r) => r.a.mean));
   const maxB = Math.max(0, ...raw.map((r) => r.b.mean));
@@ -68,6 +81,10 @@ export function scoreCities(
         x.city.id.localeCompare(y.city.id),
     )
     .map((s, i) => ({ ...s, rank: i + 1 }));
+}
+
+function eligibleCities(cities: readonly City[], minPopulation: number): City[] {
+  return cities.filter((c) => c.population >= minPopulation && isLatLon(c.lat, c.lon));
 }
 
 function validCell(cell: HeatCell): boolean {

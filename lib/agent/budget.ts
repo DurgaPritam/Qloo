@@ -39,6 +39,7 @@ export function withBudget(source: QlooSource, runId: string, limit = QLOO_RUN_B
     heatmap: (...a) => guard("/v2/insights", () => source.heatmap(...a)),
     demographics: (...a) => guard("/v2/insights", () => source.demographics(...a)),
     affinityOf: (...a) => guard("/v2/insights", () => source.affinityOf(...a)),
+    affinitiesOf: (...a) => guard("/v2/insights", () => source.affinitiesOf(...a)),
     places: (...a) => guard("/v2/insights", () => source.places(...a)),
     brands: (...a) => guard("/v2/insights", () => source.brands(...a)),
   };

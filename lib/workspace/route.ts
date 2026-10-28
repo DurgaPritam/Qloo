@@ -46,3 +46,14 @@ export const readJson = async (req: Request) => ((await req.json().catch(() => n
 
 /** The site's public origin for links in emails: APP_URL when set, else the request's (trusted on Vercel and locally). */
 export const appOrigin = (req: Request) => process.env.APP_URL?.trim().replace(/\/$/, "") || new URL(req.url).origin;
+
+const UUID = /^[0-9a-f-]{36}$/;
+
+/** Runs `fn` with a roster of the current workspace; 404 when it is not one of them. */
+export function inRoster(id: string, fn: (w: Found, roster: NonNullable<Awaited<ReturnType<Found["repo"]["rosters"]["get"]>>>) => Promise<Response>) {
+  return inWorkspace(async (w) => {
+    const roster = UUID.test(id) ? await w.repo.rosters.get(id) : null;
+    if (!roster) return Response.json({ error: "That roster isn't in this workspace." }, { status: 404 });
+    return fn(w, roster);
+  });
+}

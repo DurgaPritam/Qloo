@@ -10,7 +10,7 @@ import { loadPlan } from "@/lib/server/plan-store";
 
 import { unscopedAcceptInvitation, unscopedInvitationByToken } from "@/lib/db/unscoped";
 
-import { contextFor, planForViewer } from "./context";
+import { contextFor, jobContext, planForViewer } from "./context";
 
 /** The workspace switcher's choice. Only a hint: contextFor() checks the membership. */
 export const WORKSPACE_COOKIE = "takeover_ws";
@@ -86,4 +86,9 @@ export async function acceptInvitationForCurrentUser(token: string) {
   const result = await unscopedAcceptInvitation(await getDb(), token, user);
   if (result.ok) (await cookies()).set(WORKSPACE_COOKIE, result.workspaceId, WORKSPACE_COOKIE_OPTIONS);
   return result;
+}
+
+/** For job routes: the workspace in the payload, checked as jobContext() describes. */
+export async function jobWorkspace(workspaceId: string, userId: string) {
+  return jobContext(await getDb(), workspaceId, userId);
 }

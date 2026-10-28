@@ -58,6 +58,11 @@ export interface Overrides {
   entityId?: string;
   partnerId?: string;
   cityId?: string;
+  /**
+   * Set when the partner was chosen outside the shortlist (a pairing from a roster): its Qloo
+   * type, so its affinity can be fetched and it is kept even if it would not be shortlisted.
+   */
+  partnerCategory?: Category;
 }
 
 export interface Choice {

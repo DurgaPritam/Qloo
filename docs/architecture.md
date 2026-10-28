@@ -1,7 +1,7 @@
 # Architecture: Takeover as a team product (proposal)
 
 Status: **foundation built on branch `roadmap/foundation`**: database, auth, workspaces, plans,
-comments (sections marked *Built*). Jobs, Blob and Stripe are still proposals. The rules this
+comments, rosters, the Qloo budget scopes and the job queue (sections marked *Built*). Blob and Stripe are still proposals. The rules this
 design must keep are in [roadmap-rules.md](roadmap-rules.md).
 
 ## What changes and what stays
@@ -26,7 +26,7 @@ atomic and fast. Postgres holds everything a customer owns.
 | Database | **Neon Postgres** with **Drizzle ORM** (*Built*) | On the Vercel Marketplace, branch databases for previews; Drizzle gives typed SQL and SQL-first migrations we can read. Production uses the `postgres` driver on Neon's pooled URL (transactions work, unlike the HTTP driver). Local dev, unit tests and e2e use **PGlite** (Postgres in WebAssembly) with the same migrations; Vercel refuses to start without `DATABASE_URL`. |
 | Auth | **Auth.js (v5)** with email magic links, the Drizzle adapter, database sessions (*Built*) | No passwords to store. Sessions live in Postgres, so they can be revoked. Requests without a session cookie never touch the database. |
 | Email | **Resend** (*Built* for sign-in and invites) | Sign-in links, invites, later opt-in alerts and outreach the user clicks Send on. Without `RESEND_API_KEY`, local runs and e2e use an in-memory outbox at `/dev/outbox`; it never exists on Vercel, where sending fails closed. |
-| Background jobs | **Upstash QStash** | Already on Upstash. Signed HTTP calls to our own routes, with retries, delays, schedules and a dead-letter queue. One message per workspace, so a failure never stops everyone's job. |
+| Background jobs | **Upstash QStash** (*Built* for roster refreshes) | Already on Upstash. Signed HTTP calls to our own routes, with retries, delays, schedules and a dead-letter queue. One message per workspace, so a failure never stops everyone's job. |
 | Files | **Vercel Blob** | Exported decks and PDFs, posters, uploaded CSVs of ticket sales. |
 | Billing | **Stripe** | Checkout to subscribe, the Customer Portal to change or cancel, webhooks to sync the plan. |
 
@@ -108,7 +108,10 @@ starts with it.
 | `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |
 | `watches` | a fanbase or city to watch, last Qloo snapshot, frequency, opt-in for email | workspace |
-| `job_runs` | job kind, status (done, skipped: budget, failed), Qloo calls used, error | workspace |
+| `job_runs` (*Built*) | job kind, target, status (queued, running, done, failed, skipped_budget), Qloo calls used, note | workspace |
+| `rosters` (*Built*) | name, created by | workspace |
+| `roster_acts` (*Built*) | roster, Qloo entity id, name, type, resolver snapshot, home city (user data), added by, Qloo affinities to the other acts and when | workspace |
+| `entity_profiles` (*Built*) | per Qloo entity: best city, partner, sponsor and per-city heat, refreshed at; keyed live or sample | Shared: Qloo data about a public entity, not customer data |
 | `exports` | Blob path, kind (deck, PDF, CSV, poster), created by | workspace |
 | `subscriptions` | Stripe subscription id, price, status, current period end | workspace |
 | `audit_log` | who did what (invite, role change, send, export, billing) | workspace |
@@ -131,7 +134,13 @@ of where a value comes from, not something added by hand when it is shown.
   transaction. It is not in the first cut because the HTTP driver has no long-lived sessions to
   carry the setting.
 
-### Qloo budget (rule 4)
+### Qloo budget (rule 4) (*Built*)
+
+Built in `lib/qloo/allowance.ts` and `lib/qloo/client.ts`. Without Redis (local runs, mock mode,
+tests) the counters live in process memory. `QLOO_WORKSPACE_MONTHLY_CALLS` defaults to 500 and
+there is no daily cap unless `QLOO_DAILY_CALL_CAP` is set; the job reserve then defaults to a tenth
+of the cap. Signed-in plan runs, roster searches and roster refreshes are charged to the
+workspace; roster batches from the queue are charged as jobs.
 
 The client's `get(path, params, { runId })` gains a `scope`:
 `{ kind: "visitor" } | { kind: "workspace", workspaceId } | { kind: "job", workspaceId }`.
@@ -179,6 +188,14 @@ health page shows today's global count and the cap.
 
 Job routes check the QStash signature, read `workspace_id` from the payload, load that
 workspace through the scoped repository, and record a `job_runs` row whatever happens.
+
+*Built:* **Roster refresh** (on click). A refresh is planned first: its upper-bound call count is
+shown and checked against the workspace's remaining allowance (and the daily cap) before anything
+runs. Up to 25 calls run in the request; more are split into batches of at most 25 and published to
+QStash 30 seconds apart (`/api/jobs/roster-refresh`, signature checked with `node:crypto`). Each
+job acts as the member who asked, with their current role, and does nothing if they left or the
+job is no longer queued. Locally the queue is an in-process timer; on Vercel without
+`QSTASH_TOKEN` and `APP_URL` large refreshes are refused, small ones still run.
 
 ## Files
 
@@ -232,6 +249,7 @@ All are server-only. None has a `NEXT_PUBLIC_` prefix.
 1. **Database and the scoped repository.** Neon, Drizzle, a migration, `forWorkspace`, the
    ESLint import rule, and the logger wired to `expectAllScoped`.
 2. **Qloo client scopes and the two counters.** Tests for each limit and for the job reserve.
+   (*Built* with rosters.)
 3. **Auth.js magic links and workspaces.** Invites, memberships, a sign-in page in the design
    system, and saved plans moved from the browser into the workspace.
 4. **User data.** `user_facts`, the "Your data" label, and the CSV upload to Blob.

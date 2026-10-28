@@ -65,3 +65,15 @@ export async function importBrowserPlans(repo: WorkspaceRepo, runIds: readonly s
   const result = await repo.plans.importFromBrowser(found);
   return { ...result, missing: unique.length - found.length };
 }
+
+/**
+ * A background job's workspace: the one named in its payload, acting as the user who queued it
+ * with their current role. Null when the workspace is gone or they are no longer a member, and
+ * the job then does nothing.
+ */
+export async function jobContext(db: DB, workspaceId: string, userId: string): Promise<{ ctx: WorkspaceContext; repo: WorkspaceRepo } | null> {
+  const membership = (await unscopedMembershipsOf(db, userId)).find((m) => m.workspaceId === workspaceId);
+  if (!membership) return null;
+  const ctx = { userId, workspaceId, role: membership.role };
+  return { ctx, repo: forWorkspace(db, ctx) };
+}

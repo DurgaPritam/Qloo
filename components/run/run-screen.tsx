@@ -46,6 +46,10 @@ export function RunScreen() {
   const params = useSearchParams();
   const router = useRouter();
   const query = (params.get("q") ?? "").trim();
+  // Links from a roster name the act (and, for a pairing, the partner) so the run starts on them.
+  const entityParam = params.get("entity") ?? "";
+  const partnerParam = params.get("partner") ?? "";
+  const partnerCategoryParam = params.get("pc") ?? "";
   const { view, start, savedTo } = usePlanStream();
   const overrides = useRef<Overrides>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -65,8 +69,15 @@ export function RunScreen() {
   );
 
   useEffect(() => {
-    if (query) run();
-  }, [query, run]);
+    if (!query) return;
+    const linked: Overrides = {};
+    if (entityParam) linked.entityId = entityParam;
+    if (entityParam && partnerParam) {
+      linked.partnerId = partnerParam;
+      if (partnerCategoryParam) linked.partnerCategory = partnerCategoryParam as Overrides["partnerCategory"];
+    }
+    run(linked);
+  }, [query, run, entityParam, partnerParam, partnerCategoryParam]);
 
   // Finished plans go to My plans (this browser only), unless the run saved them to a workspace.
   const [saved, setSaved] = useState<string | null>(null);

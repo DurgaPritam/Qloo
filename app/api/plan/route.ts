@@ -1,6 +1,8 @@
 import { runAgent } from "@/lib/agent/loop";
 import { createPlanner, plannerStatus } from "@/lib/agent/planner";
+import { PARTNER_CATEGORIES } from "@/lib/agent/tools";
 import type { AgentEvent, Overrides } from "@/lib/agent/types";
+import type { Category } from "@/lib/engine/types";
 import { getTokenBudget } from "@/lib/llm/budget";
 import { getQlooSource } from "@/lib/qloo/source";
 import { savePlan } from "@/lib/server/plan-store";
@@ -107,7 +109,15 @@ export async function POST(req: Request): Promise<Response> {
     try {
       const plan = await runAgent(
         { query },
-        { runId, overrides, source, planner: createPlanner(), emit: send, signal: req.signal },
+        {
+          runId,
+          overrides,
+          source,
+          planner: createPlanner(),
+          emit: send,
+          signal: req.signal,
+          scope: workspace ? { kind: "workspace", workspaceId: workspace.ctx.workspaceId } : undefined,
+        },
       );
       if (workspace) {
         await saveToWorkspace(workspace.repo, query, plan);
@@ -184,6 +194,10 @@ function parseBody(body: unknown): { query: string; overrides: Overrides } {
   for (const k of ["entityId", "partnerId", "cityId"] as const) {
     const v = o[k];
     if (typeof v === "string" && v.length > 0 && v.length <= MAX_ID) overrides[k] = v;
+  }
+  const pc = o.partnerCategory;
+  if (overrides.partnerId && typeof pc === "string" && (PARTNER_CATEGORIES as readonly string[]).includes(pc)) {
+    overrides.partnerCategory = pc as Category;
   }
   return { query, overrides };
 }

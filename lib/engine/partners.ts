@@ -1,5 +1,5 @@
 import { ENGINE_CONFIG } from "./config";
-import { byScoreThenId, confidenceFor, describeDropped, nicheScore, screenRelative } from "./shared";
+import { byScoreThenId, confidenceFor, describeDropped, nicheScore, relativeAffinity, screenRelative } from "./shared";
 import type { Candidate, PartnerPick, RankResult } from "./types";
 
 export interface ScorePartnersOptions {
@@ -142,4 +142,39 @@ function pickDiverse(sorted: readonly Scored[], count: number, minCategories: nu
 
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
+}
+
+/**
+ * Scores one partner the user chose (a pair from their roster), whether or not it made the
+ * shortlist, with the same formula as scorePartners: affinity relative to its category's
+ * candidates, times the mainstream discount. Outside the popularity band or below its category's
+ * median it is kept but marked low confidence, with the reason. Null when it is not a candidate.
+ */
+export function scoreNamedPartner(
+  candidates: readonly Candidate[],
+  id: string,
+  opts: Pick<ScorePartnersOptions, "excludeIds"> = {},
+): { pick: PartnerPick; reason: string | null } | null {
+  const cfg = ENGINE_CONFIG.partners;
+  const exclude = new Set(opts.excludeIds ?? []);
+  const pool = candidates.filter((c) => !exclude.has(c.id));
+  const named = pool.find((c) => c.id === id);
+  if (!named) return null;
+  const { dropped, rel } = screenRelative(
+    pool,
+    { maxPopularity: cfg.maxPopularity, minPopularity: cfg.minPopularity, minRelativeAffinity: cfg.minRelativeAffinity },
+    (c) => c.category,
+  );
+  const drop = dropped.find((d) => d.item.id === id)?.reason ?? null;
+  // Outside the band it has no relative affinity among the screened; compare with its whole category.
+  const relative = rel.get(id) ?? relativeAffinity(pool, (c) => c.category).get(id) ?? 0;
+  const pick: PartnerPick = {
+    kind: "partner",
+    rank: 1,
+    score: nicheScore(Math.max(0, relative), named.popularity, cfg.popularityExponent),
+    confidence: drop ? "low" : confidenceFor(relative),
+    entity: named,
+    evidence: { affinity: named.affinity, popularity: named.popularity, relativeAffinity: relative },
+  };
+  return { pick, reason: drop ? describeDropped([{ item: named, reason: drop }]) : null };
 }
