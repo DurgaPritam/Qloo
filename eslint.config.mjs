@@ -15,6 +15,23 @@ const eslintConfig = defineConfig([
     // Claude Design hand-off: reference only, not app code.
     "design/**",
   ]),
+  // Rule 3 (docs/roadmap-rules.md): customer data is read through forWorkspace(). Only the
+  // files below may touch the raw client or the named unscoped lookups.
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    ignores: ["lib/db/**", "lib/auth.ts", "lib/workspace/context.ts", "lib/workspace/session.ts", "tests/**", "scripts/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "@/lib/db", message: "Use the scoped repository from lib/workspace/session.ts.", allowTypeImports: true },
+            { name: "@/lib/db/unscoped", message: "Cross-workspace lookups live in lib/workspace and lib/auth only." },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

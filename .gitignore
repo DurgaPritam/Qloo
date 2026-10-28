@@ -55,3 +55,6 @@ next-env.d.ts
 # Raw Qloo probe output stays local (docs/decisions.md D6); the trimmed set is committed.
 /tests/fixtures/*
 !/tests/fixtures/qloo/
+
+# local PGlite database (lib/db)
+/.data/
