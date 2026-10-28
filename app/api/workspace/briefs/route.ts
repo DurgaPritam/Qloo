@@ -6,19 +6,18 @@ import { inWorkspace, readJson } from "@/lib/workspace/route";
 const text = (x: unknown, max: number) => (typeof x === "string" ? x.trim().slice(0, max) : "");
 
 /**
- * POST {planId, title?, flight?, budget?} → a campaign brief from one of the workspace's plans (up to
- * 2 Qloo calls for demographics; the model only rephrases angles). DELETE ?id= removes one.
+ * POST {planId | query, entityId?, title?, flight?} → a targeting brief from a plan or a fanbase alone
+ * (up to 8 Qloo calls; the model writes only the angles, from the brief's facts). DELETE ?id= removes one.
  */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
   return inWorkspace(async ({ repo }) => {
     const source = getQlooSource();
-    const r = await makeBrief(
-      repo,
-      { planId: text(body.planId, 40), title: text(body.title, 120) || null, flight: text(body.flight, 120) || null, budget: text(body.budget, 120) || null },
-      { source, model: source.mock ? null : createProvider(), now: new Date() },
-    );
-    return Response.json({ id: r.id });
+    const planId = text(body.planId, 40);
+    const target = planId ? { planId } : { query: text(body.query, 100), entityId: text(body.entityId, 200) || undefined };
+    if (!planId && !target.query) return Response.json({ error: "Pick a plan or type a fanbase." }, { status: 400 });
+    const r = await makeBrief(repo, { ...target, title: text(body.title, 120) || null, flight: text(body.flight, 120) || null }, { source, model: source.mock ? null : createProvider(), now: new Date() });
+    return Response.json(r.status === "done" ? { status: "done", id: r.id } : r);
   });
 }
 

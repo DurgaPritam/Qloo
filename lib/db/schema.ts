@@ -750,9 +750,8 @@ export const campaignBriefs = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    planId: text("plan_id")
-      .notNull()
-      .references(() => plans.id, { onDelete: "cascade" }),
+    /** Null for a brief made from a fanbase alone. */
+    planId: text("plan_id").references(() => plans.id, { onDelete: "cascade" }),
     data: jsonb("data").$type<CampaignBriefData>().notNull(),
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),

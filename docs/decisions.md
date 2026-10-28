@@ -980,3 +980,18 @@ lineup to plan" sends only the draft id and the user's numbers: the server re-ru
 the draft's own fits and stores the result (`plan_lineups`, one per plan), which the plan page
 shows. In the sidebar, Tools now lists Lineup optimizer (as in the design); the public Lineup
 builder poster tool stays at /lineup.
+
+**D144. Campaign brief, per Prompt 9** (replaces parts of D142). A targeting brief now comes from a
+plan or from a fanbase alone (search, then a heatmap scored by the engine for its cities; a plan
+uses its own cities). It holds Qloo's age and gender skew, or, when Qloo has none, a labelled
+fallback ("Qloo has no demographics for …, so … target by the interests and cities below"); the
+top 4 interests in each of five categories (one Qloo insights call each, by affinity); the engine's
+five strongest cities; and keywords grouped for ad platforms (Music, TV and film, Podcasts, Brands
+and shopping, plus Qloo's most shared genre tags and the cities: names only, no figures). The model
+writes the three creative angles from a numbered list of facts, as JSON, and each angle must cite a
+fact and name it; an angle with any number, or with reach, impressions, CPM, CPC, CTR, ROAS,
+conversions or budget, or citing nothing real, is replaced by a template angle marked "template".
+The budget field from D142 is gone (no budget numbers). Exports: print to PDF, a deck (workspace
+branding) and a CSV of keywords (with Qloo affinity) and cities (with the engine score). Up to 8
+Qloo calls; at most 6 from a plan. A test checks that every number in the deck and CSV is a Qloo
+or engine figure (affinities, city scores and ranks, Qloo's skews and age-band names).

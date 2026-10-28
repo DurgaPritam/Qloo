@@ -34,17 +34,36 @@ test("make a campaign brief from a plan and read it", async ({ page, context }) 
   const brief = page.getByRole("article", { name: "Brief" });
   await expect(brief.getByRole("heading", { name: "Late Set, spring 2027" })).toBeVisible();
   await expect(brief.getByText("Flight: March 2027")).toBeVisible();
-  await expect(brief.getByText("to confirm").first()).toBeVisible();
-  await expect(brief.locator("[data-interest]").first()).toBeVisible();
+  await expect(brief.locator("[data-interest-group]").first()).toBeVisible();
+  await expect(brief.locator('[data-keywords="Locations"]')).toBeVisible();
   await expect(brief.getByRole("region", { name: "Cities" }).getByText(/Qloo #1 · population #\d+/)).toBeVisible();
-  await expect(brief.getByText(/^Angle 0[1-3]$/)).toHaveCount(3);
+  await expect(brief.getByText(/^Angle 0[1-3]/)).toHaveCount(3);
+  await expect(brief.getByRole("list", { name: "Facts" }).getByRole("listitem").first()).toBeVisible();
+  // The only mention of commercial figures is the line saying there are none.
+  expect(((await brief.innerText()).match(/impressions|CPM/g) ?? []).length).toBe(2);
+  await expect(brief.getByText(/there are no reach, impressions, CPM or budget figures/)).toBeVisible();
 
   await page.getByRole("button", { name: "Copy as text" }).click();
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toContain("Late Set, spring 2027");
-  expect(copied).toContain("Budget: to confirm (your data)");
-  await expect(page.getByRole("button", { name: "Download PDF" })).toBeVisible();
+  expect(copied).toContain("Interest keywords for ad platforms");
+
+  const csv = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Keywords and cities CSV" }).click();
+  const file = await csv;
+  expect(file.suggestedFilename()).toBe("late-set-spring-2027-keywords-cities.csv");
+  const deck = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download deck" }).click();
+  expect((await deck).suggestedFilename()).toBe("late-set-spring-2027.pptx");
+
+  await test.step("a fanbase alone", async () => {
+    await page.goto("/workspace/campaign");
+    await page.getByRole("tab", { name: "A fanbase alone" }).click();
+    await page.getByRole("textbox", { name: "Fanbase" }).fill("John Mulaney");
+    await page.getByRole("button", { name: "Make the brief" }).click();
+    await expect(page).toHaveURL(/\/workspace\/campaign\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("article", { name: "Brief" }).getByText(/Targeting brief for John Mulaney fans\./)).toBeVisible();
+  });
 
   await page.goto("/workspace/campaign");
   await expect(page.getByRole("region", { name: "Briefs" }).getByRole("link", { name: "Late Set, spring 2027" })).toBeVisible();

@@ -19,28 +19,29 @@ async function Content() {
   const ready = plans.flatMap((p) => {
     const plan = p.result;
     const partner = plan.partners?.picks.find((x) => x.pick.entity.id === plan.partners?.chosenId)?.pick.entity;
-    return plan.status === "complete" && plan.fanbase ? [{ id: p.id, label: `${plan.fanbase.name}${partner ? ` × ${partner.name}` : ""}${plan.room?.cityName ? ` · ${plan.room.cityName}` : ""}` }] : [];
+    return plan.fanbase ? [{ id: p.id, label: `${plan.fanbase.name}${partner ? ` × ${partner.name}` : ""}${plan.room?.cityName ? ` · ${plan.room.cityName}` : ""}` }] : [];
   });
   const canMake = can(ctx.role, "plan.create");
 
-  if (!briefs.length && !ready.length) {
-    return (
-      <>
-        <MonoLabel>Campaign brief</MonoLabel>
-        <section className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-line px-panel py-12 sm:px-12">
-          <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">No campaign briefs yet</h2>
-          <p className="m-0 max-w-[400px] text-body text-mute">Turn a plan into a one-page brief with audience, interests, cities and creative angles.</p>
-          <Link href="/workspace" className="rounded-btn bg-acc px-4 py-2.5 font-semibold text-on-acc no-underline hover:text-on-acc">
-            Go to plans
-          </Link>
-        </section>
-      </>
-    );
-  }
   return (
     <>
-      <PageTitle label="Tools" title="Campaign brief" sub="A one-page brief from a saved plan: audience, interests, cities and creative angles, every figure from Qloo." />
-      {canMake && ready.length > 0 && <NewBrief plans={ready} />}
+      {briefs.length === 0 ? (
+        <>
+          <MonoLabel>Campaign brief</MonoLabel>
+          <section className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-line px-panel py-12 sm:px-12">
+            <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">No campaign briefs yet</h2>
+            <p className="m-0 max-w-[400px] text-body text-mute">Turn a plan, or any fanbase, into a one-page brief with audience, interests, cities, keywords and creative angles.</p>
+            {!ready.length && (
+              <Link href="/workspace" className="rounded-btn bg-acc px-4 py-2.5 font-semibold text-on-acc no-underline hover:text-on-acc">
+                Go to plans
+              </Link>
+            )}
+          </section>
+        </>
+      ) : (
+        <PageTitle label="Tools" title="Campaign brief" sub="A one-page targeting brief from a plan or a fanbase: audience, interests, cities, keywords and creative angles, every figure from Qloo." />
+      )}
+      {canMake && <NewBrief plans={ready} />}
       {briefs.length > 0 && (
         <section className="flex flex-col gap-2" aria-label="Briefs">
           <MonoLabel>Briefs · {briefs.length}</MonoLabel>

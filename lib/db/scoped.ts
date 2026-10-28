@@ -1074,9 +1074,9 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         need("plan.read");
         return (await db.select().from(campaignBriefs).where(and(eq(campaignBriefs.workspaceId, ws), eq(campaignBriefs.id, id))).limit(1))[0] ?? null;
       },
-      async save(planId: string, data: CampaignBriefData) {
+      async save(planId: string | null, data: CampaignBriefData) {
         need("plan.create");
-        if (!(await planById(planId))) throw new InputError("That plan isn't in this workspace.");
+        if (planId && !(await planById(planId))) throw new InputError("That plan isn't in this workspace.");
         const id = crypto.randomUUID();
         await db.insert(campaignBriefs).values({ id, workspaceId: ws, planId, data, createdBy: ctx.userId });
         await log("brief.created", { type: "campaign_brief", id }, { name: data.title });
