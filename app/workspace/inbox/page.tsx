@@ -3,25 +3,24 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, Banner, MonoLabel, Page, Skeleton } from "@/components/ui";
+import { Banner, MonoLabel, Skeleton } from "@/components/ui";
 import { MarkInboxRead } from "@/components/workspace/settings";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
-import { ROLE_LABEL } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
+import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 
 export const metadata: Metadata = { title: "Inbox · Takeover", robots: { index: false } };
 
 async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/inbox");
-  const { ctx, repo, memberships } = found;
-  const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
+  const { repo } = found;
   const items = await repo.notifications.list();
   const unread = items.filter((n) => !n.readAt).length;
 
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
+      <SettingsTabs />
+      <PageTitle label="Settings" title="Inbox" />
       <MarkInboxRead unread={unread} />
       {items.length === 0 ? (
         <Banner tone="neutral">No mentions yet. When someone writes @ and your handle in a comment, it shows up here.</Banner>
@@ -49,11 +48,10 @@ async function Content() {
 
 export default function InboxPage() {
   return (
-    <Page max="max-w-[880px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Content />
       </Suspense>
-    </Page>
+    </>
   );
 }

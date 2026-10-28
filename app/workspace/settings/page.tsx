@@ -4,11 +4,11 @@ import { Suspense } from "react";
 
 import Link from "next/link";
 
-import { AppHeader, Banner, DataTable, MonoLabel, Page, Skeleton } from "@/components/ui";
+import { Banner, DataTable, MonoLabel, Skeleton } from "@/components/ui";
 import { WorkspaceSettings } from "@/components/workspace/settings";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
-import { can, ROLE_LABEL } from "@/lib/workspace/permissions";
+import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
+import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 
 export const metadata: Metadata = { title: "Workspace settings · Takeover", robots: { index: false } };
 
@@ -60,7 +60,8 @@ async function Content() {
 
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
+      <SettingsTabs />
+      <PageTitle label={current.name} title="Settings" />
       <WorkspaceSettings name={current.name} canRename={can(ctx.role, "workspace.rename")} canLeave={!current.personal && !lastOwner} />
       <Banner tone="neutral" action={<Link href="/workspace/settings/branding">Branded decks →</Link>}>
         Your logo, colours and headline font on every deck this workspace exports.
@@ -90,11 +91,10 @@ async function Content() {
 
 export default function SettingsPage() {
   return (
-    <Page max="max-w-[880px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Content />
       </Suspense>
-    </Page>
+    </>
   );
 }

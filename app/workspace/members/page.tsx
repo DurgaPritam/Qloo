@@ -2,26 +2,26 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, Page, Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
 import { Members } from "@/components/workspace/members";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
-import { assignableRoles, can, canManage, ROLE_LABEL } from "@/lib/workspace/permissions";
+import { assignableRoles, can, canManage } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
+import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 
 export const metadata: Metadata = { title: "Members · Takeover", robots: { index: false } };
 
 async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/members");
-  const { ctx, repo, memberships } = found;
-  const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
+  const { ctx, repo } = found;
   const canInvite = can(ctx.role, "member.invite");
   const [members, invites] = await Promise.all([repo.members.list(), canInvite ? repo.invitations.listPending() : null]);
   const assignable = assignableRoles(ctx.role);
 
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
+      <SettingsTabs />
+      <PageTitle label="Settings" title="Members" />
       <Members
         members={members.map((m) => ({
           userId: m.userId,
@@ -41,11 +41,10 @@ async function Content() {
 
 export default function MembersPage() {
   return (
-    <Page max="max-w-[880px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Content />
       </Suspense>
-    </Page>
+    </>
   );
 }

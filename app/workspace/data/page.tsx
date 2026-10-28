@@ -3,9 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, Banner, MonoLabel, OutlineChip, Page, Skeleton, YourDataBadge } from "@/components/ui";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
-import { can, ROLE_LABEL } from "@/lib/workspace/permissions";
+import { Banner, MonoLabel, OutlineChip, Skeleton, YourDataBadge } from "@/components/ui";
+import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Your data · Takeover", robots: { index: false } };
@@ -15,18 +14,16 @@ const BUTTON = "inline-flex min-h-[44px] items-center rounded-btn px-4 text-chip
 async function Content({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/data");
-  const { ctx, repo, memberships } = found;
-  const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
+  const { ctx, repo } = found;
   const list = await repo.datasets.list();
   const canEdit = can(ctx.role, "data.edit");
   const deleted = (await searchParams).deleted === "1";
 
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
       <section className="flex flex-col gap-1.5">
         <MonoLabel>Data</MonoLabel>
-        <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">Your data</h2>
+        <h1 className="t-display m-0 text-[clamp(30px,5vw,44px)] leading-[0.92]">Your data</h1>
         <p className="m-0 text-chip text-mute">Upload your own sales or CRM export. Takeover keeps it separate from Qloo signal and shows both.</p>
       </section>
       {deleted && <Banner tone="info">Deleted: the rows and the file are gone from this workspace.</Banner>}
@@ -82,11 +79,10 @@ async function Content({ searchParams }: { searchParams: Promise<Record<string, 
 
 export default function DataPage({ searchParams }: PageProps<"/workspace/data">) {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Content searchParams={searchParams} />
       </Suspense>
-    </Page>
+    </>
   );
 }

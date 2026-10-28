@@ -3,25 +3,24 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, MonoLabel, Page, Skeleton } from "@/components/ui";
+import { MonoLabel, Skeleton } from "@/components/ui";
 import { CreateRoster } from "@/components/workspace/roster";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
-import { can, ROLE_LABEL } from "@/lib/workspace/permissions";
+import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
+import { PageTitle } from "@/components/workspace/shell";
 
 export const metadata: Metadata = { title: "Rosters · Takeover", robots: { index: false } };
 
 async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/rosters");
-  const { ctx, repo, memberships } = found;
-  const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
+  const { ctx, repo } = found;
   const rosters = await repo.rosters.list();
   const canEdit = can(ctx.role, "roster.edit");
 
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
+      <PageTitle label="Workspace" title="Rosters" />
       {rosters.length === 0 ? (
         <section className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-line px-panel py-12 sm:px-12">
           <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">No rosters yet</h2>
@@ -59,11 +58,10 @@ async function Content() {
 
 export default function RostersPage() {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Content />
       </Suspense>
-    </Page>
+    </>
   );
 }

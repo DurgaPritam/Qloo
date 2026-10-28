@@ -42,7 +42,8 @@ test("sign up, plan, invite, comment with a mention, resolve, and share", async 
   await test.step("Alice signs up and gets a personal workspace", async () => {
     await signIn(alice, ALICE);
     await expect(alice).toHaveURL(/\/workspace\?welcome=1/);
-    await expect(alice.getByRole("heading", { level: 1 })).toHaveText(`alice.${run}'s workspace`);
+    await expect(alice.getByRole("heading", { level: 1 })).toHaveText("Plans");
+    await expect(alice.getByRole("button", { name: `Workspace: alice.${run}'s workspace` })).toBeVisible();
     await expect(alice.getByText("You're signed in.")).toBeVisible();
   });
 
@@ -85,7 +86,8 @@ test("sign up, plan, invite, comment with a mention, resolve, and share", async 
     await expect(bob).toHaveURL(invite);
     await bob.getByRole("button", { name: "Accept and join" }).click();
     await expect(bob).toHaveURL(/\/workspace$/);
-    await expect(bob.getByRole("heading", { level: 1 })).toHaveText(`alice.${run}'s workspace`);
+    await expect(bob.getByRole("heading", { level: 1 })).toHaveText("Plans");
+    await expect(bob.getByRole("button", { name: `Workspace: alice.${run}'s workspace` })).toBeVisible();
     await expect(bob.getByRole("main").getByRole("link", { name: /Phoebe Bridgers ×/ })).toBeVisible();
   });
 

@@ -25,7 +25,7 @@ test("watch a fanbase and a city, first snapshot, weekly check, digest test and 
   await signIn(page, EMAIL);
 
   await test.step("empty state, then watch a fanbase: first snapshot, no alert", async () => {
-    await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Watch" }).click();
+    await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Watchlists" }).click();
     await expect(page.getByRole("heading", { name: "No watchlists yet" })).toBeVisible();
     await page.getByLabel("Watch a fanbase").fill("Phoebe Bridgers");
     await page.getByRole("button", { name: "Watch", exact: true }).click();

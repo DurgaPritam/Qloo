@@ -207,6 +207,10 @@
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
   }
+  /* Sticky workspace chrome sits below the mock-mode banner when it is showing. */
+  html:has([data-mock-banner]) {
+    --banner-h: 48px;
+  }
   a {
     color: var(--acc-text);
   }

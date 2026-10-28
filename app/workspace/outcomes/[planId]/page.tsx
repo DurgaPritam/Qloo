@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, Page, Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
 import { OutcomeScreen } from "@/components/workspace/outcomes";
 import { planOutcome } from "@/lib/outcomes/service";
 import { can } from "@/lib/workspace/permissions";
@@ -22,14 +22,13 @@ async function Content({ params }: { params: Promise<{ planId: string }> }) {
 
 export default function PlanOutcomePage({ params }: PageProps<"/workspace/outcomes/[planId]">) {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Link href="/workspace/outcomes" className="pt-4 text-chip text-mute">
         ← Outcomes
       </Link>
       <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-lg" />}>
         <Content params={params} />
       </Suspense>
-    </Page>
+    </>
   );
 }

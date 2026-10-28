@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { categoryLabel } from "@/components/run/format";
-import { AppHeader, Banner, MonoLabel, OutlineChip, Page, Skeleton, SourceBadge } from "@/components/ui";
+import { Banner, MonoLabel, OutlineChip, Skeleton, SourceBadge } from "@/components/ui";
 import { ImportOffer } from "@/components/workspace/import-offer";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { summarise } from "@/lib/plan-summary";
-import { can, ROLE_LABEL } from "@/lib/workspace/permissions";
+import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
+import { PageTitle } from "@/components/workspace/shell";
 
 export const metadata: Metadata = { title: "Workspace · Takeover", robots: { index: false } };
 
@@ -23,7 +23,7 @@ async function Plans({ searchParams }: { searchParams: Promise<Record<string, st
 
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
+      <PageTitle label={current.name} title="Plans" />
       {welcome && (
         <Banner tone="info">
           You&apos;re signed in. Plans you make while signed in are saved here, private to this workspace&apos;s members. Invite your team
@@ -77,11 +77,10 @@ async function Plans({ searchParams }: { searchParams: Promise<Record<string, st
 
 export default function WorkspacePage({ searchParams }: PageProps<"/workspace">) {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Plans searchParams={searchParams} />
       </Suspense>
-    </Page>
+    </>
   );
 }

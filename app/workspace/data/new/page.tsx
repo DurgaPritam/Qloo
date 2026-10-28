@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, MonoLabel, Page, Skeleton } from "@/components/ui";
+import { MonoLabel, Skeleton } from "@/components/ui";
 import { DataUpload } from "@/components/workspace/your-data";
 import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
@@ -19,8 +19,7 @@ async function Content() {
 
 export default function NewDataPage() {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Link href="/workspace/data" className="pt-4 text-chip text-mute">
         ← Your data
       </Link>
@@ -32,6 +31,6 @@ export default function NewDataPage() {
       <Suspense fallback={<Skeleton className="h-[200px] w-full rounded-lg" />}>
         <Content />
       </Suspense>
-    </Page>
+    </>
   );
 }

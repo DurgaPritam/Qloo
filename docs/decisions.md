@@ -791,3 +791,17 @@ most 300 KB kept in the row (decks are built in the browser and embed it); SVG i
 can carry script. Deck files use fonts every machine has: Anton → Impact (upper case), Inter Bold →
 Arial bold, Georgia → Georgia. The printed brief keeps the site's own style. The preview's sample text
 has no figures (the design's "2.1×" would be invented).
+
+**D127. Workspace App Shell.** Every /workspace page now sits in one sidebar shell
+(`components/workspace/shell.tsx`, from the design's App Shell): wordmark, workspace switcher card,
+Workspace nav (Plans, Rosters, Watchlists, Sponsorship, Data, Settings), Tools nav (Outcomes, Tour
+optimizer, Lineup builder), user card with sign-out, and a top bar with search, notifications and the
+theme switch. On phones the sidebar becomes a drawer. Members, Branded decks and Inbox moved under
+Settings as tabs; the old workspace tab strip is gone. Pipeline joins the nav with Feature 7. The
+design's "Campaign brief" item is left out: there is no such page yet, and a dead link would mislead.
+Search runs only inside the signed-in workspace (scoped repository, plain text match on plan, roster,
+act, watch and dataset names); it calls neither Qloo nor the model. The bell reads the existing inbox.
+In mock mode the sticky sidebar and top bar sit below the sample-data banner (a CSS variable set only
+when the banner is on the page), so the banner never covers them. Considered: keeping the tab strip
+(no room for nine destinations on a phone) and a server-rendered shell (the drawer, search and bell
+need client state; account data comes from the existing /api/account).

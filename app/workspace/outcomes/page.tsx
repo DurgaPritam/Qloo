@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, MonoLabel, Page, Skeleton } from "@/components/ui";
+import { MonoLabel, Skeleton } from "@/components/ui";
 import { OutcomesReport } from "@/components/workspace/outcomes";
-import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { reportView } from "@/lib/outcomes/service";
-import { can, ROLE_LABEL } from "@/lib/workspace/permissions";
+import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Outcomes · Takeover", robots: { index: false } };
@@ -28,10 +27,9 @@ async function Content() {
     });
   return (
     <>
-      <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
       <section className="flex flex-col gap-1.5">
         <MonoLabel>Outcomes</MonoLabel>
-        <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">Predicted vs actual</h2>
+        <h1 className="t-display m-0 text-[clamp(30px,5vw,44px)] leading-[0.92]">Predicted vs actual</h1>
         <p className="m-0 text-chip text-mute">How your events went against what each plan predicted, by your own median.</p>
       </section>
       <OutcomesReport view={view} plans={list} canLog={can(ctx.role, "outcome.log")} />
@@ -41,11 +39,10 @@ async function Content() {
 
 export default function OutcomesPage() {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-lg" />}>
         <Content />
       </Suspense>
-    </Page>
+    </>
   );
 }

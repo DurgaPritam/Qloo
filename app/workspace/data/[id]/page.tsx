@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, MonoLabel, Page, Skeleton } from "@/components/ui";
+import { MonoLabel, Skeleton } from "@/components/ui";
 import { DatasetScreen } from "@/components/workspace/your-data";
 import { datasetView, fanbaseCityScores } from "@/lib/data/service";
 import { getQlooSource } from "@/lib/qloo/source";
@@ -25,8 +25,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
 
 export default function DatasetPage({ params }: PageProps<"/workspace/data/[id]">) {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Link href="/workspace/data" className="pt-4 text-chip text-mute">
         ← Your data
       </Link>
@@ -38,6 +37,6 @@ export default function DatasetPage({ params }: PageProps<"/workspace/data/[id]"
       <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-lg" />}>
         <Content params={params} />
       </Suspense>
-    </Page>
+    </>
   );
 }

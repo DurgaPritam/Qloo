@@ -5,7 +5,7 @@ import { currentWorkspace, WORKSPACE_COOKIE, WORKSPACE_COOKIE_OPTIONS } from "@/
 
 export interface AccountState {
   user: { email: string | null; name: string | null } | null;
-  workspace?: { id: string; name: string; role: string };
+  workspace?: { id: string; name: string; role: string; members?: number };
   workspaces?: { id: string; name: string; role: string }[];
   unread?: number;
 }
@@ -19,7 +19,7 @@ export async function GET(): Promise<Response> {
   const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
   const body: AccountState = {
     user: { email: user.email, name: user.name },
-    workspace: { id: current.workspaceId, name: current.name, role: current.role },
+    workspace: { id: current.workspaceId, name: current.name, role: current.role, members: (await repo.members.list()).length },
     workspaces: memberships.map((m) => ({ id: m.workspaceId, name: m.name, role: m.role })),
     unread: await repo.notifications.unread(),
   };

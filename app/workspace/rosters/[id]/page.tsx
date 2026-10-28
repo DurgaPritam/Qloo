@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, Page, Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
 import { RosterScreen } from "@/components/workspace/roster";
 import { rosterView } from "@/lib/roster/service";
 import { currentWorkspace } from "@/lib/workspace/session";
@@ -21,14 +21,13 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
 
 export default function RosterPage({ params }: PageProps<"/workspace/rosters/[id]">) {
   return (
-    <Page max="max-w-[1120px]">
-      <AppHeader />
+    <>
       <Link href="/workspace/rosters" className="pt-4 text-chip text-mute">
         ← All rosters
       </Link>
       <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-lg" />}>
         <Content params={params} />
       </Suspense>
-    </Page>
+    </>
   );
 }

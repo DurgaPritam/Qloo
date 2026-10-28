@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lte, or } from "drizzle-orm";
 
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
@@ -816,6 +816,26 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         await db.delete(deckSettings).where(eq(deckSettings.workspaceId, ws));
         await log("branding.reset", { type: "workspace", id: ws });
       },
+    },
+
+    /** The top bar's search: names in this workspace only, a few of each kind. */
+    async search(q: string) {
+      need("plan.read");
+      const term = `%${q.trim().replace(/[\\%_]/g, (c) => `\\${c}`).slice(0, 60)}%`;
+      const [planRows, rosterRows, actRows, watchRows, dataRows] = await Promise.all([
+        db.select({ id: plans.id, label: plans.input }).from(plans).where(and(eq(plans.workspaceId, ws), ilike(plans.input, term))).orderBy(desc(plans.createdAt)).limit(5),
+        db.select({ id: rosters.id, label: rosters.name }).from(rosters).where(and(eq(rosters.workspaceId, ws), ilike(rosters.name, term))).limit(5),
+        db.select({ id: rosterActs.rosterId, label: rosterActs.name }).from(rosterActs).where(and(eq(rosterActs.workspaceId, ws), ilike(rosterActs.name, term))).limit(5),
+        db.select({ id: watchItems.id, label: watchItems.name, kind: watchItems.kind }).from(watchItems).where(and(eq(watchItems.workspaceId, ws), ilike(watchItems.name, term))).limit(5),
+        db.select({ id: datasets.id, label: datasets.name }).from(datasets).where(and(eq(datasets.workspaceId, ws), ilike(datasets.name, term))).limit(5),
+      ]);
+      return [
+        ...planRows.map((r) => ({ kind: "Plan", label: r.label, href: `/plan/${r.id}` })),
+        ...rosterRows.map((r) => ({ kind: "Roster", label: r.label, href: `/workspace/rosters/${r.id}` })),
+        ...actRows.map((r) => ({ kind: "Talent", label: r.label, href: `/workspace/rosters/${r.id}` })),
+        ...watchRows.map((r) => ({ kind: r.kind === "city" ? "City" : "Watch", label: r.label, href: "/workspace/watch" })),
+        ...dataRows.map((r) => ({ kind: "Data", label: r.label, href: `/workspace/data/${r.id}` })),
+      ];
     },
 
     activity: {
