@@ -881,3 +881,12 @@ the run is 07:00 UTC, the hour the weekly cron used before, so existing watches 
 The next check is computed with Intl (DST-safe: computed twice around the change); an unknown zone
 falls back to UTC. Considered: a currency per event (one workspace usually reports in one currency;
 the decision log already described gross as "in the workspace's currency").
+
+**D136. Sponsor that signed and promo code in Outcomes** (halfway review, now that the pipeline
+exists). The results form adds three optional fields, all Your data: the sponsor that signed (typed,
+with suggestions from the plan's frozen predicted sponsors and from sponsor cards Booked in the
+pipeline), a promo code and its redemptions. The Top sponsor line now compares the one that signed
+with the frozen prediction ("Matched the #1 pick", "Predicted #k", or "Not among the predicted
+sponsors", matched by name ignoring case) and still shows renewal. The promo line says "Not
+predicted": Takeover never forecasts redemptions. All three go into the CSV with a `_your_data`
+suffix. Nothing here feeds a score.

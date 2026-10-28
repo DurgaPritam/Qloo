@@ -41,6 +41,9 @@ export function OutcomeScreen({ initial, canLog }: { initial: PlanOutcome; canLo
     ticketsSold: o?.ticketsSold?.toString() ?? "",
     capacity: o?.capacity?.toString() ?? "",
     gross: o?.gross?.toString() ?? "",
+    promoCode: o?.promoCode ?? "",
+    promoRedemptions: o?.promoRedemptions?.toString() ?? "",
+    topSponsor: o?.topSponsor ?? "",
   });
   const [renewed, setRenewed] = useState<"yes" | "no" | "unknown">(o?.sponsorRenewed === true ? "yes" : o?.sponsorRenewed === false ? "no" : "unknown");
   const [notes, setNotes] = useState(o?.notes ?? "");
@@ -109,6 +112,41 @@ export function OutcomeScreen({ initial, canLog }: { initial: PlanOutcome; canLo
                     <span className="text-chip text-mute">{f.key === "gross" && initial.currency ? `In ${initial.currency}, before fees` : f.hint}</span>
                   </label>
                 ))}
+              </div>
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
+                <label className="flex flex-col gap-1.5">
+                  <span className="flex flex-wrap items-center gap-2 text-body">
+                    Sponsor that signed <YourDataBadge />
+                  </span>
+                  <input
+                    list="sponsor-choices"
+                    value={values.topSponsor}
+                    onChange={(e) => setValues({ ...values, topSponsor: e.target.value })}
+                    maxLength={100}
+                    aria-label="Sponsor that signed"
+                    className={FIELD}
+                  />
+                  <datalist id="sponsor-choices">
+                    {initial.sponsorChoices.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                  <span className="text-chip text-mute">The plan&apos;s predicted sponsors and any booked in your pipeline, or type another.</span>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="flex flex-wrap items-center gap-2 text-body">
+                    Promo code <YourDataBadge />
+                  </span>
+                  <input value={values.promoCode} onChange={(e) => setValues({ ...values, promoCode: e.target.value })} maxLength={40} aria-label="Promo code" className={cx(FIELD, "font-mono")} />
+                  <span className="text-chip text-mute">The code you gave the partner&apos;s audience</span>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="flex flex-wrap items-center gap-2 text-body">
+                    Promo redemptions <YourDataBadge />
+                  </span>
+                  <input inputMode="numeric" value={values.promoRedemptions} onChange={(e) => setValues({ ...values, promoRedemptions: e.target.value })} aria-label="Promo redemptions" className={cx(FIELD, "font-mono")} />
+                  <span className="text-chip text-mute">From your ticketing report</span>
+                </label>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="flex items-center gap-2 text-body">

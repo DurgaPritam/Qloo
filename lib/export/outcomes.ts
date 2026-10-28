@@ -19,6 +19,9 @@ export interface ReportRow {
   sellThrough: number | null;
   gross: number | null;
   sponsorRenewed: boolean | null;
+  topSponsor: string | null;
+  promoCode: string | null;
+  promoRedemptions: number | null;
   aboveMedian: boolean | null;
 }
 
@@ -57,6 +60,9 @@ export function outcomesCsv(v: ReportView): string {
     "gross_your_data",
     "gross_currency",
     "sponsor_renewed_your_data",
+    "top_sponsor_your_data",
+    "promo_code_your_data",
+    "promo_redemptions_your_data",
     "above_workspace_median",
   ];
   const rows = v.rows.map((r) => [
@@ -72,6 +78,9 @@ export function outcomesCsv(v: ReportView): string {
     r.gross ?? "",
     r.gross === null ? "" : (v.currency ?? "not set"),
     r.sponsorRenewed === null ? "" : r.sponsorRenewed ? "yes" : "no",
+    r.topSponsor ?? "",
+    r.promoCode ?? "",
+    r.promoRedemptions ?? "",
     !v.judged || r.aboveMedian === null ? "too few events to judge" : r.aboveMedian ? "yes" : "no",
   ]);
   return [header, ...rows].map((r) => r.map((x) => csvCell(safe(x))).join(",")).join("\r\n") + "\r\n";

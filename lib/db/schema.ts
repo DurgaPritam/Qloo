@@ -560,6 +560,10 @@ export const outcomes = pgTable(
     capacity: integer("capacity"),
     gross: doublePrecision("gross"),
     sponsorRenewed: boolean("sponsor_renewed"),
+    /** The sponsor that actually signed, as the user names it. */
+    topSponsor: text("top_sponsor"),
+    promoCode: text("promo_code"),
+    promoRedemptions: integer("promo_redemptions"),
     notes: text("notes"),
     loggedBy: text("logged_by").references(() => users.id, { onDelete: "set null" }),
     loggedAt: timestamp("logged_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),

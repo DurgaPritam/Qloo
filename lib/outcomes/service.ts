@@ -15,6 +15,9 @@ export interface OutcomeFields {
   capacity: number | null;
   gross: number | null;
   sponsorRenewed: boolean | null;
+  topSponsor: string | null;
+  promoCode: string | null;
+  promoRedemptions: number | null;
   notes: string | null;
 }
 
@@ -26,7 +29,8 @@ export function parseOutcome(body: Record<string, unknown>): OutcomeFields {
     const v = body[k];
     if (v === null || v === undefined || v === "") return null;
     const n = typeof v === "number" ? v : Number(String(v).replace(/[\s,]/g, ""));
-    if (!Number.isInteger(n) || n < 0 || n > MAX_COUNT) throw new InputError(`${k === "ticketsSold" ? "Tickets sold" : k[0].toUpperCase() + k.slice(1)} must be a whole number of 0 or more.`);
+    const label = k === "ticketsSold" ? "Tickets sold" : k === "promoRedemptions" ? "Promo redemptions" : k[0].toUpperCase() + k.slice(1);
+    if (!Number.isInteger(n) || n < 0 || n > MAX_COUNT) throw new InputError(`${label} must be a whole number of 0 or more.`);
     return n;
   };
   const g = body.gross;
@@ -36,8 +40,18 @@ export function parseOutcome(body: Record<string, unknown>): OutcomeFields {
     if (!Number.isFinite(gross) || gross < 0 || gross > 1e12) throw new InputError("Gross must be a number of 0 or more.");
   }
   const r = body.sponsorRenewed;
-  const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 2000) || null : null;
-  return { attendance: count("attendance"), ticketsSold: count("ticketsSold"), capacity: count("capacity"), gross, sponsorRenewed: r === true ? true : r === false ? false : null, notes };
+  const text = (k: string, max: number) => (typeof body[k] === "string" ? (body[k] as string).trim().slice(0, max) || null : null);
+  return {
+    attendance: count("attendance"),
+    ticketsSold: count("ticketsSold"),
+    capacity: count("capacity"),
+    gross,
+    sponsorRenewed: r === true ? true : r === false ? false : null,
+    topSponsor: text("topSponsor", 100),
+    promoCode: text("promoCode", 40),
+    promoRedemptions: count("promoRedemptions"),
+    notes: text("notes", 2000),
+  };
 }
 
 /**
@@ -87,12 +101,48 @@ export function versusMedian(st: number | null, report: OutcomeReport): Pick<Res
   return { result: `Not above your median (${pct(report.median)}, ${report.sample} events)`, tone: "bad" };
 }
 
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The predicted sponsors against the one that signed (and whether it renewed), all as entered. */
+function sponsorLine(p: Prediction | null, o: { topSponsor: string | null; sponsorRenewed: boolean | null }): ResultLine {
+  const top = p?.sponsors[0];
+  const renewed = o.sponsorRenewed === null ? "" : o.sponsorRenewed ? " · renewed" : " · not renewed";
+  const predicted = top ? `${top.name}, #${top.rank}` : "—";
+  if (!o.topSponsor) {
+    return {
+      metric: "Top sponsor",
+      predicted,
+      actual: o.sponsorRenewed === null ? "—" : o.sponsorRenewed ? "Renewed" : "Not renewed",
+      result: o.sponsorRenewed === null ? "—" : o.sponsorRenewed ? "Renewed" : "Not renewed",
+      tone: o.sponsorRenewed === null ? "neutral" : o.sponsorRenewed ? "good" : "bad",
+    };
+  }
+  const hit = p?.sponsors.find((s) => same(s.name, o.topSponsor!));
+  return {
+    metric: "Top sponsor",
+    predicted,
+    actual: `${o.topSponsor}${renewed}`,
+    result: !p?.sponsors.length ? "No sponsors were predicted" : hit ? (hit.rank === top!.rank ? "Matched the #1 pick" : `Predicted #${hit.rank}`) : "Not among the predicted sponsors",
+    tone: !hit ? "neutral" : hit.rank === top!.rank ? "good" : "neutral",
+  };
+}
+
+/** Sponsor names to offer when logging: the plan's predicted sponsors, then brands booked in the pipeline. */
+async function sponsorChoices(repo: WorkspaceRepo, p: Prediction | null): Promise<string[]> {
+  const [cards, shortlist] = await Promise.all([repo.pipeline.list(), repo.sponsorship.shortlist()]);
+  const brands = new Map(shortlist.map((m) => [m.id, m.pitch.brand]));
+  const booked = cards.filter((c) => c.kind === "sponsor" && c.stage === "booked" && c.sponsorMatchId).map((c) => brands.get(c.sponsorMatchId!)).filter((b): b is string => Boolean(b));
+  const names = [...(p?.sponsors.map((s) => s.name) ?? []), ...booked];
+  return names.filter((x, i) => names.findIndex((y) => same(x, y)) === i);
+}
+
 /** One plan: what it predicted (frozen), what was logged, and how it compares. */
 export async function planOutcome(repo: WorkspaceRepo, planId: string) {
   const plan = await repo.plans.get(planId);
   if (!plan) return null;
   const [pred, outcome, { report }, ws] = await Promise.all([frozen(repo, planId), repo.outcomes.get(planId), workspaceReport(repo), repo.workspace.get()]);
   const p = pred?.predicted ?? null;
+  const choices = await sponsorChoices(repo, p);
   const st = outcome ? sellThrough(outcome.ticketsSold, outcome.capacity) : null;
   const vs = versusMedian(st, report);
   const actualSell = st !== null && outcome ? `${pct(st)} sell-through (${n(outcome.ticketsSold!)} of ${n(outcome.capacity!)})` : "—";
@@ -117,13 +167,18 @@ export async function planOutcome(repo: WorkspaceRepo, planId: string) {
           result: outcome.attendance !== null && outcome.capacity !== null ? `${n(outcome.attendance)} attended` : "—",
           tone: "neutral",
         },
-        {
-          metric: "Top sponsor",
-          predicted: p?.sponsors[0] ? `${p.sponsors[0].name}, #${p.sponsors[0].rank}` : "—",
-          actual: outcome.sponsorRenewed === null ? "—" : outcome.sponsorRenewed ? "Renewed" : "Not renewed",
-          result: outcome.sponsorRenewed === null ? "—" : outcome.sponsorRenewed ? "Renewed" : "Not renewed",
-          tone: outcome.sponsorRenewed === null ? "neutral" : outcome.sponsorRenewed ? "good" : "bad",
-        },
+        sponsorLine(p, outcome),
+        ...(outcome.promoCode || outcome.promoRedemptions !== null
+          ? [
+              {
+                metric: "Promo code",
+                predicted: "Not predicted",
+                actual: `${outcome.promoCode ?? "Code"}${outcome.promoRedemptions !== null ? `: ${n(outcome.promoRedemptions)} redemptions` : ""}`,
+                result: "—",
+                tone: "neutral" as const,
+              },
+            ]
+          : []),
       ]
     : [];
   return {
@@ -132,12 +187,13 @@ export async function planOutcome(repo: WorkspaceRepo, planId: string) {
     predictedAt: pred?.at.toISOString() ?? null,
     backfilled: pred?.backfilled ?? false,
     outcome: outcome
-      ? { attendance: outcome.attendance, ticketsSold: outcome.ticketsSold, capacity: outcome.capacity, gross: outcome.gross, sponsorRenewed: outcome.sponsorRenewed, notes: outcome.notes, loggedAt: outcome.loggedAt.toISOString() }
+      ? { attendance: outcome.attendance, ticketsSold: outcome.ticketsSold, capacity: outcome.capacity, gross: outcome.gross, sponsorRenewed: outcome.sponsorRenewed, topSponsor: outcome.topSponsor, promoCode: outcome.promoCode, promoRedemptions: outcome.promoRedemptions, notes: outcome.notes, loggedAt: outcome.loggedAt.toISOString() }
       : null,
     sellThrough: st,
     lines,
     /** The workspace's currency for gross (Settings), or null when not set. */
     currency: ws?.currency ?? null,
+    sponsorChoices: choices,
     report: { median: report.median, sample: report.sample, minSample: report.minSample, judged: report.judged },
   };
 }
@@ -170,6 +226,9 @@ export async function reportView(repo: WorkspaceRepo, workspace: string): Promis
       sellThrough: r.sellThrough,
       gross: r.outcome.gross,
       sponsorRenewed: r.outcome.sponsorRenewed,
+      topSponsor: r.outcome.topSponsor,
+      promoCode: r.outcome.promoCode,
+      promoRedemptions: r.outcome.promoRedemptions,
       aboveMedian: r.sellThrough === null || report.median === null ? null : r.sellThrough > report.median,
     })),
     sample: report.sample,

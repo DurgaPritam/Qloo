@@ -12,6 +12,7 @@ import { outcomesCsv, outcomesOutline } from "@/lib/export/outcomes";
 import { MockQlooSource } from "@/lib/qloo/mock";
 import { logOutcome, parseOutcome, planOutcome, reportView } from "@/lib/outcomes/service";
 import { ForbiddenError } from "@/lib/workspace/permissions";
+import { scoreSponsorFit } from "@/lib/engine/sponsor";
 
 import { addUser, testDb } from "../support/db";
 import { expectAllScoped, type LoggedQuery } from "../support/scoped-queries";
@@ -104,7 +105,8 @@ describe("sell-through and calibration pairs", () => {
     expect(() => fields({ ticketsSold: "12.5" })).toThrow(/whole number/);
     expect(() => fields({ capacity: -3 })).toThrow(/whole number/);
     expect(() => fields({ gross: "lots" })).toThrow(/Gross/);
-    expect(fields({})).toEqual({ attendance: null, ticketsSold: null, capacity: null, gross: null, sponsorRenewed: null, notes: null });
+    expect(() => fields({ promoRedemptions: "many" })).toThrow(/Promo redemptions must be a whole number/);
+    expect(fields({})).toEqual({ attendance: null, ticketsSold: null, capacity: null, gross: null, sponsorRenewed: null, topSponsor: null, promoCode: null, promoRedemptions: null, notes: null });
   });
 });
 
@@ -141,6 +143,37 @@ describe("workspace report", () => {
     expect(csv[1]).toContain(",1200,GBP,");
     const member = forWorkspace(db, { userId: user.id, workspaceId, role: "member" });
     await expect(member.workspace.saveSettings({ timeZone: null, currency: null, outcomeMinSample: null })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("sponsor and promo results", () => {
+  it("offers the predicted sponsors and pipeline bookings, and compares the one that signed with the prediction", async () => {
+    const { repo } = await person("spo@out.test");
+    const id = await planIn(repo);
+    const matchId = await repo.sponsorship.save({
+      view: "rights",
+      holderKey: "h",
+      brandId: "b-booked",
+      pitch: { holder: "Phoebe Bridgers", brand: "Booked Brand", fit: scoreSponsorFit({ name: "P" }, { name: "B" }, { forward: 0.7, backward: 0.6 })!, audience: null, cities: [], mock: true },
+    });
+    await repo.pipeline.addFromMatch(matchId);
+    const [card] = await repo.pipeline.list();
+    await repo.pipeline.move(card.id, "booked");
+
+    const before = (await planOutcome(repo, id))!;
+    const predicted = before.prediction!.sponsors.map((x) => x.name);
+    expect(before.sponsorChoices).toEqual([...predicted, "Booked Brand"]);
+
+    await logOutcome(repo, id, fields({ topSponsor: predicted[0].toUpperCase(), sponsorRenewed: true, promoCode: "PHOEBE10", promoRedemptions: 312 }));
+    const after = (await planOutcome(repo, id))!;
+    expect(after.lines.find((l) => l.metric === "Top sponsor")).toMatchObject({ actual: `${predicted[0].toUpperCase()} · renewed`, result: "Matched the #1 pick", tone: "good" });
+    expect(after.lines.find((l) => l.metric === "Promo code")).toMatchObject({ predicted: "Not predicted", actual: "PHOEBE10: 312 redemptions" });
+
+    await logOutcome(repo, id, fields({ topSponsor: "Booked Brand" }));
+    expect((await planOutcome(repo, id))!.lines.find((l) => l.metric === "Top sponsor")).toMatchObject({ result: "Not among the predicted sponsors", tone: "neutral" });
+    const csv = outcomesCsv(await reportView(repo, "Spo's")).split("\r\n");
+    expect(csv[0]).toContain("top_sponsor_your_data,promo_code_your_data,promo_redemptions_your_data");
+    expect(csv[1]).toContain(",Booked Brand,,,");
   });
 });
 

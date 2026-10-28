@@ -751,7 +751,20 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
        * Saves (or replaces) a plan's results, then its calibration pairs: the frozen predicted
        * scores beside the sell-through, when both tickets sold and capacity were entered.
        */
-      async save(planId: string, fields: { attendance: number | null; ticketsSold: number | null; capacity: number | null; gross: number | null; sponsorRenewed: boolean | null; notes: string | null }) {
+      async save(
+        planId: string,
+        fields: {
+          attendance: number | null;
+          ticketsSold: number | null;
+          capacity: number | null;
+          gross: number | null;
+          sponsorRenewed: boolean | null;
+          topSponsor: string | null;
+          promoCode: string | null;
+          promoRedemptions: number | null;
+          notes: string | null;
+        },
+      ) {
         need("outcome.log");
         if (!(await planById(planId))) throw new InputError("That plan isn't in this workspace.");
         const now = new Date();
