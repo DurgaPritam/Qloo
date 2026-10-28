@@ -190,8 +190,8 @@ export function SponsorshipScreen({
             </div>
           ))}
           <span className="text-chip text-mute">
-            Pitch decks use the house style (branded deck settings are not set up yet) and include the evidence above with its Qloo source. Reach, impressions and fees are
-            always to confirm.
+            Pitch decks use this workspace&apos;s branded deck settings (or the house style) and include the evidence above with its Qloo source. Reach, impressions and fees
+            are always to confirm.
           </span>
         </section>
       )}
@@ -225,6 +225,21 @@ function MatchCard({ m, canEdit, saved, onSave }: { m: MatchView; canEdit: boole
             </li>
           ))}
         </ul>
+        {m.thisWeek.length > 0 && (
+          <div className="flex flex-col gap-1.5" data-this-week>
+            <MonoLabel>This week · Market watch</MonoLabel>
+            <ul className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label={`This week for ${m.name}`}>
+              {m.thisWeek.map((l) => (
+                <li key={l.text} className="flex gap-2 text-body">
+                  <span className="text-acc-text">◆</span>
+                  <span>
+                    {l.text} <span className="font-mono text-label text-mute">{new Date(l.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {m.pitch.sources && m.pitch.sources.length > 0 && (
           <details className="text-chip">
             <summary className="cursor-pointer text-acc-text">Where each figure comes from</summary>

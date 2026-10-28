@@ -840,3 +840,12 @@ heats: a fit needs both sides, so one weak direction pulls it down (0.9 and 0.1 
 With one direction only, the fit is that direction and confidence stays capped at medium, as before.
 The deck's method note says so. Matches already on a shortlist keep the fit they were saved with
 (the stored pitch is what its deck was built from); saving the match again recomputes it.
+
+**D131. "This week" lines on sponsor matches** (halfway review). When the workspace's Market watch
+has something recent, a match card shows up to three lines under "This week · Market watch": alert
+titles from the last 8 days about the rights holder or the brand (as entity or as watched item), then
+the brand's rank in any watched city's latest snapshot taken in that window. Lines are stored alert
+titles or snapshot readings, so they cost no Qloo call and add no number of their own; a single
+reading is stated as a rank, never as a move. The fit is unchanged by them. The lines are not put
+into the pitch deck (a deck is a lasting document; a weekly reading would age in it). Also fixed the
+stale note that branded deck settings were not set up.

@@ -16,6 +16,7 @@ import { kvGet, kvSet } from "@/lib/server/kv";
 import { matchBrand } from "@/lib/tools/brand";
 import type { CallView, Choice } from "@/lib/tools/shared";
 import { brandsToPitch, type RightsHolder } from "@/lib/tools/sponsor";
+import { THIS_WEEK_DAYS, thisWeekLines, type WatchContext, type WatchLine } from "./this-week";
 import { can, ForbiddenError } from "@/lib/workspace/permissions";
 
 /**
@@ -30,6 +31,8 @@ export interface MatchView {
   meta: string;
   fit: SponsorFit;
   pitch: PitchInput;
+  /** From the workspace's Market watch, when it watches the holder, the brand or a city. */
+  thisWeek: WatchLine[];
 }
 
 export type SponsorRun =
@@ -76,6 +79,21 @@ function sources(entries: [string, CallView | undefined][]): PitchSource[] {
   return entries.flatMap(([figure, c]) => (c ? [{ figure, endpoint: c.endpoint, params: c.params }] : []));
 }
 
+/** The workspace's recent alerts and its watched cities' latest snapshots; no Qloo call. */
+async function watchContext(repo: WorkspaceRepo, now: Date): Promise<WatchContext> {
+  if (!can(repo.context.role, "watch.read")) return { alerts: [], cities: [] };
+  const since = new Date(now.getTime() - THIS_WEEK_DAYS * 86_400_000);
+  const [alerts, items] = await Promise.all([repo.watch.alerts({ since, limit: 200 }), repo.watch.items()]);
+  const recent = items.filter((i) => i.kind === "city" && i.lastSnapshotAt && i.lastSnapshotAt >= since);
+  const cities = await Promise.all(
+    recent.map(async (i) => {
+      const [snap] = await repo.watch.snapshots(i.id, 1);
+      return snap ? [{ name: i.name, takenAt: snap.takenAt, lists: snap.summary.lists }] : [];
+    }),
+  );
+  return { alerts, cities: cities.flat() };
+}
+
 async function saveDraft(draft: Draft) {
   const id = crypto.randomUUID();
   await kvSet(draftKey(id), draft, DRAFT_TTL);
@@ -92,8 +110,11 @@ export async function runBrandView(repo: WorkspaceRepo, input: { query: string; 
 
   const cities = r.cities.slice(0, 5).map((c) => ({ name: c.city.name, score: c.combined }));
   const audience = audienceOf(r.brand.name, r.audience);
+  const now = new Date();
+  const watched = await watchContext(repo, now);
   const matches: MatchView[] = (r.fits ?? []).map((f) => ({
     key: f.id,
+    thisWeek: thisWeekLines(watched, { ids: [f.id] }, { id: r.brand.id, name: r.brand.name }, now),
     kind: kindOf(f.category, f.list),
     name: f.name,
     meta: `${f.list} ${r.brand.name} fans over-index on`,
@@ -169,11 +190,14 @@ export async function runRightsView(repo: WorkspaceRepo, input: HolderInput, sou
   const holderKey = [...r.holder.ids].sort((a, b) => a.localeCompare(b)).join(",");
   const cities = r.cities.map((c) => ({ name: c.city.name, score: c.combined }));
   const audience = audienceOf(r.holder.name, r.audience);
+  const now = new Date();
+  const watched = await watchContext(repo, now);
   const groups = r.groups.map((g) => ({
     label: g.sector,
     matches: g.brands.map(
       (b): MatchView => ({
         key: b.id,
+        thisWeek: thisWeekLines(watched, { ids: r.holder.ids }, { id: b.id, name: b.name }, now),
         kind: g.sector === "Other" ? "Brand" : g.sector,
         name: b.name,
         meta: b.description ?? "Brand",

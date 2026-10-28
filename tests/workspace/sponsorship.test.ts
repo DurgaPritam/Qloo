@@ -172,6 +172,36 @@ describe("done when: a brand and a team, and a deck that opens with every figure
     }
   });
 
+  it("adds this week's Market watch lines when the workspace watches the act or a city where the brand ranks", async () => {
+    const { repo } = await person("joy@sp.test");
+    const first = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, new MockQlooSource()));
+    expect(matches(first).every((m) => m.thisWeek.length === 0)).toBe(true);
+    const brand = matches(first)[0];
+    const act = "mock:seed:golden-state-warriors:brand";
+
+    const now = new Date();
+    const city = await repo.watch.add({ kind: "city", targetId: "4887398", name: "Chicago", detail: "US" });
+    const fan = await repo.watch.add({ kind: "fanbase", targetId: act, name: "Golden State Warriors", detail: "brand" });
+    const lists = { "category:brand": [{ id: brand.key, name: brand.name, rank: 2, value: 0.7 }] };
+    const prev = await repo.watch.addSnapshot(fan.id, { lists: {}, calls: [] }, 0, new Date(now.getTime() - 7 * 86_400_000));
+    const curr = await repo.watch.addSnapshot(fan.id, { lists: {}, calls: [] }, 0, now);
+    await repo.watch.addSnapshot(city.id, { lists, calls: [] }, 0, now);
+    await repo.watch.setChecked(city.id, { lastSnapshotAt: now, lastNote: null });
+    await repo.watch.addAlerts([
+      { itemId: fan.id, snapshotId: curr, previousSnapshotId: prev, kind: "rank_up", list: "cities", entityId: "geo-1", entityName: "Oakland", before: { rank: 6, value: 0.5 }, after: { rank: 2, value: 0.8 }, title: "Oakland up 4 places in the top cities for Golden State Warriors", body: "", createdAt: now },
+    ]);
+
+    queries.length = 0;
+    const again = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, new MockQlooSource()));
+    const m = matches(again).find((x) => x.key === brand.key)!;
+    expect(m.thisWeek.map((l) => l.text)).toEqual([
+      "Oakland up 4 places in the top cities for Golden State Warriors",
+      `${brand.name} is #2 in the top brands in Chicago (Market watch, latest reading).`,
+    ]);
+    expect(m.fit).toEqual(brand.fit);
+    expectAllScoped(queries, TENANT_TABLES);
+  });
+
   it("the pitch deck is a real .pptx that opens, with every number traceable to Qloo or the engine", async () => {
     const { repo } = await person("jo@sp.test");
     const r = done(await runRightsView(repo, { kind: "entity", query: "Golden State Warriors" }, new MockQlooSource()));
