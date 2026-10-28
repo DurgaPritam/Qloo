@@ -734,3 +734,39 @@ the report counts 3 logged, a sample of 2 with sell-through, Austin with 2 event
 and Seattle out of the sample. The stored plans are then changed and the report does not move. A test
 checks every number in the CSV and the deck is an entry, a frozen prediction or computed from them.
 Plan labels on the Outcomes pages now come from the frozen predictions too, never the stored plan.
+
+## Tour optimizer (28 Oct, branch roadmap/foundation)
+
+**D120. `optimizeRoute(cityScores, constraints)`** (lib/engine/route.ts) maximises Σ stop score × 100 −
+distanceWeight × total km ÷ 1,000 (`ENGINE_CONFIG.route.distanceWeight`, 5: a route 1,000 km longer
+must gain 5 points). The weight and the breakdown are on screen. Hard constraints, never broken:
+number of stops, longest leg, start first, end last, cities to include and skip, and 150 km between
+stops (the plan tour's spacing, so one metro is not visited twice). A finished route is checked by an
+independent `satisfies` function; if no route passes, none is shown and the message names the
+constraint (both required and skipped; more required cities than stops; required cities too close;
+no route under the leg limit). When fewer stops than asked fit, it says so.
+
+**D121. Search.** Exact (depth-first with an upper bound) when there are at most 9 candidates.
+Above that: greedy cheapest insertion from the fixed cities, 2-opt, then swapping stops for unused
+cities, repeated until a pass finds nothing. While building, a leg over the limit is allowed but costs
+10 points per km over, so the search adds cities that bridge a far start and end (Seattle to Boston
+under 2,500 km goes through Denver, Minneapolis and Chicago); the result must still pass `satisfies`.
+Candidates are the 14 strongest cities plus any named. Every tie breaks on city id, there is no
+randomness, so the same inputs give the same route in any input order. On a test with nine cities the
+heuristic is within 3% of the exact answer.
+
+**D122. "Why not"** for the six strongest cities left off: you skipped it; within 150 km of a stop;
+no position keeps both legs under your limit; or taking it instead of a stop scores N points less once
+distance counts. The last is computed by trying it at every position in place of each stop you did not
+require.
+
+**D123. Scores across countries.** Qloo heatmaps are per country, so a region (United States and
+Canada, UK and Ireland, Western Europe, Australia and New Zealand; one heatmap each, at most five)
+scores each city against the hottest city in its own country, and the page says so. A typed city is
+matched with the GeoNames matcher inside the region; names that do not match are listed, not guessed.
+A named city with no Qloo heat can still be a stop (score 0), labelled.
+
+**D124. Dates and venue sizes are the user's.** The design's "target week of …" per stop is not
+built: it would suggest dates. A date window and a date per stop can be typed and show the Your data
+label; until then each stop says "Date to confirm with the promoter". A venue size band per stop is
+also typed by the user and never changes a score. The plan's own tour (planTour) is unchanged.

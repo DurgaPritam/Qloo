@@ -82,7 +82,20 @@ describe("POST /api/tools/tour", () => {
   it("routes the requested number of stops at most", async () => {
     const body = await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 4 }, "192.0.2.90"))).json();
     expect(body.status).toBe("done");
-    expect(body.tour.stops.length).toBeLessThanOrEqual(4);
+    expect(body.route.stops.length).toBeLessThanOrEqual(4);
+  });
+
+  it("takes the user's constraints, matches typed cities in the region and reports names it could not match", async () => {
+    const req = { fanbase: "John Mulaney", stops: 4, maxLegKm: 3000, start: "Chicago", exclude: ["New York", "Atlantis"], region: "US" };
+    const body = await (await tour(postJson("http://localhost/api/tools/tour", req, "192.0.2.91"))).json();
+    expect(body.status).toBe("done");
+    expect(body.understood).toMatchObject({ start: "Chicago", exclude: ["New York City"], unmatched: ["Atlantis"] });
+    const stops = body.route.stops.map((s: { city: { name: string } }) => s.city.name);
+    expect(stops[0]).toBe("Chicago");
+    expect(stops).not.toContain("New York City");
+    expect(body.route.stops.every((s: { legKm: number }) => s.legKm <= 3000)).toBe(true);
+    const again = await (await tour(postJson("http://localhost/api/tools/tour", req, "192.0.2.92"))).json();
+    expect(again.route).toEqual(body.route);
   });
 });
 

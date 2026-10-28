@@ -6,7 +6,7 @@ export const TOOLS = [
   { href: "/brand", label: "Brand match", who: "Brands & agencies", body: "The talent, shows and podcasts your customers over-index on, and where they are.", example: "/brand?brand=Patagonia" },
   { href: "/venue", label: "Venue booker", who: "Venues", body: "The artists, comedians, podcasts and brands your city loves.", example: "/venue?city=Austin" },
   { href: "/cities", label: "City explorer", who: "Tour planners & fan clubs", body: "A fanbase's strongest cities at home and in three more countries.", example: "/cities?q=Taylor%20Swift" },
-  { href: "/tour", label: "Tour planner", who: "Artists & agents", body: "A route through a fanbase's strongest cities with every leg's distance.", example: "/tour?q=Phoebe%20Bridgers" },
+  { href: "/tour", label: "Tour optimizer", who: "Artists & agents", body: "The best route through a fanbase's strongest cities inside your constraints, with every leg's distance and why strong cities were left off.", example: "/tour?q=Phoebe%20Bridgers" },
   { href: "/city", label: "City pages", who: "Everyone", body: "What every big city is into, one page each.", example: "/city/austin" },
 ] as const;
 

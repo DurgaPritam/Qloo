@@ -51,6 +51,22 @@ export const ENGINE_CONFIG = {
     /** The radius around the chosen city used when the country alone is too thin. */
     widenKm: 2500,
   },
+  /**
+   * Tour optimizer (lib/engine/route.ts): objective = Σ stop score (0–100) − distanceWeight ×
+   * total km ÷ 1,000. With 5, a route 1,000 km longer must gain 5 score points to win.
+   */
+  route: {
+    distanceWeight: 5,
+    /** Candidate cities are searched exactly up to this many; above it, the heuristic. */
+    exactMaxCandidates: 9,
+    /** The strongest cities considered (plus any you named). */
+    candidatePool: 14,
+    maxStops: 12,
+    /** Two stops closer than this would share one audience. */
+    minSpacingKm: 150,
+    /** Strong cities left out that get a "why not". */
+    whyNot: 6,
+  },
   /** Venue booker: who people in a city over-index on, with no fanbase signal. */
   local: {
     count: 8,

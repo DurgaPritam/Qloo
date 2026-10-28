@@ -6,7 +6,7 @@ import { TOOLS } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Tools · Takeover",
-  description: "Fan overlap, Meet the fan, Lineup builder, Brand match, Venue booker, City explorer, Tour planner and city pages, all on Qloo taste data.",
+  description: "Fan overlap, Meet the fan, Lineup builder, Brand match, Venue booker, City explorer, Tour optimizer and city pages, all on Qloo taste data.",
 };
 
 export default function ToolsPage() {

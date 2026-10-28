@@ -201,11 +201,29 @@ test("search suggestions open a plan with the picked name", async ({ page }) => 
   await expect(page).toHaveURL(/\/run\?q=/);
 });
 
-test("the tour planner draws a route with every leg", async ({ page }) => {
+test("the tour optimizer routes inside the constraints, with legs, evidence and why not", async ({ page }) => {
   await page.goto("/tour?q=John%20Mulaney");
   await expect(page.getByText("Plan the opening takeover →")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("start", { exact: true })).toBeVisible();
   await expect(page.locator("svg path[stroke-dasharray]")).toHaveCount(1);
+  await expect(page.locator("[data-leg]").first()).toContainText(/↓ Leg 01 · .+ → .+ · [\d,]+ km/);
+  await expect(page.locator("[data-evidence]").first()).toContainText(/Qloo heat \d+ \/ 100 over \d+ cells/);
+  await expect(page.locator("[data-objective]")).toContainText(/Route score \d+ − distance [\d.]+ = [\d.]+/);
+  await expect(page.getByText("Date to confirm with the promoter").first()).toBeVisible();
+
+  // Constraints: start in Chicago, skip Los Angeles, legs under 2,000 km.
+  await page.getByLabel("Start city").fill("Chicago");
+  await page.getByLabel("Skip").fill("Los Angeles");
+  await page.getByLabel("Longest leg (km)").fill("2000");
+  await page.getByRole("button", { name: "Optimize route" }).last().click();
+  const stops = page.locator("[data-stop]");
+  await expect(stops.first()).toHaveAttribute("data-stop", "Chicago");
+  await expect(page.locator('[data-stop="Los Angeles"]')).toHaveCount(0);
+  for (const leg of await page.locator("[data-leg]").allInnerTexts()) expect(Number(leg.match(/([\d,]+) km/)![1].replace(/,/g, ""))).toBeLessThanOrEqual(2000);
+  await expect(page.locator('[data-why-not="Los Angeles"]')).toContainText("You excluded it.");
+
+  // Dates are the user's: typed, labelled Your data, never suggested.
+  await page.getByLabel("Date in Chicago").fill("2027-03-04");
+  await expect(page.locator('[data-stop="Chicago"]').getByText("■ Your data")).toBeVisible();
 });
 
 test("the Gen Z theme applies and survives a reload", async ({ page }) => {
@@ -259,7 +277,7 @@ test("takeover daily explains itself when there is no puzzle", async ({ page }) 
 
 test("the tools page lists every tool", async ({ page }) => {
   await page.goto("/tools");
-  for (const t of ["Fan overlap", "Meet the fan", "Lineup builder", "Brand match", "Venue booker", "City explorer", "Tour planner", "City pages"]) {
+  for (const t of ["Fan overlap", "Meet the fan", "Lineup builder", "Brand match", "Venue booker", "City explorer", "Tour optimizer", "City pages"]) {
     await expect(page.getByRole("main").getByRole("link", { name: t, exact: true })).toBeVisible();
   }
 });
