@@ -128,6 +128,20 @@ describe("workspace report", () => {
     expect(csv.split("\r\n")[0]).toContain("tickets_sold_your_data");
     expect(csv).toMatch(/,90%,/);
   });
+
+  it("uses the workspace's own minimum sample and currency from Settings, which only admins change", async () => {
+    const { repo, user, workspaceId } = await person("set@out.test");
+    for (const [s, c] of [[900, 1000], [700, 1000], [600, 1000]]) await logOutcome(repo, await planIn(repo), fields({ ticketsSold: s, capacity: c, gross: 1200 }));
+    expect(await reportView(repo, "Eve's")).toMatchObject({ judged: false, minSample: 5, currency: null });
+    await repo.workspace.saveSettings({ timeZone: null, currency: "GBP", outcomeMinSample: 3 });
+    const v = await reportView(repo, "Eve's");
+    expect(v).toMatchObject({ judged: true, minSample: 3, sample: 3, currency: "GBP" });
+    const csv = outcomesCsv(v).split("\r\n");
+    expect(csv[0]).toContain("gross_your_data,gross_currency");
+    expect(csv[1]).toContain(",1200,GBP,");
+    const member = forWorkspace(db, { userId: user.id, workspaceId, role: "member" });
+    await expect(member.workspace.saveSettings({ timeZone: null, currency: null, outcomeMinSample: null })).rejects.toBeInstanceOf(ForbiddenError);
+  });
 });
 
 describe("done when: three seeded plans", () => {

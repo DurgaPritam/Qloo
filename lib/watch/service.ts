@@ -21,19 +21,9 @@ import { digestEmail, digestLines, sendDigests, unsubscribeUrls, weekOf } from "
 import { citySnapshot, fanbaseSnapshot, SNAPSHOT_CALLS, type SnapshotSummary } from "./snapshot";
 import { alertText, tagFor } from "./wording";
 
-/** Snapshots are weekly; the job runs every Monday and takes whatever is due. */
-export const WATCH_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
-export const FIRST_SNAPSHOT_NOTE = "First snapshot taken; changes appear next week.";
+import { FIRST_SNAPSHOT_NOTE, nextCheck, WATCH_INTERVAL_MS } from "./schedule";
 
-/**
- * When an item is next due: the start of the next Monday (UTC), when the weekly job runs, but at
- * least four days away, so two snapshots are never days apart.
- */
-export function nextCheck(now: Date): Date {
-  const day = now.getUTCDay();
-  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + ((8 - day) % 7 || 7)));
-  return monday.getTime() - now.getTime() < 4 * 24 * 60 * 60 * 1000 ? new Date(monday.getTime() + WATCH_INTERVAL_MS) : monday;
-}
+export { FIRST_SNAPSHOT_NOTE, isTimeZone, nextCheck, WATCH_HOUR, WATCH_INTERVAL_MS } from "./schedule";
 
 type Item = NonNullable<Awaited<ReturnType<WorkspaceRepo["watch"]["item"]>>>;
 
@@ -138,7 +128,8 @@ export async function recordSnapshot(repo: WorkspaceRepo, item: Item, summary: S
   }
   const failed = summary.failed.length ? ` Qloo did not answer for ${summary.failed.join(", ")}; those lists are compared next week.` : "";
   const note = previous ? `${changes.length ? `${changes.length} change${changes.length === 1 ? "" : "s"}` : "No changes"} since last week.${failed}` : `${FIRST_SNAPSHOT_NOTE}${failed}`;
-  await repo.watch.setChecked(item.id, { lastSnapshotAt: deps.now, nextDueAt: nextCheck(deps.now), lastNote: note });
+  const timeZone = (await repo.workspace.get())?.timeZone ?? null;
+  await repo.watch.setChecked(item.id, { lastSnapshotAt: deps.now, nextDueAt: nextCheck(deps.now, timeZone), lastNote: note });
   return { snapshotId, first: !previous, changes, note };
 }
 

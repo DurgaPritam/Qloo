@@ -106,7 +106,7 @@ export function OutcomeScreen({ initial, canLog }: { initial: PlanOutcome; canLo
                       {f.label} <YourDataBadge />
                     </span>
                     <input inputMode={f.mode} value={values[f.key]} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} aria-label={f.label} className={cx(FIELD, "font-mono")} />
-                    <span className="text-chip text-mute">{f.hint}</span>
+                    <span className="text-chip text-mute">{f.key === "gross" && initial.currency ? `In ${initial.currency}, before fees` : f.hint}</span>
                   </label>
                 ))}
               </div>
@@ -157,7 +157,7 @@ function Compare({ data }: { data: PlanOutcome }) {
       <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
         <Tile label="Sell-through" value={pct(data.sellThrough)} badge={<YourDataBadge />} hint={data.sellThrough === null ? "Needs tickets sold and capacity" : `${num(o.ticketsSold)} of ${num(o.capacity)}`} />
         <Tile label="Attendance" value={num(o.attendance)} badge={<YourDataBadge />} />
-        <Tile label="Gross" value={num(o.gross)} badge={<YourDataBadge />} hint="In your currency, as entered" />
+        <Tile label="Gross" value={num(o.gross)} badge={<YourDataBadge />} hint={data.currency ? `${data.currency}, as entered` : "In your currency, as entered (set it in Settings)"} />
         <Tile
           label="Against your median"
           value={data.report.judged && data.report.median !== null ? pct(data.report.median) : "—"}

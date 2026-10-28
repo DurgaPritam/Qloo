@@ -870,3 +870,14 @@ the design's existing tag). The alert keeps last week's rank and value; this wee
 when the entry is still listed lower down, otherwise `after` is null (migration 0010 lets the column
 be null) rather than a made-up zero. A list that comes back empty this week is not compared at all,
 so a Qloo hiccup cannot turn into "everything dropped out".
+
+**D135. Workspace settings: time zone, currency, Outcomes sample** (halfway review). Admins set three
+things in Settings (one migration, columns on `workspaces`): the time zone, so Market watch runs
+on Monday 07:00 local (the QStash tick becomes hourly, `0 * * * *`, and only reads which workspaces
+are due); the currency logged gross is in (shown beside every gross amount and as a
+`gross_currency` CSV column; amounts are never converted, there is no exchange rate to invent); and
+how many events Outcomes needs before it judges (2–50, default the engine's 5). Without a time zone
+the run is 07:00 UTC, the hour the weekly cron used before, so existing watches keep their time.
+The next check is computed with Intl (DST-safe: computed twice around the change); an unknown zone
+falls back to UTC. Considered: a currency per event (one workspace usually reports in one currency;
+the decision log already described gross as "in the workspace's currency").

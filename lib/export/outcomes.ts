@@ -24,6 +24,8 @@ export interface ReportRow {
 
 export interface ReportView {
   workspace: string;
+  /** ISO code of the gross amounts (workspace setting); null when not set. */
+  currency: string | null;
   rows: ReportRow[];
   sample: number;
   median: number | null;
@@ -53,6 +55,7 @@ export function outcomesCsv(v: ReportView): string {
     "capacity_your_data",
     "sell_through",
     "gross_your_data",
+    "gross_currency",
     "sponsor_renewed_your_data",
     "above_workspace_median",
   ];
@@ -67,6 +70,7 @@ export function outcomesCsv(v: ReportView): string {
     r.capacity ?? "",
     pct(r.sellThrough),
     r.gross ?? "",
+    r.gross === null ? "" : (v.currency ?? "not set"),
     r.sponsorRenewed === null ? "" : r.sponsorRenewed ? "yes" : "no",
     !v.judged || r.aboveMedian === null ? "too few events to judge" : r.aboveMedian ? "yes" : "no",
   ]);

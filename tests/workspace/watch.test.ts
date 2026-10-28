@@ -82,7 +82,7 @@ describe("market watch", () => {
     const added = await addWatch(repo, { kind: "fanbase", query: "Phoebe Bridgers" }, { source: new MockQlooSource(), now: MONDAY });
     expect(added).toMatchObject({ status: "added", name: "Phoebe Bridgers", note: FIRST_SNAPSHOT_NOTE });
     const view = await watchView(repo, MONDAY);
-    expect(view.items[0]).toMatchObject({ snapshots: 1, changes: 0, note: FIRST_SNAPSHOT_NOTE, nextDueAt: "2026-11-09T00:00:00.000Z" });
+    expect(view.items[0]).toMatchObject({ snapshots: 1, changes: 0, note: FIRST_SNAPSHOT_NOTE, nextDueAt: "2026-11-09T07:00:00.000Z" });
     expect(view.items[0].lists.map((l) => l.list).sort()).toEqual(["cities", "partners"]);
     expect(view.alerts).toEqual([]);
     const [snap] = await repo.watch.snapshots(view.items[0].id);
@@ -250,9 +250,23 @@ describe("two seeded snapshots", () => {
 
 describe("weekly job", () => {
   it("is due at the next Monday at least four days away", () => {
-    expect(nextCheck(new Date("2026-10-28T15:00:00Z")).toISOString()).toBe("2026-11-02T00:00:00.000Z"); // Wednesday → Monday
-    expect(nextCheck(new Date("2026-11-01T15:00:00Z")).toISOString()).toBe("2026-11-09T00:00:00.000Z"); // Sunday → a week later
-    expect(nextCheck(new Date("2026-11-02T07:00:00Z")).toISOString()).toBe("2026-11-09T00:00:00.000Z"); // Monday's run → next Monday
+    expect(nextCheck(new Date("2026-10-28T15:00:00Z")).toISOString()).toBe("2026-11-02T07:00:00.000Z"); // Wednesday → Monday 07:00 UTC
+    expect(nextCheck(new Date("2026-11-01T15:00:00Z")).toISOString()).toBe("2026-11-09T07:00:00.000Z"); // Sunday → a week later
+    expect(nextCheck(new Date("2026-11-02T07:00:00Z")).toISOString()).toBe("2026-11-09T07:00:00.000Z"); // Monday's run → next Monday
+    // In the workspace's own time zone: Monday 07:00 local, across a DST change.
+    expect(nextCheck(new Date("2026-10-28T15:00:00Z"), "America/Los_Angeles").toISOString()).toBe("2026-11-02T15:00:00.000Z"); // PST from 1 Nov
+    expect(nextCheck(new Date("2026-10-21T15:00:00Z"), "America/Los_Angeles").toISOString()).toBe("2026-10-26T14:00:00.000Z"); // still PDT
+    expect(nextCheck(new Date("2026-10-28T15:00:00Z"), "Asia/Kolkata").toISOString()).toBe("2026-11-02T01:30:00.000Z");
+    expect(nextCheck(new Date("2026-10-28T15:00:00Z"), "Australia/Sydney").toISOString()).toBe("2026-11-01T20:00:00.000Z"); // Sunday evening UTC
+    expect(nextCheck(new Date("2026-10-28T15:00:00Z"), "Not/AZone").toISOString()).toBe("2026-11-02T07:00:00.000Z");
+  });
+
+  it("schedules the next check for Monday 07:00 in the workspace's time zone", async () => {
+    const { repo } = await person("tz@watch.test");
+    await repo.workspace.saveSettings({ timeZone: "America/New_York", currency: null, outcomeMinSample: null });
+    const { id } = await repo.watch.add({ kind: "fanbase", targetId: "e-tz", name: "TZ", detail: "person", entity: { id: "e-tz", name: "TZ", category: "person", popularity: 0.5 } });
+    await recordSnapshot(repo, (await repo.watch.item(id))!, { lists: {}, calls: [], failed: [] }, { calls: 0, now: new Date("2026-10-28T15:00:00Z") });
+    expect((await repo.watch.item(id))!.nextDueAt!.toISOString()).toBe("2026-11-02T12:00:00.000Z"); // 07:00 EST
   });
 
   it("checks due items through the queue, one job per workspace, and records it", async () => {

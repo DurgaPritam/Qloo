@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Banner, DataTable, MonoLabel, Skeleton } from "@/components/ui";
 import { WorkspaceSettings } from "@/components/workspace/settings";
 import { can } from "@/lib/workspace/permissions";
+import { ENGINE_CONFIG } from "@/lib/engine/config";
+import { CURRENCIES } from "@/lib/workspace/currency";
 import { currentWorkspace } from "@/lib/workspace/session";
 import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 
@@ -35,12 +37,22 @@ const ACTIONS: Record<string, string> = {
   "data.deleted": "deleted data and its file",
   "branding.saved": "changed the deck branding",
   "branding.reset": "reset the deck branding",
+  "workspace.settings": "changed the workspace settings",
+  "watch.added": "started watching",
+  "sponsor.shortlisted": "shortlisted a sponsor match",
+  "outcome.logged": "logged event results",
+  "outreach.added": "added outreach to the pipeline",
+  "outreach.moved": "moved outreach",
+  "outreach.sent": "marked outreach sent",
 };
 
 function detail(action: string, d: Record<string, string | number | boolean | null> | null): string {
   if (!d) return "";
   if (action === "roster.acts_added" && typeof d.count === "number") return `${d.count} act${d.count === 1 ? "" : "s"}`;
   if (action === "data.attached") return typeof d.entity === "string" ? d.entity : "detached";
+  if (action === "outreach.added" && typeof d.cards === "number") return `${d.cards} draft${d.cards === 1 ? "" : "s"}`;
+  if (action === "sponsor.shortlisted" && typeof d.holder === "string") return `${d.holder} × ${d.brand}`;
+  if (action === "workspace.settings") return [d.timeZone, d.currency, typeof d.minSample === "number" ? `${d.minSample} events` : null].filter(Boolean).join(" · ");
   if (typeof d.email === "string") return `${d.email}${d.role ? ` as ${d.role}` : ""}`;
   if (typeof d.input === "string") return d.input;
   if (typeof d.visibility === "string") return d.visibility === "public" ? "anyone with the link" : "workspace only";
@@ -55,14 +67,23 @@ async function Content() {
   if (!found) redirect("/signin?next=/workspace/settings");
   const { ctx, repo, memberships } = found;
   const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
-  const [activity, members] = await Promise.all([repo.activity.list(40), repo.members.list()]);
+  const [activity, members, ws] = await Promise.all([repo.activity.list(40), repo.members.list(), repo.workspace.get()]);
   const lastOwner = ctx.role === "owner" && members.filter((m) => m.role === "owner").length === 1;
 
   return (
     <>
       <SettingsTabs />
       <PageTitle label={current.name} title="Settings" />
-      <WorkspaceSettings name={current.name} canRename={can(ctx.role, "workspace.rename")} canLeave={!current.personal && !lastOwner} />
+      <WorkspaceSettings
+        name={current.name}
+        canRename={can(ctx.role, "workspace.rename")}
+        canLeave={!current.personal && !lastOwner}
+        settings={{ timeZone: ws?.timeZone ?? null, currency: ws?.currency ?? null, outcomeMinSample: ws?.outcomeMinSample ?? null }}
+        canEditSettings={can(ctx.role, "workspace.settings")}
+        timeZones={Intl.supportedValuesOf("timeZone")}
+        currencies={CURRENCIES}
+        defaultMinSample={ENGINE_CONFIG.outcomes.minSample}
+      />
       <Banner tone="neutral" action={<Link href="/workspace/settings/branding">Branded decks →</Link>}>
         Your logo, colours and headline font on every deck this workspace exports.
       </Banner>

@@ -78,6 +78,13 @@
       "when": 1793201620244,
       "tag": "0010_alerts_dropped",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793201812342,
+      "tag": "0011_workspace_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -196,7 +196,7 @@ health page shows today's global count and the cap.
 
 | Job | Schedule | Qloo calls | Output |
 | --- | --- | --- | --- |
-| Watch refresh (*Built*) | Weekly per workspace: a QStash schedule (Mondays) calls `/api/jobs/watch-tick`, which sends one message per workspace with a watch due, 30 s apart, to `/api/jobs/watch-refresh` | 3 per fanbase, 4 per city; checked against the workspace allowance and the daily cap (keeping the job reserve) before each item, skipped and logged when over | Snapshots, alerts in Market watch, and the digest to members who turned it on |
+| Watch refresh (*Built*) | Weekly per workspace, Monday 07:00 in the workspace's time zone (UTC when not set): an hourly QStash schedule calls `/api/jobs/watch-tick`, which sends one message per workspace with a watch due, 30 s apart, to `/api/jobs/watch-refresh` | 3 per fanbase, 4 per city; checked against the workspace allowance and the daily cap (keeping the job reserve) before each item, skipped and logged when over | Snapshots, alerts in Market watch, and the digest to members who turned it on |
 | Export render | On click | None | A deck or PDF in Blob |
 | Stripe sync | On webhook | None | `subscriptions` and `workspaces.plan` |
 | Usage rollup | Daily | None | Copies the Redis counters into Postgres for the usage page and billing |
@@ -275,7 +275,8 @@ All are server-only. None has a `NEXT_PUBLIC_` prefix.
 5. **Outreach tracking and Send with confirmation.** Through Resend. (*Built*: tracking, as the
    outreach pipeline. Send stays with the user's own email; see D128.)
 6. **Watches and the weekly job.** Through QStash. (*Built*: Market watch. To schedule it, create a
-   QStash schedule with cron `0 7 * * 1` and destination `<APP_URL>/api/jobs/watch-tick`.)
+   QStash schedule with cron `0 * * * *` (hourly, so each time zone's Monday morning is caught) and
+   destination `<APP_URL>/api/jobs/watch-tick`.)
 7. **Stripe.** Plans, Checkout, webhook, Portal.
 
 Each step lands with tests, passing checks and a decision entry, and is committed on its own.

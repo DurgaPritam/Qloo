@@ -91,6 +91,12 @@ export const workspaces = pgTable("workspaces", {
   personal: boolean("personal").notNull().default(false),
   createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
+  /** IANA time zone for the weekly watch run (Monday 07:00 local); null means UTC. */
+  timeZone: text("time_zone"),
+  /** ISO 4217 code that logged gross amounts are in; null until an admin picks one. */
+  currency: text("currency"),
+  /** Events needed before Outcomes compares cities and partners; null means the engine default. */
+  outcomeMinSample: integer("outcome_min_sample"),
 });
 
 export const memberships = pgTable(

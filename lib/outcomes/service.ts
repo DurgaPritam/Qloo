@@ -63,7 +63,9 @@ async function events(repo: WorkspaceRepo) {
   }));
 }
 
-export async function workspaceReport(repo: WorkspaceRepo, minSample = ENGINE_CONFIG.outcomes.minSample) {
+/** The workspace's own minimum sample (Settings), else the engine default. */
+export async function workspaceReport(repo: WorkspaceRepo, minSampleOverride?: number) {
+  const minSample = minSampleOverride ?? (await repo.workspace.get())?.outcomeMinSample ?? ENGINE_CONFIG.outcomes.minSample;
   const rows = await events(repo);
   const report = outcomeReport(
     rows.filter((r) => r.prediction).map((r) => ({ planId: r.planId, prediction: r.prediction!, sellThrough: r.sellThrough })),
@@ -89,7 +91,7 @@ export function versusMedian(st: number | null, report: OutcomeReport): Pick<Res
 export async function planOutcome(repo: WorkspaceRepo, planId: string) {
   const plan = await repo.plans.get(planId);
   if (!plan) return null;
-  const [pred, outcome, { report }] = await Promise.all([frozen(repo, planId), repo.outcomes.get(planId), workspaceReport(repo)]);
+  const [pred, outcome, { report }, ws] = await Promise.all([frozen(repo, planId), repo.outcomes.get(planId), workspaceReport(repo), repo.workspace.get()]);
   const p = pred?.predicted ?? null;
   const st = outcome ? sellThrough(outcome.ticketsSold, outcome.capacity) : null;
   const vs = versusMedian(st, report);
@@ -134,6 +136,8 @@ export async function planOutcome(repo: WorkspaceRepo, planId: string) {
       : null,
     sellThrough: st,
     lines,
+    /** The workspace's currency for gross (Settings), or null when not set. */
+    currency: ws?.currency ?? null,
     report: { median: report.median, sample: report.sample, minSample: report.minSample, judged: report.judged },
   };
 }
@@ -150,9 +154,10 @@ export async function logOutcome(repo: WorkspaceRepo, planId: string, fields: Ou
 
 /** The report for the page and its exports. */
 export async function reportView(repo: WorkspaceRepo, workspace: string): Promise<ReportView> {
-  const { report, rows } = await workspaceReport(repo);
+  const [{ report, rows }, ws] = await Promise.all([workspaceReport(repo), repo.workspace.get()]);
   return {
     workspace,
+    currency: ws?.currency ?? null,
     rows: rows.map((r) => ({
       plan: r.input,
       city: r.prediction?.city?.name ?? null,

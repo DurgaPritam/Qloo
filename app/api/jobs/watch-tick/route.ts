@@ -5,7 +5,8 @@ import { scheduleWatchJobs } from "@/lib/watch/service";
 import { watchWorkspacesDue } from "@/lib/workspace/session";
 
 /**
- * The weekly tick (a QStash schedule, Mondays): one staggered job per workspace with a watch due.
+ * The tick (an hourly QStash schedule): one staggered job per workspace with a watch due. Items
+ * fall due on Monday 07:00 in their workspace's time zone, so hourly catches every zone.
  * Locally there is no scheduler, so a request carrying the e2e token may run it, optionally as of
  * a later date ({now}) to stand in for next Monday.
  */

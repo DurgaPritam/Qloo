@@ -129,6 +129,13 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         await db.update(workspaces).set({ name: clean }).where(eq(workspaces.id, ws));
         await log("workspace.renamed", { type: "workspace", id: ws }, { name: clean });
       },
+      /** Time zone (weekly watch run), currency (logged gross) and the Outcomes sample size. */
+      async saveSettings(input: { timeZone: string | null; currency: string | null; outcomeMinSample: number | null }) {
+        need("workspace.settings");
+        await db.update(workspaces).set(input).where(eq(workspaces.id, ws));
+        // Watches already scheduled move to the new local morning at their next check.
+        await log("workspace.settings", { type: "workspace", id: ws }, { timeZone: input.timeZone, currency: input.currency, minSample: input.outcomeMinSample });
+      },
     },
 
     plans: {
