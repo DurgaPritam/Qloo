@@ -4,12 +4,21 @@ import type { RosterPair, UnscoredPair } from "@/lib/engine/roster";
 /** The resolver's entity, as stored on a roster act (aliases dropped). */
 export type RosterEntity = Pick<Entity, "id" | "name" | "category" | "popularity" | "description" | "disambiguation" | "homeCountry" | "tags">;
 
+/** A Qloo request as the UI shows it (never the key). */
+export interface CallRecord {
+  endpoint: string;
+  params: Record<string, string>;
+  cached: boolean;
+}
+
 export interface ProfilePick {
   id: string;
   name: string;
   /** Engine score of the pick (scorePartners or rankBrands). */
   score: number;
   confidence: Confidence;
+  /** What the score is built from: Qloo affinity and popularity, and affinity relative to its group. Absent on profiles cached before it was recorded. */
+  evidence?: { affinity: number; popularity: number; relativeAffinity: number };
 }
 
 /**
@@ -20,7 +29,14 @@ export interface ActProfile {
   entityId: string;
   /** ISO code of the market the city was picked in: the act's home country, else the default. */
   market: string;
-  city: { id: string; name: string; country: string; confidence: Confidence } | null;
+  city: {
+    id: string;
+    name: string;
+    country: string;
+    confidence: Confidence;
+    /** Mean Qloo heat (affinity × presence) of the cells near the city, and how many cells. */
+    evidence?: { heat: number; cells: number };
+  } | null;
   /** Per-city heat in the market, [mean, cells] by city id, for cities with any heat. */
   heat: Record<string, [number, number]>;
   partner: (ProfilePick & { category: Category }) | null;
@@ -29,6 +45,8 @@ export interface ActProfile {
   confidence: Confidence;
   /** What could not be found, in plain words. */
   notes: string[];
+  /** The Qloo requests the profile was built from. */
+  calls?: CallRecord[];
   mock: boolean;
 }
 
@@ -44,6 +62,8 @@ export interface RosterActView {
   profileAt: string | null;
   /** True when the profile or the pairings for this act are missing or older than a week. */
   stale: boolean;
+  /** The filter.results.entities requests behind this act's side of its pairings. */
+  pairingCalls: CallRecord[];
 }
 
 export interface RefreshEstimate {
@@ -58,6 +78,8 @@ export interface RefreshEstimate {
 
 export interface RosterJobView {
   id: string;
+  /** Upper bound on calls planned for this batch, before it ran. */
+  estimate: number | null;
   status: "queued" | "running" | "done" | "failed" | "skipped_budget";
   note: string | null;
   qlooCalls: number;

@@ -162,6 +162,46 @@ describe("roster refresh", () => {
     expect(view.estimate.all.calls).toBeGreaterThan(0);
   });
 
+  it("a 10-act roster: full matrix, ranked pairings, estimate equals calls made, every score has its evidence", async () => {
+    const { repo } = await person("ten@t.test");
+    // One person among artists, so pairings need two categories for some acts.
+    const id = await rosterWith(repo, ["John Mulaney", ...actNames("ten", 9)]);
+    const before = (await rosterView(repo, id))!;
+    const outcome = await startRefresh(repo, id, { force: true });
+    expect(outcome.status).toBe("queued");
+    for (const message of state.sent) await runRosterJob(message);
+
+    const view = (await rosterView(repo, id))!;
+    expect(view.acts).toHaveLength(10);
+    expect(view.pairs).toHaveLength(45);
+    expect(view.pendingPairs + view.unscored.length).toBe(0);
+    expect(view.pairs.map((p) => p.rank)).toEqual(view.pairs.map((_, i) => i + 1));
+    for (let i = 1; i < view.pairs.length; i++) expect(view.pairs[i - 1].score).toBeGreaterThanOrEqual(view.pairs[i].score);
+
+    // Cold cache and a forced refresh: every planned call is made, no more, no fewer.
+    const used = view.jobs.reduce((n, j) => n + j.qlooCalls, 0);
+    expect(view.jobs.map((j) => j.status).every((s) => s === "done")).toBe(true);
+    expect(view.jobs.reduce((n, j) => n + (j.estimate ?? 0), 0)).toBe(before.estimate.all.calls);
+    expect(used).toBe(before.estimate.all.calls);
+
+    // Each pair's score comes from Qloo answers recorded with the requests that produced them.
+    for (const p of view.pairs) {
+      const a = view.acts.find((x) => x.entityId === p.a.id)!;
+      const b = view.acts.find((x) => x.entityId === p.b.id)!;
+      const asked = (from: typeof a, to: string) => from.pairingCalls.some((c) => c.params["filter.results.entities"].split(",").includes(to) && c.params["signal.interests.entities"] === from.entityId);
+      expect(asked(a, b.entityId) && asked(b, a.entityId)).toBe(true);
+      expect(p.evidence.bAmongA).not.toBeNull();
+      expect(p.evidence.aAmongB).not.toBeNull();
+    }
+    // Each act's picks carry their Qloo values and the requests behind them.
+    for (const a of view.acts) {
+      expect(a.profile!.calls!.length).toBe(4);
+      if (a.profile!.partner) expect(a.profile!.partner.evidence).toBeDefined();
+      if (a.profile!.sponsor) expect(a.profile!.sponsor.evidence).toBeDefined();
+      if (a.profile!.city) expect(a.profile!.city.evidence!.cells).toBeGreaterThan(0);
+    }
+  });
+
   it("blocks a refresh that would exceed the workspace allowance, before any call", async () => {
     vi.stubEnv("QLOO_WORKSPACE_MONTHLY_CALLS", "5");
     const { repo } = await person("fay@f.test");

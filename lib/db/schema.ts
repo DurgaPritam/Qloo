@@ -3,7 +3,7 @@ import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, times
 
 import type { Plan } from "@/lib/agent/types";
 import type { Category } from "@/lib/engine/types";
-import type { ActProfile, RosterEntity } from "@/lib/roster/types";
+import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -259,6 +259,8 @@ export const rosterActs = pgTable(
     /** The sorted entity ids the affinities were asked for; a different roster means stale. */
     affinitiesFor: text("affinities_for"),
     affinitiesAt: timestamp("affinities_at", { mode: "date", withTimezone: true }),
+    /** The Qloo requests the affinities came from, shown as their evidence. */
+    affinitiesCalls: jsonb("affinities_calls").$type<CallRecord[]>(),
     createdAt: createdAt(),
   },
   (t) => [

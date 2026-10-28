@@ -1,0 +1,1 @@
+ALTER TABLE "roster_acts" ADD COLUMN "affinities_calls" jsonb;

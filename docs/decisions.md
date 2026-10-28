@@ -503,3 +503,10 @@ rules need. A roster holds at most 40 acts (780 pairs, 40–80 calls a full refr
 act (symmetric), "no data" or "not scored yet" where there is none, and a source column; cells
 that start like a formula are quoted. Feature 10 (deck settings) does not exist yet, so the deck
 is the plain house deck: the plan deck's renderer now takes any outline.
+
+**D85. Roster "done when" checks (28 Oct).** A 10-act roster on a cold cache planned 59 calls in 3
+batches and used 59; all 45 pairs were scored. The page now shows the act-by-act matrix (each cell
+links to its pair), "estimated N, used M" after each refresh, and an Evidence section under every
+pair and act: Qloo's values, how the score follows from them, and the exact requests (endpoint and
+params, never the key). Requests are stored with the act (`roster_acts.affinities_calls`, migration
+0002) and in its profile; profiles cached before this show "refresh to record them".

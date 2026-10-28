@@ -17,7 +17,7 @@ import { can, ForbiddenError } from "@/lib/workspace/permissions";
 
 import { BATCH_CALLS, othersKey, pairingsStale, planRefresh, profileStale, refreshBlock, type PlanAct, type RefreshUnit } from "./plan";
 import { profileAct } from "./profile";
-import type { ActProfile, RefreshEstimate, RosterActView, RosterJobView, RosterView } from "./types";
+import type { ActProfile, CallRecord, RefreshEstimate, RosterActView, RosterJobView, RosterView } from "./types";
 
 type ActRow = Awaited<ReturnType<WorkspaceRepo["rosters"]["acts"]>>[number];
 
@@ -94,7 +94,7 @@ export async function runBatch(
       if (unit.pairings.length) {
         const paired = await pairActs(act, acts, source, opts);
         if (paired) {
-          await repo.rosters.setAffinities(rosterId, act.id, paired, othersKey(acts.map((a) => ({ entityId: a.qlooEntityId })), act.qlooEntityId), now());
+          await repo.rosters.setAffinities(rosterId, act.id, paired.affinities, othersKey(acts.map((a) => ({ entityId: a.qlooEntityId })), act.qlooEntityId), now(), paired.calls);
           result.paired++;
         } else {
           result.notes.push(`Pairings for ${act.name} could not be fetched; the previous ones are kept.`);
@@ -117,10 +117,12 @@ async function pairActs(act: ActRow, acts: readonly ActRow[], source: QlooSource
   const byCategory = new Map<ActRow["type"], ActRow[]>();
   for (const a of others) byCategory.set(a.type, [...(byCategory.get(a.type) ?? []), a]);
   const out: Record<string, number | null> = {};
+  const calls: CallRecord[] = [];
   for (const [category, group] of byCategory) {
     const ids = group.map((a) => a.qlooEntityId);
     try {
       const res = await source.affinitiesOf([act.qlooEntityId], ids, category, opts);
+      calls.push({ endpoint: res.meta.endpoint, params: res.meta.params, cached: res.meta.cached });
       const found = new Map(res.data.map((c) => [c.id, c.affinity]));
       // Asked and not returned is recorded as null: Qloo has no affinity for it.
       for (const id of ids) out[id] = found.get(id) ?? null;
@@ -130,7 +132,7 @@ async function pairActs(act: ActRow, acts: readonly ActRow[], source: QlooSource
       return null;
     }
   }
-  return out;
+  return { affinities: out, calls };
 }
 
 export function qlooReady(source: QlooSource): boolean {
@@ -163,7 +165,7 @@ export async function startRefresh(repo: WorkspaceRepo, rosterId: string, input:
 
   const refreshId = crypto.randomUUID();
   if (plan.batches.length === 1) {
-    const jobId = await repo.jobs.create({ kind: "roster.refresh", targetId: rosterId, status: "running", payload: { refreshId, batch: 1, of: 1 } });
+    const jobId = await repo.jobs.create({ kind: "roster.refresh", targetId: rosterId, status: "running", payload: { refreshId, batch: 1, of: 1, estimate: plan.estimate.calls } });
     await repo.jobs.update(jobId, { startedAt: new Date() });
     const result = await runBatch(repo, rosterId, plan.batches[0], { source, scope: { kind: "workspace", workspaceId: repo.context.workspaceId }, fresh: input.force });
     const note = batchNote(result);
@@ -180,7 +182,7 @@ export async function startRefresh(repo: WorkspaceRepo, rosterId: string, input:
   }
   const stagger = staggerSeconds();
   for (const [i, units] of plan.batches.entries()) {
-    const jobId = await repo.jobs.create({ kind: "roster.refresh", targetId: rosterId, status: "queued", payload: { refreshId, batch: i + 1, of: plan.batches.length, units } });
+    const jobId = await repo.jobs.create({ kind: "roster.refresh", targetId: rosterId, status: "queued", payload: { refreshId, batch: i + 1, of: plan.batches.length, units, estimate: units.reduce((n, u) => n + u.calls, 0) } });
     try {
       await enqueue({ kind: "roster.refresh", jobId, workspaceId: repo.context.workspaceId, userId: repo.context.userId, rosterId, units, force: input.force }, i * stagger);
     } catch (err) {
@@ -218,6 +220,7 @@ export async function rosterView(repo: WorkspaceRepo, rosterId: string, input: {
       profile: p?.profile ?? null,
       profileAt: p?.at.toISOString() ?? null,
       stale: profileStale(planActs[i], now) || pairingsStale(planActs[i], planActs, now),
+      pairingCalls: a.affinitiesCalls ?? [],
     };
   });
 
@@ -242,7 +245,7 @@ export async function rosterView(repo: WorkspaceRepo, rosterId: string, input: {
   const latest = (jobs[0]?.payload as { refreshId?: string } | null)?.refreshId;
   const jobViews: RosterJobView[] = jobs
     .filter((j) => latest && (j.payload as { refreshId?: string } | null)?.refreshId === latest)
-    .map((j) => ({ id: j.id, status: j.status, note: j.note, qlooCalls: j.qlooCalls, createdAt: j.createdAt.toISOString(), finishedAt: j.finishedAt?.toISOString() ?? null }));
+    .map((j) => ({ id: j.id, estimate: (j.payload as { estimate?: number } | null)?.estimate ?? null, status: j.status, note: j.note, qlooCalls: j.qlooCalls, createdAt: j.createdAt.toISOString(), finishedAt: j.finishedAt?.toISOString() ?? null }));
 
   return {
     id: roster.id,

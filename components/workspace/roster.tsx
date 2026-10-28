@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Confidence } from "@/lib/engine/types";
 import { parseRosterCsv, sameName, type CsvAct } from "@/lib/roster/csv";
-import type { RosterActView, RosterView } from "@/lib/roster/types";
+import type { CallRecord, RosterActView, RosterView } from "@/lib/roster/types";
 
 import { FIELD } from "../account/fields";
 import { Banner, Button, MonoLabel, OutlineChip, Panel, ScoreBar, SourceBadge, YourDataBadge } from "../ui";
@@ -95,6 +95,45 @@ function ConfidenceCell({ level }: { level: Confidence }) {
 }
 
 const planHref = (q: string, params: Record<string, string>) => `/run?${new URLSearchParams({ q, ...params }).toString()}`;
+const two = (x: number) => x.toFixed(2);
+
+/** Where a pair's card is, so a matrix cell can link to its evidence. Order-free. */
+const pairAnchor = (view: RosterView, a: string, b: string) => {
+  const [i, j] = [view.acts.findIndex((x) => x.entityId === a), view.acts.findIndex((x) => x.entityId === b)].sort((x, y) => x - y);
+  return `pair-${i}-${j}`;
+};
+
+/** The Qloo requests behind a number, as the run's step cards show them. */
+function Calls({ calls }: { calls: CallRecord[] }) {
+  if (!calls.length) return <span className="text-mute">Qloo requests were not recorded for this result; refresh to record them.</span>;
+  return (
+    <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+      {calls.map((c, i) => (
+        <li key={i} className="flex flex-col font-mono text-label [overflow-wrap:anywhere]">
+          <span className="text-ink">
+            GET {c.endpoint}
+            {c.cached ? " · cached" : ""}
+          </span>
+          {Object.entries(c.params).map(([k, v]) => (
+            <span key={k} className="text-mute">
+              {k} = {v}
+            </span>
+          ))}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A collapsed "Evidence" section under a score. */
+function Evidence({ children, label = "Evidence" }: { children: React.ReactNode; label?: string }) {
+  return (
+    <details className="text-chip">
+      <summary className="cursor-pointer text-acc-text">{label}</summary>
+      <div className="flex flex-col gap-2 pt-2">{children}</div>
+    </details>
+  );
+}
 
 export function RosterScreen({ initial }: { initial: RosterView }) {
   const [view, setView] = useState(initial);
@@ -149,6 +188,7 @@ export function RosterScreen({ initial }: { initial: RosterView }) {
         </div>
       </Panel>
 
+      <Matrix view={view} />
       <Pairings view={view} />
     </div>
   );
@@ -421,6 +461,12 @@ function RefreshBar({ view, onDone, say }: { view: RosterView; onDone: () => Pro
       {(stale.batches > 1 || all.batches > 1) && running.length === 0 && (
         <span className="text-chip text-mute">Large rosters refresh in batches of up to 25 calls, staggered through the job queue.</span>
       )}
+      {finished.length > 0 && running.length === 0 && finished.every((j) => j.estimate !== null) && (
+        <span className="text-chip text-mute" data-estimate-check>
+          Last refresh: estimated {finished.reduce((n, j) => n + (j.estimate ?? 0), 0)} Qloo calls, used {finished.reduce((n, j) => n + j.qlooCalls, 0)}. Cached
+          answers are free, so it can use fewer, never more.
+        </span>
+      )}
       {finished
         .filter((j) => j.note)
         .slice(0, 3)
@@ -484,9 +530,12 @@ function ActsTable({ view, onRemoved }: { view: RosterView; onRemoved: () => Pro
                 <span role="cell" className="min-w-0 [overflow-wrap:anywhere]">
                   {a.profile.sponsor?.name ?? "—"}
                 </span>
-                <span role="cell">
+                <span role="cell" className="flex flex-col gap-1">
                   <ConfidenceCell level={a.profile.confidence} />
                   {a.stale && <span className="font-mono text-label text-mute">Due a refresh</span>}
+                </span>
+                <span role="cell" className="col-span-5">
+                  <ActEvidence act={a} />
                 </span>
               </>
             ) : (
@@ -512,7 +561,12 @@ function Pairings({ view }: { view: RosterView }) {
       )}
       <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]" aria-label="Pairings">
         {view.pairs.map((p) => (
-          <div key={`${p.a.id}|${p.b.id}`} className="flex flex-col gap-2.5 rounded-md border-th border-line bg-bg p-4" data-pair={`${p.a.name} + ${p.b.name}`}>
+          <div
+            key={`${p.a.id}|${p.b.id}`}
+            id={pairAnchor(view, p.a.id, p.b.id)}
+            className="flex scroll-mt-4 flex-col gap-2.5 rounded-md border-th border-line bg-bg p-4 target:border-acc-line"
+            data-pair={`${p.a.name} + ${p.b.name}`}
+          >
             <div className="t-display text-[24px] leading-none [overflow-wrap:anywhere]">
               {p.a.name} + {p.b.name}
             </div>
@@ -523,6 +577,7 @@ function Pairings({ view }: { view: RosterView }) {
               {(p.evidence.bAmongA === null || p.evidence.aAmongB === null) && "Qloo returned one direction only. "}
               {p.cityNote}
             </div>
+            <PairEvidence view={view} pair={p} />
             <div className="flex flex-wrap items-center gap-2">
               <SourceBadge />
               <OutlineChip>{p.confidence} confidence</OutlineChip>
@@ -547,6 +602,115 @@ function Pairings({ view }: { view: RosterView }) {
       <span className="text-chip text-mute">
         Shared score: the mean of Qloo&apos;s affinity in both directions, 0–100, ranked by Takeover&apos;s engine. It is not a share of fans.
       </span>
+    </Panel>
+  );
+}
+
+/** The numbers behind an act's row: each pick's Qloo values and the requests they came from. */
+function ActEvidence({ act }: { act: RosterActView }) {
+  const p = act.profile!;
+  const pick = (label: string, x: typeof p.partner | typeof p.sponsor) =>
+    x && (
+      <span>
+        {label}: {x.name} · score {two(x.score)}
+        {x.evidence && ` · Qloo affinity ${two(x.evidence.affinity)}, popularity ${two(x.evidence.popularity)}, ${two(x.evidence.relativeAffinity)} relative to its group`}
+      </span>
+    );
+  return (
+    <Evidence>
+      {p.city && (
+        <span>
+          City: {p.city.name}
+          {p.city.evidence && ` · Qloo heat ${two(p.city.evidence.heat)} over ${p.city.evidence.cells} cells`} · {p.city.confidence}
+        </span>
+      )}
+      {pick("Partner", p.partner)}
+      {pick("Sponsor", p.sponsor)}
+      {p.notes.map((n) => (
+        <span key={n} className="text-warn">
+          {n}
+        </span>
+      ))}
+      <Calls calls={p.calls ?? []} />
+    </Evidence>
+  );
+}
+
+/** Both directions from Qloo, how the score and level follow from them, and the requests. */
+function PairEvidence({ view, pair }: { view: RosterView; pair: RosterView["pairs"][number] }) {
+  const a = view.acts.find((x) => x.entityId === pair.a.id);
+  const b = view.acts.find((x) => x.entityId === pair.b.id);
+  const directions = [pair.evidence.bAmongA, pair.evidence.aAmongB].filter((x): x is number => x !== null);
+  return (
+    <Evidence>
+      <span>
+        Score {pair.score} = mean of {directions.map(two).join(" and ")} × 100, rounded. Level {pair.level}: strong from 0.92, clear from 0.85.
+      </span>
+      {pair.city && (
+        <span>
+          {pair.city.name}: combined city heat {two(pair.city.combined)} ({pair.city.confidence}).
+        </span>
+      )}
+      <span className="font-mono text-label uppercase tracking-[0.06em] text-mute">{pair.a.name} as the signal</span>
+      <Calls calls={(a?.pairingCalls ?? []).filter((c) => c.params["filter.results.entities"]?.split(",").includes(pair.b.id))} />
+      <span className="font-mono text-label uppercase tracking-[0.06em] text-mute">{pair.b.name} as the signal</span>
+      <Calls calls={(b?.pairingCalls ?? []).filter((c) => c.params["filter.results.entities"]?.split(",").includes(pair.a.id))} />
+    </Evidence>
+  );
+}
+
+/** Every pair at once: shared scores (0–100) by act, each linking to the pair's card and evidence. */
+function Matrix({ view }: { view: RosterView }) {
+  if (view.acts.length < 2) return null;
+  const score = (a: string, b: string) => view.pairs.find((p) => (p.a.id === a && p.b.id === b) || (p.a.id === b && p.b.id === a));
+  const unscored = (a: string, b: string) => view.unscored.find((u) => (u.a.id === a && u.b.id === b) || (u.a.id === b && u.b.id === a));
+  const cols = `minmax(9em,1.2fr) repeat(${view.acts.length}, minmax(3.5em,1fr))`;
+  return (
+    <Panel>
+      <MonoLabel>Matrix · shared score by pair, 0–100</MonoLabel>
+      <div className="-mx-1 overflow-x-auto px-1">
+        <div className="flex flex-col text-chip" role="table" aria-label="Pairing matrix" style={{ minWidth: `${9 + view.acts.length * 4}em` }}>
+          <div role="row" className="grid gap-1 border-b border-line pb-1.5 font-mono text-label uppercase tracking-[0.04em] text-mute" style={{ gridTemplateColumns: cols }}>
+            <span role="columnheader">Act</span>
+            {view.acts.map((a) => (
+              <span role="columnheader" key={a.id} className="truncate text-right" title={a.name}>
+                {a.name}
+              </span>
+            ))}
+          </div>
+          {view.acts.map((row) => (
+            <div role="row" key={row.id} className="grid items-center gap-1 border-b border-line py-1.5" style={{ gridTemplateColumns: cols }} data-matrix-row={row.name}>
+              <span role="rowheader" className="truncate font-medium" title={row.name}>
+                {row.name}
+              </span>
+              {view.acts.map((col) => {
+                if (col.id === row.id) {
+                  return (
+                    <span role="cell" key={col.id} className="text-right text-mute">
+                      —
+                    </span>
+                  );
+                }
+                const p = score(row.entityId, col.entityId);
+                return (
+                  <span role="cell" key={col.id} className="tabular text-right font-mono">
+                    {p ? (
+                      <a href={`#${pairAnchor(view, row.entityId, col.entityId)}`} title={`${row.name} + ${col.name}: evidence`}>
+                        {p.score}
+                      </a>
+                    ) : (
+                      <span className="text-mute" title={unscored(row.entityId, col.entityId)?.reason ?? "Not scored yet: refresh the roster."}>
+                        {unscored(row.entityId, col.entityId) ? "n/a" : "…"}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <span className="text-chip text-mute">Each number links to its pair below: Qloo&apos;s affinity both ways and the requests behind it. “…” not scored yet, “n/a” Qloo has no data.</span>
     </Panel>
   );
 }

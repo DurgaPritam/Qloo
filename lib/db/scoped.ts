@@ -4,7 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { and, asc, count, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 
-import type { ActProfile, RosterEntity } from "@/lib/roster/types";
+import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -388,11 +388,11 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         need("roster.edit");
         await db.delete(rosterActs).where(and(eq(rosterActs.workspaceId, ws), eq(rosterActs.rosterId, rosterId), eq(rosterActs.id, actId)));
       },
-      async setAffinities(rosterId: string, actId: string, affinities: Record<string, number | null>, forKey: string, at: Date) {
+      async setAffinities(rosterId: string, actId: string, affinities: Record<string, number | null>, forKey: string, at: Date, calls: CallRecord[]) {
         need("roster.edit");
         await db
           .update(rosterActs)
-          .set({ affinities, affinitiesFor: forKey, affinitiesAt: at })
+          .set({ affinities, affinitiesFor: forKey, affinitiesAt: at, affinitiesCalls: calls })
           .where(and(eq(rosterActs.workspaceId, ws), eq(rosterActs.rosterId, rosterId), eq(rosterActs.id, actId)));
       },
     },

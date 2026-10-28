@@ -12,7 +12,7 @@ import type { Candidate, Entity } from "@/lib/engine/types";
 import type { QlooCallOptions } from "@/lib/qloo/client";
 import { BudgetExceededError } from "@/lib/qloo/errors";
 import type { QlooSource } from "@/lib/qloo/source";
-import { describeFailure, metroPool } from "@/lib/tools/shared";
+import { describeFailure, metroPool, view } from "@/lib/tools/shared";
 
 import { PROFILE_CALLS } from "./plan";
 import type { ActProfile } from "./types";
@@ -62,21 +62,25 @@ export async function profileAct(entity: Entity, source: QlooSource, opts: QlooC
   const sponsor = brands ? (rankBrands(brands.data, 1).picks[0] ?? null) : null;
   if (brands && !sponsor) notes.push("No sponsor brand passed the filters.");
 
+  const calls = [...candidates.map((r) => r?.meta), heat?.meta, brands?.meta].filter((m) => m !== undefined).map(view);
   const stored: ActProfile["heat"] = {};
   for (const [id, h] of heatByCity) if (h.cells > 0) stored[id] = [h.mean, h.cells];
 
-  const city = top ? { id: top.city.id, name: top.city.name, country: top.city.country, confidence: top.confidence } : null;
+  const city = top
+    ? { id: top.city.id, name: top.city.name, country: top.city.country, confidence: top.confidence, evidence: { heat: heatByCity.get(top.city.id)!.mean, cells: top.evidence.cellsA } }
+    : null;
   return {
     entityId: entity.id,
     market: market.code,
     city,
     heat: stored,
     partner: partner
-      ? { id: partner.entity.id, name: partner.entity.name, category: partner.entity.category, score: partner.score, confidence: partner.confidence }
+      ? { id: partner.entity.id, name: partner.entity.name, category: partner.entity.category, score: partner.score, confidence: partner.confidence, evidence: partner.evidence }
       : null,
-    sponsor: sponsor ? { id: sponsor.brand.id, name: sponsor.brand.name, score: sponsor.score, confidence: sponsor.confidence } : null,
+    sponsor: sponsor ? { id: sponsor.brand.id, name: sponsor.brand.name, score: sponsor.score, confidence: sponsor.confidence, evidence: sponsor.evidence } : null,
     confidence: actConfidence([city?.confidence, partner?.confidence, sponsor?.confidence]),
     notes,
+    calls,
     mock: source.mock,
   };
 }
