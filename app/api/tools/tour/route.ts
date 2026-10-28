@@ -1,12 +1,12 @@
 import { toolRequest, text } from "@/lib/server/tool-route";
-import { optimizeFanTour, REGIONS } from "@/lib/tools/tour";
+import { DISTANCE_WEIGHT, optimizeFanTour, REGIONS } from "@/lib/tools/tour";
 
 export const maxDuration = 30;
 
 const names = (v: unknown) => (Array.isArray(v) ? v.slice(0, 10).map((x) => text(x, 80)).filter(Boolean) : []);
 
 /**
- * POST {fanbase, entityId?, region?, stops?, maxLegKm?, start?, end?, include?, exclude?} → the best
+ * POST {fanbase, entityId?, region?, stops?, maxLegKm?, start?, end?, include?, exclude?, distanceWeight?} → the best
  * route through the fanbase's strongest cities inside those constraints, with "why not" for strong
  * cities left out. Search plus one heatmap per country (up to five).
  */
@@ -18,6 +18,7 @@ export async function POST(req: Request): Promise<Response> {
   const stops = Number(r.body.stops);
   const maxLeg = Number(r.body.maxLegKm);
   const region = text(r.body.region, 20);
+  const weight = Number(r.body.distanceWeight);
   try {
     return Response.json(
       await optimizeFanTour(
@@ -31,6 +32,7 @@ export async function POST(req: Request): Promise<Response> {
           end: text(r.body.end, 80) || undefined,
           include: names(r.body.include),
           exclude: names(r.body.exclude),
+          ...(r.body.distanceWeight !== undefined && Number.isFinite(weight) && weight >= DISTANCE_WEIGHT.min && weight <= DISTANCE_WEIGHT.max ? { distanceWeight: weight } : {}),
         },
         r.source,
         { runId: r.runId },

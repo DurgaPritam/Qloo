@@ -15,8 +15,10 @@ export interface RouteCity {
   country: string;
   lat: number;
   lon: number;
-  /** 0–1: the fanbase's heat here, scaled to the hottest city in its country. */
+  /** 0–1: the fanbase's heat here, scaled to the hottest city in the whole region (what the route uses). */
   score: number;
+  /** 0–1: the same heat against the hottest city in its own country; for display only. */
+  countryScore?: number;
   /** Heat cells near the city, for evidence; 0 when Qloo had none. */
   cells: number;
 }

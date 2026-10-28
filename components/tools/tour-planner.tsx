@@ -9,7 +9,7 @@ import { FIELD } from "../account/fields";
 import { GeoMap } from "../geo-map";
 import { categoryLabel, pct } from "../run/format";
 import { planHref } from "../showcase";
-import { Banner, Button, ConfirmPill, cx, MonoLabel, OutlineChip, Panel, ScoreBar, Sk, SourceBadge, YourDataBadge } from "../ui";
+import { Banner, Button, ConfirmPill, cx, MonoLabel, OutlineChip, Panel, ScoreBar, Segmented, Sk, SourceBadge, YourDataBadge } from "../ui";
 import { CallsUsed, ChoicePicker, SampleBanner, ToolError, ToolForm, ToolIntro, useToolQuery } from "./tool-kit";
 
 const EXAMPLES = [{ label: "Phoebe Bridgers" }, { label: "John Mulaney" }, { label: "Call Her Daddy" }, { label: "Black Country, New Road" }];
@@ -18,6 +18,10 @@ const EXAMPLES = [{ label: "Phoebe Bridgers" }, { label: "John Mulaney" }, { lab
 const REGION_OPTIONS = [
   { value: "", label: "The fanbase's home country" },
   { value: "US", label: "United States" },
+  { value: "us-west", label: "US West" },
+  { value: "us-midwest", label: "US Midwest" },
+  { value: "us-south", label: "US South" },
+  { value: "us-northeast", label: "US Northeast" },
   { value: "us-ca", label: "United States and Canada" },
   { value: "GB", label: "United Kingdom" },
   { value: "uk-ie", label: "UK and Ireland" },
@@ -34,12 +38,19 @@ interface Constraints {
   end: string;
   include: string;
   exclude: string;
+  /** Score points a 1,000 km drive costs (lib/tools/tour.ts DISTANCE_WEIGHT). */
+  distanceWeight: number;
 }
+
+/** The engine's default (lib/engine/config.ts route.distanceWeight). */
+const DEFAULT_WEIGHT = 5;
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
 export function TourPlanner() {
-  const [c, setC] = useState<Constraints>({ region: "", stops: 5, maxLegKm: "", start: "", end: "", include: "", exclude: "" });
+  const [c, setC] = useState<Constraints>({ region: "", stops: 5, maxLegKm: "", start: "", end: "", include: "", exclude: "", distanceWeight: DEFAULT_WEIGHT });
+  /** Multi-country tours: which scale the scores are shown on. The route always uses one scale. */
+  const [scale, setScale] = useState<"region" | "country">("region");
   const [dates, setDates] = useState({ from: "", to: "" });
   const [stopInfo, setStopInfo] = useState<Record<string, { band: string; date: string }>>({});
   // The request builder is kept from the first render, so it reads the constraints from a ref.
@@ -54,6 +65,7 @@ export function TourPlanner() {
     end: ref.current.end,
     include: list(ref.current.include),
     exclude: list(ref.current.exclude),
+    distanceWeight: ref.current.distanceWeight,
   }));
   const r = state.data;
   const set = (patch: Partial<Constraints>) => {
@@ -62,6 +74,10 @@ export function TourPlanner() {
     setC(next);
   };
   const info = (id: string) => stopInfo[id] ?? { band: "", date: "" };
+  const multi = r?.status === "done" && r.markets.length > 1;
+  const perCountry = multi && scale === "country";
+  const shown = (city: { score: number; countryScore?: number }) => (perCountry ? (city.countryScore ?? city.score) : city.score);
+  const against = (country: string) => (perCountry ? `the hottest city in ${country} (display only)` : r?.status === "done" && (multi || r.states) ? "the hottest city in the region" : `the hottest city in ${country}`);
 
   return (
     <>
@@ -134,6 +150,23 @@ export function TourPlanner() {
             Skip
             <input value={c.exclude} onChange={(e) => set({ exclude: e.target.value })} placeholder="Cities, separated by commas" aria-label="Skip" className={FIELD} />
           </label>
+          <label className="flex flex-col gap-1 text-chip">
+            <span className="flex items-baseline justify-between gap-2">
+              Distance weight
+              <span className="tabular font-mono">{c.distanceWeight} points per 1,000 km</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={20}
+              step={1}
+              value={c.distanceWeight}
+              onChange={(e) => set({ distanceWeight: Number(e.target.value) })}
+              aria-label="Distance weight"
+              className="accent-acc-line"
+            />
+            <span className="text-mute">0 picks the strongest cities wherever they are; higher prefers shorter drives. Default {DEFAULT_WEIGHT}.</span>
+          </label>
           <Button variant="primary" disabled={!value} loading={state.loading} onClick={retry} className="min-h-[44px]">
             Optimize route
           </Button>
@@ -162,6 +195,24 @@ export function TourPlanner() {
                     <OutlineChip>{categoryLabel(r.fanbase.category)}</OutlineChip>
                   </div>
                   {r.route.note && <Banner tone="warn">{r.route.note}</Banner>}
+                  {multi && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Segmented
+                        label="Scores shown"
+                        options={[
+                          { value: "region", label: "One scale · used for the route" },
+                          { value: "country", label: "Per country · display only" },
+                        ]}
+                        value={scale}
+                        onChange={setScale}
+                      />
+                      <span className="text-chip text-mute">
+                        {perCountry
+                          ? "Each city against the hottest city in its own country. For reading only: the route is still chosen on one scale across the region."
+                          : "Every city against the hottest city anywhere in the region, so cities in different countries compare like with like."}
+                      </span>
+                    </div>
+                  )}
                   {(dates.from || dates.to) && (
                     <span className="flex flex-wrap items-center gap-2 text-chip">
                       Your window: {dates.from || "?"} to {dates.to || "?"} <YourDataBadge />
@@ -173,7 +224,7 @@ export function TourPlanner() {
                       name: `${String(i + 1).padStart(2, "0")} · ${s.city.name}`,
                       lat: s.city.lat,
                       lon: s.city.lon,
-                      value: String(pct(s.city.score)),
+                      value: String(pct(shown(s.city))),
                       size: 16,
                       tone: "acc",
                       ring: i === 0,
@@ -195,7 +246,7 @@ export function TourPlanner() {
                                 {s.role !== "chosen" && <OutlineChip>{s.role === "included" ? "you included it" : s.role}</OutlineChip>}
                               </span>
                               <span className="text-chip text-mute" data-evidence>
-                                {s.city.cells > 0 ? `Qloo heat ${pct(s.city.score)} / 100 over ${s.city.cells} cells, against the hottest city in ${s.city.country}` : "No Qloo heat here; on the route because you named it"}
+                                {s.city.cells > 0 ? `Qloo heat ${pct(shown(s.city))} / 100 over ${s.city.cells} cells, against ${against(s.city.country)}` : "No Qloo heat here; on the route because you named it"}
                               </span>
                               {call && <span className="font-mono text-label text-mute [overflow-wrap:anywhere]">GET {call.endpoint} · {Object.entries(call.params).filter(([k]) => k.startsWith("filter") || k.startsWith("signal")).map(([k, v]) => `${k}=${v}`).join(" · ")}</span>}
                               <span className="flex flex-wrap items-center gap-2 pt-1 text-chip">
@@ -221,7 +272,7 @@ export function TourPlanner() {
                                 {info(s.city.id).band || info(s.city.id).date ? <YourDataBadge /> : <ConfirmPill>Date to confirm with the promoter</ConfirmPill>}
                               </span>
                             </span>
-                            <ScoreBar value={pct(s.city.score)} label={`${pct(s.city.score)}`} />
+                            <ScoreBar value={pct(shown(s.city))} label={`${pct(shown(s.city))}`} />
                           </div>
                           {next && (
                             <span className="pl-[3.25em] font-mono text-label text-mute" data-leg>
@@ -253,7 +304,7 @@ export function TourPlanner() {
                     {r.route.whyNot.map((w) => (
                       <li key={w.city.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 border-b border-line py-2" data-why-not={w.city.name}>
                         <span className="font-medium">{w.city.name}</span>
-                        <span className="tabular font-mono text-chip">{pct(w.city.score)} / 100</span>
+                        <span className="tabular font-mono text-chip">{pct(shown(w.city))} / 100</span>
                         <span className="col-span-2 text-chip text-mute">{w.reason.text}</span>
                       </li>
                     ))}

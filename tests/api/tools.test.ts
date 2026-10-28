@@ -97,6 +97,41 @@ describe("POST /api/tools/tour", () => {
     const again = await (await tour(postJson("http://localhost/api/tools/tour", req, "192.0.2.92"))).json();
     expect(again.route).toEqual(body.route);
   });
+  it("scores a mixed-country tour on one scale, keeping each country's own scale for display only", async () => {
+    const body = await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 5, region: "us-ca" }, "192.0.2.93"))).json();
+    expect(body.status).toBe("done");
+    expect(body.markets.map((m: { code: string }) => m.code).sort()).toEqual(["CA", "US"]);
+    type Stop = { city: { country: string; score: number; countryScore: number } };
+    const cities: Stop["city"][] = [...body.route.stops.map((s: Stop) => s.city), ...body.route.whyNot.map((w: { city: Stop["city"] }) => w.city)];
+    // One region-wide maximum: at most one city anywhere scores 1; each country keeps its own top at 1 for display.
+    expect(Math.max(...cities.map((c) => c.score))).toBeLessThanOrEqual(1);
+    for (const c of cities) expect(c.countryScore).toBeGreaterThanOrEqual(c.score - 1e-9);
+    const canada = cities.filter((c) => c.country === "CA");
+    if (canada.length) expect(canada.some((c) => c.countryScore > c.score)).toBe(true);
+  });
+
+  it("limits a US region to its states, from one US heatmap", async () => {
+    const body = await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 4, region: "us-west", end: "Chicago" }, "192.0.2.94"))).json();
+    expect(body.status).toBe("done");
+    expect(body.states).toContain("California");
+    expect(body.calls.filter((c: { params: Record<string, string> }) => c.params["filter.type"] === "urn:heatmap")).toHaveLength(1);
+    // Chicago is in the Midwest, so it is not a city of this region and is reported, not routed.
+    expect(body.understood.unmatched).toEqual(["Chicago"]);
+    const names = body.route.stops.map((s: { city: { name: string } }) => s.city.name);
+    expect(names).toContain("Los Angeles");
+    expect(names).not.toContain("Chicago");
+    expect(names).not.toContain("New York City");
+  });
+
+  it("takes the user's distance weight: 0 ignores distance, a high weight shortens the route", async () => {
+    const at = async (w: number, ip: string) => (await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 5, region: "US", distanceWeight: w }, ip))).json()).route;
+    const free = await at(0, "192.0.2.96");
+    const tight = await at(20, "192.0.2.97");
+    expect(free.distanceWeight).toBe(0);
+    expect(tight.distanceWeight).toBe(20);
+    expect(tight.totalKm).toBeLessThanOrEqual(free.totalKm);
+    expect(free.scoreSum).toBeGreaterThanOrEqual(tight.scoreSum);
+  });
 });
 
 describe("POST /api/tools/audience", () => {

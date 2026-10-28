@@ -890,3 +890,15 @@ with the frozen prediction ("Matched the #1 pick", "Predicted #k", or "Not among
 sponsors", matched by name ignoring case) and still shows renewal. The promo line says "Not
 predicted": Takeover never forecasts redemptions. All three go into the CSV with a `_your_data`
 suffix. Nothing here feeds a score.
+
+**D137. Tour optimizer: one scale, US regions, distance weight** (halfway review, answer 22 and
+recommendations). A multi-country tour is now optimised on one scale: every city's heat against the
+hottest city anywhere in the region (all countries' heat merged, scored once by `scoreCityHeat`), so
+a strong Toronto is not lifted to 100 just for being Canada's best. Each city also carries its
+country's own score; a "Scores shown" switch (multi-country tours only) can display those, labelled
+"display only", and the route does not change. Four US regions (the Census West, Midwest, South and
+Northeast) use one US heatmap and only cities in their states; a typed start, end or include outside
+those states is reported as not in the region (it used to be accepted if it was in the country). A
+distance-weight slider (0–20 points per 1,000 km, default 5, the engine's) is sent with the request
+and shown in the objective line. Considered: comparing heat across countries is an assumption; it
+is the one the user chose, and the per-country view stays available.
