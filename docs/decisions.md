@@ -770,3 +770,24 @@ A named city with no Qloo heat can still be a stop (score 0), labelled.
 built: it would suggest dates. A date window and a date per stop can be typed and show the Your data
 label; until then each stop says "Date to confirm with the promoter". A venue size band per stop is
 also typed by the user and never changes a score. The plan's own tour (planTour) is unchanged.
+
+## Halfway review and Feature 10: branded decks (28 Oct, branch roadmap/foundation)
+
+**D125. Answers from the halfway review.** Build order: Feature 10 (branded decks), the sidebar
+App Shell, Feature 7 (outreach pipeline), then the approved follow-ups. Changes from my
+recommendations: cities missing from an upload leave the combined ranking for an "Untested" list;
+the sponsor fit becomes the geometric mean of both directions; mixed-country tours are optimised on
+one global scale with per-country scaling as a labelled display option. Before the branch counts as
+done, the main flows are run against live Qloo within budget and the calls are recorded. Features 7
+and 10 have no written brief; they are built from their design screens and the roadmap rules.
+
+**D126. Branded decks** (`deck_settings`, one row per workspace): logo, background, text and accent
+colours, and a headline font, set by admins on Settings → Branded decks, with a live slide preview
+and the design's contrast check (a warning below 4.5:1, not a block). Applied to every deck the
+workspace exports: plans, rosters, sponsorship pitches and the outcomes report; signed-out visitors
+and workspaces without settings get the house deck. Secondary text, panels and lines are blends of
+the workspace's own text and background, so the deck adds no colour. The logo is a PNG or JPEG of at
+most 300 KB kept in the row (decks are built in the browser and embed it); SVG is refused because it
+can carry script. Deck files use fonts every machine has: Anton → Impact (upper case), Inter Bold →
+Arial bold, Georgia → Georgia. The printed brief keeps the site's own style. The preview's sample text
+has no figures (the design's "2.1×" would be invented).

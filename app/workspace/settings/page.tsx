@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, DataTable, MonoLabel, Page, Skeleton } from "@/components/ui";
+import Link from "next/link";
+
+import { AppHeader, Banner, DataTable, MonoLabel, Page, Skeleton } from "@/components/ui";
 import { WorkspaceSettings } from "@/components/workspace/settings";
 import { WorkspaceTabs } from "@/components/workspace/tabs";
 import { can, ROLE_LABEL } from "@/lib/workspace/permissions";
@@ -31,6 +33,8 @@ const ACTIONS: Record<string, string> = {
   "data.uploaded": "uploaded data",
   "data.attached": "attached data to a fanbase",
   "data.deleted": "deleted data and its file",
+  "branding.saved": "changed the deck branding",
+  "branding.reset": "reset the deck branding",
 };
 
 function detail(action: string, d: Record<string, string | number | boolean | null> | null): string {
@@ -58,6 +62,9 @@ async function Content() {
     <>
       <WorkspaceTabs name={current.name} role={ROLE_LABEL[ctx.role]} />
       <WorkspaceSettings name={current.name} canRename={can(ctx.role, "workspace.rename")} canLeave={!current.personal && !lastOwner} />
+      <Banner tone="neutral" action={<Link href="/workspace/settings/branding">Branded decks →</Link>}>
+        Your logo, colours and headline font on every deck this workspace exports.
+      </Banner>
       <section className="flex flex-col gap-2">
         <MonoLabel>Activity</MonoLabel>
         <DataTable

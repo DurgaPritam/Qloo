@@ -27,6 +27,7 @@ export type Action =
   | "sponsor.edit"
   | "outcome.read"
   | "outcome.log"
+  | "branding.edit"
   | "workspace.rename";
 
 const RANK: Record<Role, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
@@ -53,6 +54,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "plan.share.any": "admin",
   "member.invite": "admin",
   "member.manage": "admin",
+  "branding.edit": "admin",
   "workspace.rename": "owner",
 };
 

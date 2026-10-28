@@ -27,8 +27,8 @@ async function send<T>(url: string, method: string, body?: unknown) {
 }
 
 async function deck(p: PitchInput) {
-  const [{ pitchOutline, pitchFooter, pitchFileName }, { renderDeck }] = await Promise.all([import("@/lib/export/sponsor"), import("../run/exports")]);
-  await renderDeck(pitchOutline(p), { title: `${p.holder} × ${p.brand}`, footer: pitchFooter(p), mock: p.mock, fileName: pitchFileName(p) });
+  const [{ pitchOutline, pitchFooter, pitchFileName }, { renderDeck, loadBranding }] = await Promise.all([import("@/lib/export/sponsor"), import("../run/exports")]);
+  await renderDeck(pitchOutline(p), { title: `${p.holder} × ${p.brand}`, footer: pitchFooter(p), mock: p.mock, fileName: pitchFileName(p), branding: await loadBranding() });
 }
 
 export function SponsorshipScreen({

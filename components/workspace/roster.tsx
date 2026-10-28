@@ -182,8 +182,8 @@ function Exports({ view }: { view: RosterView }) {
   const deck = async () => {
     setBusy(true);
     try {
-      const [{ rosterOutline, rosterFileName, rosterFooter }, { renderDeck }] = await Promise.all([import("@/lib/export/roster"), import("../run/exports")]);
-      await renderDeck(rosterOutline(view), { title: view.name, footer: rosterFooter(view), mock: view.mock, fileName: rosterFileName(view, "pptx") });
+      const [{ rosterOutline, rosterFileName, rosterFooter }, { renderDeck, loadBranding }] = await Promise.all([import("@/lib/export/roster"), import("../run/exports")]);
+      await renderDeck(rosterOutline(view), { title: view.name, footer: rosterFooter(view), mock: view.mock, fileName: rosterFileName(view, "pptx"), branding: await loadBranding() });
     } finally {
       setBusy(false);
     }

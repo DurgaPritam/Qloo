@@ -9,6 +9,7 @@ import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 import type { EmailTheme } from "@/lib/email/digest-html";
 import type { PitchInput } from "@/lib/export/sponsor";
 import type { Prediction } from "@/lib/engine/outcomes";
+import type { DeckFont } from "@/lib/export/branding";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -587,6 +588,25 @@ export const calibrationPairs = pgTable(
   (t) => [index("calibration_pairs_workspace_idx").on(t.workspaceId, t.kind)],
 );
 
+/* ---------- Branded decks (Feature 10) ---------- */
+
+/** One row per workspace: applied to every deck it exports. No row = Takeover's house deck. */
+export const deckSettings = pgTable("deck_settings", {
+  workspaceId: text("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  bg: text("bg").notNull(),
+  text: text("text").notNull(),
+  accent: text("accent").notNull(),
+  font: text("font").$type<DeckFont>().notNull(),
+  /** A small PNG or JPEG as a data URL (at most 300 KB), so decks built in the browser can embed it. */
+  logoData: text("logo_data"),
+  logoWidth: integer("logo_width"),
+  logoHeight: integer("logo_height"),
+  updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -608,4 +628,5 @@ export const TENANT_TABLES = [
   "plan_predictions",
   "outcomes",
   "calibration_pairs",
+  "deck_settings",
 ] as const;

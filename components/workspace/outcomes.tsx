@@ -213,8 +213,8 @@ export function OutcomesReport({ view, plans, canLog }: { view: ReportView; plan
   const deck = async () => {
     setBusy(true);
     try {
-      const [{ outcomesOutline, outcomesFileName }, { renderDeck }] = await Promise.all([import("@/lib/export/outcomes"), import("../run/exports")]);
-      await renderDeck(outcomesOutline(view), { title: `${view.workspace}: outcomes`, footer: "Results are your data; predictions are frozen Qloo-based plans.", mock: false, fileName: outcomesFileName(view, "pptx") });
+      const [{ outcomesOutline, outcomesFileName }, { renderDeck, loadBranding }] = await Promise.all([import("@/lib/export/outcomes"), import("../run/exports")]);
+      await renderDeck(outcomesOutline(view), { title: `${view.workspace}: outcomes`, footer: "Results are your data; predictions are frozen Qloo-based plans.", mock: false, fileName: outcomesFileName(view, "pptx"), branding: await loadBranding() });
     } finally {
       setBusy(false);
     }

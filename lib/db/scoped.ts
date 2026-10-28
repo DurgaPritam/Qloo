@@ -10,6 +10,7 @@ import type { Category } from "@/lib/engine/types";
 import type { ChangeKind, Snapshot } from "@/lib/engine/watch";
 import type { EmailTheme } from "@/lib/email/digest-html";
 import type { PitchInput } from "@/lib/export/sponsor";
+import type { DeckFont } from "@/lib/export/branding";
 import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
 import { predictionsFromPlan } from "@/lib/outcomes/predict";
 
@@ -26,6 +27,7 @@ import {
   calibrationPairs,
   datasetRows,
   datasets,
+  deckSettings,
   digestSubscriptions,
   entityProfiles,
   invitations,
@@ -785,6 +787,34 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async calibration() {
         need("outcome.read");
         return db.select().from(calibrationPairs).where(eq(calibrationPairs.workspaceId, ws)).orderBy(asc(calibrationPairs.recordedAt));
+      },
+    },
+
+    /** Branded deck settings (Feature 10): every member's exports read them; admins change them. */
+    branding: {
+      async get() {
+        return (await db.select().from(deckSettings).where(eq(deckSettings.workspaceId, ws)).limit(1))[0] ?? null;
+      },
+      async save(input: { bg: string; text: string; accent: string; font: DeckFont; logo: { dataUrl: string; width: number; height: number } | null }) {
+        need("branding.edit");
+        const values = {
+          bg: input.bg,
+          text: input.text,
+          accent: input.accent,
+          font: input.font,
+          logoData: input.logo?.dataUrl ?? null,
+          logoWidth: input.logo?.width ?? null,
+          logoHeight: input.logo?.height ?? null,
+          updatedBy: ctx.userId,
+          updatedAt: new Date(),
+        };
+        await db.insert(deckSettings).values({ workspaceId: ws, ...values }).onConflictDoUpdate({ target: deckSettings.workspaceId, set: values });
+        await log("branding.saved", { type: "workspace", id: ws });
+      },
+      async reset() {
+        need("branding.edit");
+        await db.delete(deckSettings).where(eq(deckSettings.workspaceId, ws));
+        await log("branding.reset", { type: "workspace", id: ws });
       },
     },
 

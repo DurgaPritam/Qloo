@@ -1,13 +1,49 @@
 "use client";
 
 import type { Plan } from "@/lib/agent/types";
+import { DECK_FONT_FACE, mix, pptx as toPptx, type DeckBranding } from "@/lib/export/branding";
 import { citiesCsv, deckOutline, exportFileName, exportFooter, type SlideOutline } from "@/lib/export/outline";
 
-/** Design tokens (dark theme) as PowerPoint hex colours. */
-const C = { bg: "161826", surf: "232532", line: "3F424D", ink: "E9E9ED", mute: "9397AB", acc: "D4FF3A", warn: "E8B04A" };
+/** Design tokens (dark theme) as PowerPoint hex colours: the house deck. */
+const HOUSE = { bg: "161826", surf: "232532", line: "3F424D", ink: "E9E9ED", mute: "9397AB", acc: "D4FF3A", warn: "E8B04A" };
 // Anton, Inter and JetBrains Mono are web fonts; decks use fonts every machine has.
-const DISPLAY = "Arial Black";
+const HOUSE_DISPLAY = "Arial Black";
 const BODY = "Arial";
+
+/**
+ * A workspace's branding (Feature 10) as deck colours. Secondary text, panels and lines are blends
+ * of its own text and background, so the deck adds no colour of its own.
+ */
+function paletteFor(b: DeckBranding | null | undefined) {
+  if (!b) return { C: HOUSE, display: HOUSE_DISPLAY, bold: false, upper: true, wordmark: "TAKEOVER", logo: null };
+  const f = DECK_FONT_FACE[b.font];
+  return {
+    C: {
+      bg: toPptx(b.bg),
+      surf: toPptx(mix(b.bg, b.text, 0.08)),
+      line: toPptx(mix(b.bg, b.text, 0.25)),
+      ink: toPptx(b.text),
+      mute: toPptx(mix(b.bg, b.text, 0.65)),
+      acc: toPptx(b.accent),
+      warn: HOUSE.warn,
+    },
+    display: f.face,
+    bold: f.bold,
+    upper: f.upper,
+    wordmark: b.name.toUpperCase(),
+    logo: b.logo,
+  };
+}
+
+/** The current workspace's branding, or null (signed out, or the house deck). */
+export async function loadBranding(): Promise<DeckBranding | null> {
+  try {
+    const res = await fetch("/api/workspace/branding");
+    return res.ok ? (((await res.json()) as { branding: DeckBranding | null }).branding ?? null) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Approximate Arial Black uppercase advance, inches per point per character. */
 const CHAR_W = 0.0105;
@@ -31,24 +67,26 @@ export function downloadCsv(plan: Plan) {
   save(new Blob([citiesCsv(plan)], { type: "text/csv;charset=utf-8" }), exportFileName(plan, "csv"));
 }
 
-/** Builds the partner deck in the browser; the library loads only when asked for. */
+/** Builds the partner deck in the browser, in the workspace's branding when signed in; the library loads only when asked for. */
 export async function downloadDeck(plan: Plan) {
   await renderDeck(deckOutline(plan), {
     title: plan.brief?.title ?? "Takeover plan",
     footer: exportFooter(plan),
     mock: plan.mock,
     fileName: exportFileName(plan, "pptx"),
+    branding: await loadBranding(),
   });
 }
 
 /** The house deck: dark theme, one outline slide per slide, the footer (or sample-data label) on each. */
-export async function renderDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean; fileName: string }) {
+export async function renderDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean; fileName: string; branding?: DeckBranding | null }) {
   const pptx = await buildDeck(slides, deck);
   await pptx.writeFile({ fileName: deck.fileName });
 }
 
 /** Builds the deck without saving it, so tests can open the real file. */
-export async function buildDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean }) {
+export async function buildDeck(slides: SlideOutline[], deck: { title: string; footer: string; mock: boolean; branding?: DeckBranding | null }) {
+  const { C, display: DISPLAY, bold, upper, wordmark, logo } = paletteFor(deck.branding);
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 in
@@ -58,20 +96,27 @@ export async function buildDeck(slides: SlideOutline[], deck: { title: string; f
   for (const [i, s] of slides.entries()) {
     const slide = pptx.addSlide();
     slide.background = { color: C.bg };
-    slide.addText("TAKEOVER", { x: 0.5, y: 0.3, w: 4, h: 0.4, fontFace: DISPLAY, fontSize: 14, color: C.ink, margin: 0 });
+    if (logo) {
+      // At most 0.45 in tall and 3 in wide, keeping the logo's own proportions.
+      const h = Math.min(0.45, (3 * logo.height) / logo.width);
+      slide.addImage({ data: logo.dataUrl, x: 0.5, y: 0.28, h, w: (h * logo.width) / logo.height });
+    } else {
+      slide.addText(wordmark, { x: 0.5, y: 0.3, w: 6, h: 0.4, fontFace: DISPLAY, fontSize: 14, bold, color: C.ink, margin: 0 });
+    }
     slide.addText(`${i + 1}`, { x: 12.3, y: 0.3, w: 0.5, h: 0.4, fontFace: BODY, fontSize: 11, color: C.mute, align: "right" });
     // Sized from the length: viewers that ignore "shrink to fit" must not overlap the text below.
     const size = titleSize(s.title.length, i === 0);
     const lines = Math.ceil((s.title.length * size * CHAR_W) / 12.3);
     const titleH = Math.max(0.6, lines * size * 1.15 / 72);
     const top = i === 0 ? 2.2 : 0.9;
-    slide.addText(s.title.toUpperCase(), {
+    slide.addText(upper ? s.title.toUpperCase() : s.title, {
       x: 0.5,
       y: top,
       w: 12.3,
       h: titleH,
       fontFace: DISPLAY,
       fontSize: size,
+      bold,
       color: C.ink,
       fit: "shrink",
       valign: "top",

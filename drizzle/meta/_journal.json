@@ -57,6 +57,13 @@
       "when": 1793191946851,
       "tag": "0007_outcomes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793195857420,
+      "tag": "0008_deck_settings",
+      "breakpoints": true
     }
   ]
 }
