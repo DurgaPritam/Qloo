@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lt, lte, ne, notInArray, or } from "drizzle-orm";
 
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
@@ -334,11 +334,26 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
     notifications: {
       async list(limit = 50) {
         return db
-          .select({ id: notifications.id, kind: notifications.kind, planId: notifications.planId, commentId: notifications.commentId, readAt: notifications.readAt, createdAt: notifications.createdAt, actor: users.name, actorEmail: users.email, body: comments.body, planInput: plans.input })
+          .select({
+            id: notifications.id,
+            kind: notifications.kind,
+            planId: notifications.planId,
+            commentId: notifications.commentId,
+            outreachId: notifications.outreachId,
+            readAt: notifications.readAt,
+            createdAt: notifications.createdAt,
+            actor: users.name,
+            actorEmail: users.email,
+            body: comments.body,
+            planInput: plans.input,
+            cardRecipient: outreach.recipient,
+            cardDue: outreach.dueDate,
+          })
           .from(notifications)
           .leftJoin(users, eq(users.id, notifications.actorId))
           .leftJoin(comments, and(eq(comments.id, notifications.commentId), eq(comments.workspaceId, ws)))
           .leftJoin(plans, and(eq(plans.id, notifications.planId), eq(plans.workspaceId, ws)))
+          .leftJoin(outreach, and(eq(outreach.id, notifications.outreachId), eq(outreach.workspaceId, ws)))
           .where(and(eq(notifications.workspaceId, ws), eq(notifications.userId, ctx.userId)))
           .orderBy(desc(notifications.createdAt))
           .limit(limit);
@@ -454,8 +469,8 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
     },
 
     jobs: {
-      async create(input: { kind: "roster.refresh" | "watch.refresh"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
-        need(input.kind === "roster.refresh" ? "roster.edit" : "watch.read");
+      async create(input: { kind: "roster.refresh" | "watch.refresh" | "pipeline.reminders"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
+        need(input.kind === "roster.refresh" ? "roster.edit" : input.kind === "pipeline.reminders" ? "pipeline.read" : "watch.read");
         const id = crypto.randomUUID();
         await db.insert(jobRuns).values({ id, workspaceId: ws, createdBy: ctx.userId, ...input });
         return id;
@@ -708,6 +723,24 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .innerJoin(users, eq(users.id, digestSubscriptions.userId))
           .where(and(eq(digestSubscriptions.workspaceId, ws), eq(digestSubscriptions.enabled, true)));
       },
+      /** Pipeline reminder emails: off until the person turns them on. */
+      async setReminders(enabled: boolean) {
+        need("pipeline.read");
+        await db
+          .insert(digestSubscriptions)
+          .values({ workspaceId: ws, userId: ctx.userId, remindersEnabled: enabled })
+          .onConflictDoUpdate({ target: [digestSubscriptions.workspaceId, digestSubscriptions.userId], set: { remindersEnabled: enabled, updatedAt: new Date() } });
+        await log(enabled ? "reminders.on" : "reminders.off", { type: "user", id: ctx.userId });
+      },
+      /** Members who turned reminder emails on, and are still members. */
+      async reminderRecipients() {
+        return db
+          .select({ userId: users.id, email: users.email, theme: digestSubscriptions.theme })
+          .from(digestSubscriptions)
+          .innerJoin(memberships, and(eq(memberships.workspaceId, ws), eq(memberships.userId, digestSubscriptions.userId)))
+          .innerJoin(users, eq(users.id, digestSubscriptions.userId))
+          .where(and(eq(digestSubscriptions.workspaceId, ws), eq(digestSubscriptions.remindersEnabled, true)));
+      },
       async markSent(userIds: readonly string[], at: Date) {
         if (!userIds.length) return;
         await db
@@ -901,9 +934,84 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         await db.insert(outreachEvents).values({ workspaceId: ws, outreachId: id, actorId: ctx.userId, fromStage: card.stage, toStage: to, sent, at: now });
         await log(to === "sent" ? "outreach.sent" : "outreach.moved", { type: "outreach", id }, { from: card.stage, to, recipient: card.recipient });
       },
+      /** Tracking fields, editable at any stage: the contact's name, the follow-up date and notes. */
+      async track(id: string, fields: { contactName: string | null; dueDate: string | null; notes: string | null }) {
+        need("pipeline.edit");
+        const card = (await db.select({ dueDate: outreach.dueDate }).from(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id))).limit(1))[0];
+        if (!card) throw new InputError("That card isn't in this workspace.");
+        // A new due date reminds again; the same date never twice.
+        const patch = card.dueDate === fields.dueDate ? fields : { ...fields, remindedFor: null };
+        await db.update(outreach).set(patch).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+      },
+      /** Hands a card to another member of this workspace. */
+      async assign(id: string, ownerId: string) {
+        need("pipeline.edit");
+        if (!(await memberRows()).some((m) => m.userId === ownerId)) throw new InputError("Pick someone in this workspace.");
+        const card = (await db.select({ ownerId: outreach.ownerId, recipient: outreach.recipient }).from(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id))).limit(1))[0];
+        if (!card) throw new InputError("That card isn't in this workspace.");
+        if (card.ownerId === ownerId) return;
+        await db.update(outreach).set({ ownerId }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+        await log("outreach.assigned", { type: "outreach", id }, { recipient: card.recipient, to: ownerId });
+      },
       async remove(id: string) {
         need("pipeline.edit");
+        await db.delete(comments).where(and(eq(comments.workspaceId, ws), eq(comments.targetType, "outreach"), eq(comments.targetId, id)));
         await db.delete(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+      },
+      /** The card's comment threads (the foundation comment system, target "outreach"). */
+      async comments(id: string) {
+        need("comment.read");
+        return db
+          .select({ id: comments.id, parentId: comments.parentId, body: comments.body, authorId: comments.authorId, author: users.name, authorEmail: users.email, resolvedAt: comments.resolvedAt, createdAt: comments.createdAt })
+          .from(comments)
+          .leftJoin(users, eq(users.id, comments.authorId))
+          .where(and(eq(comments.workspaceId, ws), eq(comments.targetType, "outreach"), eq(comments.targetId, id)))
+          .orderBy(asc(comments.createdAt));
+      },
+      async comment(id: string, input: { body: string; parentId?: string | null }) {
+        need("comment.create");
+        const body = input.body.trim();
+        if (!body) throw new InputError("Write something first.");
+        if (body.length > MAX_COMMENT) throw new InputError(`Keep comments under ${MAX_COMMENT} characters.`);
+        const card = (await db.select({ id: outreach.id }).from(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id))).limit(1))[0];
+        if (!card) throw new InputError("That card isn't in this workspace.");
+        let parentId: string | null = null;
+        if (input.parentId) {
+          const parent = (
+            await db
+              .select({ id: comments.id, parentId: comments.parentId, targetType: comments.targetType, targetId: comments.targetId })
+              .from(comments)
+              .where(and(eq(comments.workspaceId, ws), eq(comments.id, input.parentId)))
+              .limit(1)
+          )[0];
+          if (!parent || parent.targetType !== "outreach" || parent.targetId !== id) throw new InputError("That thread isn't on this card.");
+          parentId = parent.parentId ?? parent.id;
+        }
+        const commentId = crypto.randomUUID();
+        await db.insert(comments).values({ id: commentId, workspaceId: ws, planId: null, targetType: "outreach", targetId: id, parentId, authorId: ctx.userId, body });
+        const mentioned = mentionedUserIds(body, await memberRows()).filter((u) => u !== ctx.userId);
+        if (mentioned.length) {
+          await db.insert(notifications).values(mentioned.map((userId) => ({ workspaceId: ws, userId, kind: "mention" as const, actorId: ctx.userId, commentId, outreachId: id })));
+        }
+        await log("comment.created", { type: "comment", id: commentId }, { target: "outreach", mentions: mentioned.length });
+        return { id: commentId, mentioned };
+      },
+      /**
+       * Cards past their due date (before `today`, the workspace's local date) whose owner has not
+       * been reminded about that date: each gets one in-app reminder, and `remindedFor` records it.
+       * Returns them so the job can email owners who opted in.
+       */
+      async remindOverdue(today: string) {
+        const due = await db
+          .select({ id: outreach.id, recipient: outreach.recipient, context: outreach.context, dueDate: outreach.dueDate, ownerId: outreach.ownerId })
+          .from(outreach)
+          .where(and(eq(outreach.workspaceId, ws), lt(outreach.dueDate, today), notInArray(outreach.stage, ["booked", "lost"]), or(isNull(outreach.remindedFor), ne(outreach.remindedFor, outreach.dueDate))));
+        const owned = due.filter((d): d is typeof d & { ownerId: string; dueDate: string } => Boolean(d.ownerId && d.dueDate));
+        for (const d of owned) {
+          await db.insert(notifications).values({ workspaceId: ws, userId: d.ownerId, kind: "overdue", outreachId: d.id });
+          await db.update(outreach).set({ remindedFor: d.dueDate }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, d.id)));
+        }
+        return owned;
       },
     },
 

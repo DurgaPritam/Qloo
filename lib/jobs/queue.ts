@@ -26,11 +26,23 @@ export interface WatchRefreshMessage {
   asOf?: string;
 }
 
-export type JobMessage = RosterRefreshMessage | WatchRefreshMessage;
+/** One workspace's overdue pipeline cards: in-app reminders, and emails to owners who opted in. */
+export interface PipelineRemindersMessage {
+  kind: "pipeline.reminders";
+  workspaceId: string;
+  userId: string;
+  asOf?: string;
+}
+
+export type JobMessage = RosterRefreshMessage | WatchRefreshMessage | PipelineRemindersMessage;
 
 type Env = Record<string, string | undefined>;
 
-export const JOB_PATHS: Record<JobMessage["kind"], string> = { "roster.refresh": "/api/jobs/roster-refresh", "watch.refresh": "/api/jobs/watch-refresh" };
+export const JOB_PATHS: Record<JobMessage["kind"], string> = {
+  "roster.refresh": "/api/jobs/roster-refresh",
+  "watch.refresh": "/api/jobs/watch-refresh",
+  "pipeline.reminders": "/api/jobs/pipeline-reminders",
+};
 
 /**
  * QStash when it is configured; on a laptop, an in-process timer. A deployment without QStash
@@ -65,7 +77,9 @@ export async function enqueue(message: JobMessage, delaySeconds: number, env: En
     const run =
       message.kind === "roster.refresh"
         ? import("@/lib/roster/jobs").then(({ runRosterJob }) => runRosterJob(message))
-        : import("@/lib/watch/jobs").then(({ runWatchJob }) => runWatchJob(message));
+        : message.kind === "watch.refresh"
+          ? import("@/lib/watch/jobs").then(({ runWatchJob }) => runWatchJob(message))
+          : import("@/lib/pipeline/reminders").then(({ runRemindersJob }) => runRemindersJob(message));
     void run.catch((err: unknown) => {
       console.error("[jobs] local job failed:", err instanceof Error ? err.message : "unknown");
     });

@@ -8,7 +8,7 @@ import { splitMentions } from "@/lib/workspace/mentions";
 import { FIELD } from "../account/fields";
 import { Banner, Button, Chip, MonoLabel, OutlineChip, Panel, Sk, cx } from "../ui";
 
-interface Comment {
+export interface Comment {
   id: string;
   targetType: CommentTarget;
   targetId: string;
@@ -20,7 +20,7 @@ interface Comment {
   createdAt: string;
 }
 
-interface State {
+export interface State {
   can: { comment: boolean; resolve: boolean };
   targets: { type: CommentTarget; id: string; label: string }[];
   members: { handle: string; name: string | null }[];
@@ -142,7 +142,7 @@ function TargetThreads({
   );
 }
 
-function Thread({
+export function Thread({
   root,
   replies,
   can,
@@ -208,7 +208,7 @@ function Thread({
   );
 }
 
-function Composer({
+export function Composer({
   members,
   placeholder,
   button,

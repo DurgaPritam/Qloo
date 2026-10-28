@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { Banner, MonoLabel, Skeleton } from "@/components/ui";
 import { MarkInboxRead } from "@/components/workspace/settings";
+import { notificationView } from "@/lib/workspace/notification-text";
 import { currentWorkspace } from "@/lib/workspace/session";
 import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 
@@ -23,18 +24,18 @@ async function Content() {
       <PageTitle label="Settings" title="Inbox" />
       <MarkInboxRead unread={unread} />
       {items.length === 0 ? (
-        <Banner tone="neutral">No mentions yet. When someone writes @ and your handle in a comment, it shows up here.</Banner>
+        <Banner tone="neutral">Nothing yet. Mentions in comments and reminders for your overdue pipeline cards show up here.</Banner>
       ) : (
         <section className="flex flex-col">
-          <MonoLabel>Mentions{unread ? ` · ${unread} new` : ""}</MonoLabel>
+          <MonoLabel>Inbox{unread ? ` · ${unread} new` : ""}</MonoLabel>
           {items.map((n) => (
             <Link
               key={n.id}
-              href={n.planId ? `/plan/${n.planId}#comments` : "/workspace"}
+              href={notificationView(n).href}
               className={`flex flex-col gap-0.5 border-b border-line py-3 text-ink no-underline hover:bg-acc-soft ${n.readAt ? "" : "font-medium"}`}
             >
               <span className="text-chip text-mute">
-                {n.actor ?? n.actorEmail ?? "Someone"} mentioned you{n.planInput ? ` on ${n.planInput}` : ""} ·{" "}
+                {notificationView(n).text} ·{" "}
                 {n.createdAt.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
               </span>
               {n.body && <span className="text-body [overflow-wrap:anywhere]">{n.body.length > 200 ? `${n.body.slice(0, 199)}…` : n.body}</span>}

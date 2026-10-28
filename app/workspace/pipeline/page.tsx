@@ -4,6 +4,8 @@ import { Suspense } from "react";
 
 import { Skeleton } from "@/components/ui";
 import { PipelineBoard } from "@/components/workspace/pipeline";
+import { localDate } from "@/lib/pipeline/reminders";
+import { handlesFor } from "@/lib/workspace/mentions";
 import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
 
@@ -13,10 +15,15 @@ async function Content({ searchParams }: { searchParams: Promise<{ card?: string
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/pipeline");
   const { ctx, repo } = found;
-  const [cards, { card }] = await Promise.all([repo.pipeline.list(), searchParams]);
+  const [cards, { card }, members, ws, mine] = await Promise.all([repo.pipeline.list(), searchParams, repo.members.list(), repo.workspace.get(), repo.digest.get()]);
+  const handles = handlesFor(members);
   return (
     <PipelineBoard
       canEdit={can(ctx.role, "pipeline.edit")}
+      members={members.map((m) => ({ userId: m.userId, name: m.name ?? m.email ?? "Member", handle: handles.get(m.userId) ?? null }))}
+      me={ctx.userId}
+      today={localDate(new Date(), ws?.timeZone ?? null)}
+      remindersOn={mine?.remindersEnabled ?? false}
       openId={typeof card === "string" ? card : undefined}
       initial={cards.map((c) => ({
         id: c.id,
@@ -28,6 +35,10 @@ async function Content({ searchParams }: { searchParams: Promise<{ card?: string
         body: c.body,
         stage: c.stage,
         owner: c.owner,
+        ownerId: c.ownerId,
+        contactName: c.contactName,
+        dueDate: c.dueDate,
+        notes: c.notes,
         planId: c.planId,
         movedAt: c.movedAt.toISOString(),
         hash: c.hash,

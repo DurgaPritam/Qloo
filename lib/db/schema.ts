@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 import type { Plan } from "@/lib/agent/types";
 import type { Category } from "@/lib/engine/types";
@@ -28,7 +28,7 @@ const createdAt = () => timestamp("created_at", { mode: "date", withTimezone: tr
 export const ROLES = ["owner", "admin", "member", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
-export const COMMENT_TARGETS = ["plan", "partner", "city", "venue", "sponsor"] as const;
+export const COMMENT_TARGETS = ["plan", "partner", "city", "venue", "sponsor", "outreach"] as const;
 export type CommentTarget = (typeof COMMENT_TARGETS)[number];
 
 export const VISIBILITIES = ["workspace", "public"] as const;
@@ -176,11 +176,10 @@ export const comments = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    planId: text("plan_id")
-      .notNull()
-      .references(() => plans.id, { onDelete: "cascade" }),
+    /** Null for a comment on a pipeline card that has no plan (a sponsor pitch). */
+    planId: text("plan_id").references(() => plans.id, { onDelete: "cascade" }),
     targetType: text("target_type").$type<CommentTarget>().notNull(),
-    /** The plan id for "plan"; the Qloo entity or city id of the decision otherwise. */
+    /** The plan id for "plan"; the outreach card id for "outreach"; the Qloo entity or city id of the decision otherwise. */
     targetId: text("target_id").notNull(),
     /** Replies point at the thread's first comment; threads are one level deep. */
     parentId: text("parent_id"),
@@ -192,11 +191,12 @@ export const comments = pgTable(
   },
   (t) => [
     index("comments_plan_idx").on(t.workspaceId, t.planId),
-    check("comments_target_check", sql`${t.targetType} in ('plan', 'partner', 'city', 'venue', 'sponsor')`),
+    index("comments_target_idx").on(t.workspaceId, t.targetType, t.targetId),
+    check("comments_target_check", sql`${t.targetType} in ('plan', 'partner', 'city', 'venue', 'sponsor', 'outreach')`),
   ],
 );
 
-/** In-app only for now: @mentions. */
+/** In-app: @mentions, and overdue pipeline cards for their owner. */
 export const notifications = pgTable(
   "notifications",
   {
@@ -207,10 +207,12 @@ export const notifications = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<"mention">().notNull(),
+    kind: text("kind").$type<"mention" | "overdue">().notNull(),
     actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
     planId: text("plan_id").references(() => plans.id, { onDelete: "cascade" }),
     commentId: text("comment_id").references(() => comments.id, { onDelete: "cascade" }),
+    /** The pipeline card a mention or reminder is about. */
+    outreachId: text("outreach_id").references((): AnyPgColumn => outreach.id, { onDelete: "cascade" }),
     readAt: timestamp("read_at", { mode: "date", withTimezone: true }),
     createdAt: createdAt(),
   },
@@ -307,7 +309,7 @@ export const jobRuns = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<"roster.refresh" | "watch.refresh">().notNull(),
+    kind: text("kind").$type<"roster.refresh" | "watch.refresh" | "pipeline.reminders">().notNull(),
     /** What the job is about, e.g. the roster id. */
     targetId: text("target_id"),
     status: text("status").$type<JobStatus>().notNull(),
@@ -491,6 +493,8 @@ export const digestSubscriptions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     enabled: boolean("enabled").notNull().default(false),
+    /** Email me when a pipeline card I own is overdue (in-app reminders need no opt-in). */
+    remindersEnabled: boolean("reminders_enabled").notNull().default(false),
     /** The look of the email: one of the three site themes, in email-safe colours. */
     theme: text("theme").$type<EmailTheme>().notNull().default("light"),
     lastSentAt: timestamp("last_sent_at", { mode: "date", withTimezone: true }),
@@ -643,6 +647,13 @@ export const outreach = pgTable(
     recipient: text("recipient").notNull(),
     /** The user's own data: typed by them, never looked up. */
     recipientEmail: text("recipient_email"),
+    /** The person at the recipient (user data). */
+    contactName: text("contact_name"),
+    /** User-set follow-up date (YYYY-MM-DD, in the workspace's time zone); never suggested. */
+    dueDate: text("due_date"),
+    notes: text("notes"),
+    /** The due date the owner was last reminded about, so each date reminds once. */
+    remindedFor: text("reminded_for"),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
     stage: text("stage").$type<OutreachStage>().notNull().default("drafted"),

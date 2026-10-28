@@ -3,9 +3,11 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
- * The digest's unsubscribe token: a person and a workspace, signed with the server secret, so the
- * link works without signing in and nothing secret is stored.
+ * Unsubscribe tokens (the digest, pipeline reminders): a person and a workspace, signed with the
+ * server secret and the email's kind, so the link works without signing in, cannot be reused for
+ * the other kind, and nothing secret is stored.
  */
+export type EmailKind = "digest" | "reminders";
 type Env = Record<string, string | undefined>;
 
 function secret(env: Env = process.env): string {
@@ -15,17 +17,17 @@ function secret(env: Env = process.env): string {
   return "local-digest-signing-key-not-a-secret";
 }
 
-const sign = (payload: string, env?: Env) => createHmac("sha256", secret(env)).update(`digest-unsubscribe:${payload}`).digest("base64url");
+const sign = (payload: string, env?: Env, kind: EmailKind = "digest") => createHmac("sha256", secret(env)).update(`${kind}-unsubscribe:${payload}`).digest("base64url");
 
-export function unsubscribeToken(workspaceId: string, userId: string, env?: Env): string {
+export function unsubscribeToken(workspaceId: string, userId: string, env?: Env, kind: EmailKind = "digest"): string {
   const payload = Buffer.from(`${workspaceId}:${userId}`).toString("base64url");
-  return `${payload}.${sign(payload, env)}`;
+  return `${payload}.${sign(payload, env, kind)}`;
 }
 
-export function readUnsubscribeToken(token: string, env?: Env): { workspaceId: string; userId: string } | null {
+export function readUnsubscribeToken(token: string, env?: Env, kind: EmailKind = "digest"): { workspaceId: string; userId: string } | null {
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
-  const expected = Buffer.from(sign(payload, env));
+  const expected = Buffer.from(sign(payload, env, kind));
   const given = Buffer.from(sig);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   const [workspaceId, userId] = Buffer.from(payload, "base64url").toString("utf8").split(":");

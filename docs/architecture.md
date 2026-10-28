@@ -112,6 +112,7 @@ starts with it.
 | `outcomes` (*Built*) | results logged after the event: attendance, tickets sold, capacity, gross, sponsor renewed, notes; `source = 'user'`, logged by, logged at | workspace |
 | `calibration_pairs` (*Built*) | predicted score and confidence beside sell-through, stored for later calibration, never used to change scores | workspace |
 | `outreach` (*Built*, Feature 7) | one draft to one recipient: source (plan or sponsor match), kind, context, recipient, email (user data), subject, body, stage (drafted, sent, replied, negotiating, booked, lost), owner, `sent_by`, `sent_at`, content hash | workspace |
+| `outreach` (Feature 7, second part) | adds contact name, follow-up date, notes (user data) and the date last reminded; any member can own a card | workspace |
 | `outreach_events` (*Built*) | every stage move: who, when, from, to; a move to sent keeps a copy of what was sent and to whom | workspace |
 | `send_confirmations` | one-time token for one draft's content hash, expiry. Not built: Takeover does not send outreach (decision D128); needed only if a Send button is added | workspace |
 | `watch_items` (*Built*) | a fanbase (Qloo entity) or city (GeoNames metro) to watch, last and next check, last note | workspace |

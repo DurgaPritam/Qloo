@@ -72,4 +72,26 @@ test("a plan's drafts go onto the board, one is marked sent with its content log
     await page.reload();
     await expect(page.getByRole("region", { name: "Booked" }).locator("[data-card]")).toHaveCount(1);
   });
+
+  await test.step("track a card: contact, a past follow-up date shows overdue; comment; list view filters", async () => {
+    await page.getByRole("region", { name: "Sent" }).locator("[data-card]").first().getByRole("button").click();
+    const detail = page.getByRole("region", { name: /Outreach to / });
+    await detail.getByRole("textbox", { name: "Contact name" }).fill("Dana");
+    await detail.getByLabel("Follow up by").fill("2020-01-15");
+    await detail.getByRole("button", { name: "Save tracking" }).click();
+    await expect(page.getByRole("region", { name: "Sent" }).locator('[data-due="2020-01-15"]')).toHaveText("Overdue · due 2020-01-15");
+    await detail.getByRole("textbox", { name: "Comment on this card" }).fill("Chasing on Monday");
+    await detail.getByRole("button", { name: "Comment", exact: true }).click();
+    await expect(detail.getByText("Chasing on Monday")).toBeVisible();
+    await expect(detail.getByRole("combobox", { name: "Owner" })).toBeVisible();
+
+    await page.getByRole("tab", { name: "List" }).click();
+    const list = page.getByRole("region", { name: "Outreach list" });
+    await expect(list.locator("[data-row]")).toHaveCount(2);
+    await list.getByLabel("Overdue only").check();
+    await expect(list.locator("[data-row]")).toHaveCount(1);
+    await expect(list.locator("[data-row]").first()).toContainText("Dana");
+    await page.getByRole("combobox", { name: "Owner" }).first().selectOption({ label: "My cards" });
+    await expect(list.locator("[data-row]")).toHaveCount(1);
+  });
 });

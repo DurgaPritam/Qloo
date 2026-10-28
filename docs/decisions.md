@@ -912,3 +912,20 @@ save, viewers read) are listed under the planner and reopen at `/tour?saved=<id>
 route as Qloo scored it then, labelled with the date, until a new fanbase is asked for. Saving
 costs no Qloo call. Considered: re-running the optimizer on reopen (would spend calls and could
 show a different route than the one the team agreed).
+
+**D139. Pipeline, second part: owners, tracking, list, reminders, comments** (Pipeline prompt and
+the answers of 28 Oct). Each card now has a contact name, a follow-up date and notes (user data,
+editable at any stage, unlike the draft itself), and an owner: any member, reassignable, the
+creator by default. The board gains an owner filter (everyone, mine, each member) and a list view
+filtered by stage, kind and "overdue only". A card past its follow-up date (the workspace's local
+date) and not booked or lost reminds its owner once per date: an in-app notification (bell and
+inbox, linking to the card), and an email only if that person turned "Email me when my cards are
+overdue" on, with a reminders-only signed unsubscribe link (a digest link cannot unsubscribe
+reminders, or the reverse). Reminders run from the hourly tick through the job queue and cost no
+Qloo call. Comments and @mentions on cards reuse the foundation's comment threads (target
+`outreach`, no plan), so they never appear among a plan's threads; mentions notify in-app.
+**Not built, by the user's answer:** sending through the user's own Gmail or Outlook (OAuth send
+scope) and reply detection (read scope) from the Pipeline prompt. Takeover keeps "Open in mail"
+and "I sent it". The preferred future option, when sending is wanted, is a **per-workspace BCC
+logging address**: the user sends from their own mail as now, BCCs the workspace's address, and
+Takeover logs the message and moves the card, with no mailbox access and no send scope.

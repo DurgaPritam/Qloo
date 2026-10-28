@@ -1,8 +1,8 @@
 import { verifyQstashSignature } from "@/lib/jobs/qstash";
-import { queueMode } from "@/lib/jobs/queue";
+import { enqueue, queueMode } from "@/lib/jobs/queue";
 import { isE2eRequest } from "@/lib/server/rate-limit";
 import { scheduleWatchJobs } from "@/lib/watch/service";
-import { watchWorkspacesDue } from "@/lib/workspace/session";
+import { reminderWorkspaces, watchWorkspacesDue } from "@/lib/workspace/session";
 
 /**
  * The tick (an hourly QStash schedule): one staggered job per workspace with a watch due. Items
@@ -27,5 +27,8 @@ export async function POST(req: Request): Promise<Response> {
   }
   const due = await watchWorkspacesDue(now);
   const queued = await scheduleWatchJobs(due, asOf);
-  return Response.json({ queued });
+  // The same tick sends overdue pipeline reminders (no Qloo calls).
+  const reminders = await reminderWorkspaces(now);
+  for (const [i, r] of reminders.entries()) await enqueue({ kind: "pipeline.reminders", workspaceId: r.workspaceId, userId: r.userId, ...(asOf ? { asOf: asOf.toISOString() } : {}) }, i);
+  return Response.json({ queued, reminders: reminders.length });
 }

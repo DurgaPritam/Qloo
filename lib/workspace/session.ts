@@ -8,7 +8,14 @@ import { auth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { loadPlan } from "@/lib/server/plan-store";
 
-import { unscopedAcceptInvitation, unscopedInvitationByToken, unscopedUnsubscribeDigest, unscopedWatchWorkspacesDue } from "@/lib/db/unscoped";
+import {
+  unscopedAcceptInvitation,
+  unscopedInvitationByToken,
+  unscopedReminderWorkspaces,
+  unscopedUnsubscribeDigest,
+  unscopedUnsubscribeReminders,
+  unscopedWatchWorkspacesDue,
+} from "@/lib/db/unscoped";
 import { readUnsubscribeToken } from "@/lib/watch/token";
 
 import { contextFor, jobContext, planForViewer } from "./context";
@@ -97,6 +104,19 @@ export async function jobWorkspace(workspaceId: string, userId: string) {
 /** For the weekly market watch tick: workspaces with a watch due, each with an owner to act as. */
 export async function watchWorkspacesDue(now: Date) {
   return unscopedWatchWorkspacesDue(await getDb(), now);
+}
+
+/** For the hourly tick: workspaces with an overdue pipeline card not yet reminded, each with an owner to act as. */
+export async function reminderWorkspaces(now: Date) {
+  return unscopedReminderWorkspaces(await getDb(), now);
+}
+
+/** The reminder email's unsubscribe link: a token signed for reminders only, no sign-in. */
+export async function unsubscribeReminders(token: string): Promise<boolean> {
+  const who = readUnsubscribeToken(token, undefined, "reminders");
+  if (!who) return false;
+  await unscopedUnsubscribeReminders(await getDb(), who.workspaceId, who.userId);
+  return true;
 }
 
 /** The digest's unsubscribe link: a signed token for one person in one workspace, no sign-in. */

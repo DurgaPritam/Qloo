@@ -55,7 +55,10 @@ venues over 500", "not before March").
   - creating a personal workspace on first sign-in;
   - for the weekly market watch tick, which workspaces have a watch due and an owner to act as
     (each job then works through `forWorkspace` only);
-  - turning off one person's digest in one workspace from the signed unsubscribe link.
+  - turning off one person's digest in one workspace from the signed unsubscribe link;
+  - for the hourly tick, which workspaces have an overdue pipeline card not yet reminded, and an
+    owner to act as (the job then works through `forWorkspace` only);
+  - turning off one person's pipeline reminder emails from their signed (reminders-only) link.
   Admin scripts, when they exist, follow the same naming.
 
 ## 4. Background jobs respect the Qloo budget

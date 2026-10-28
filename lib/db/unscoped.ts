@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, asc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, lte, ne, notInArray, or } from "drizzle-orm";
 
 import type { Plan } from "@/lib/agent/types";
 
 import type { DB } from "./index";
-import { activityLog, digestSubscriptions, invitations, memberships, plans, users, watchItems, workspaces, type Role, type Visibility } from "./schema";
+import { activityLog, digestSubscriptions, invitations, memberships, outreach, plans, users, watchItems, workspaces, type Role, type Visibility } from "./schema";
 import { hashToken, normaliseEmail } from "./scoped";
 
 /**
@@ -147,6 +147,38 @@ export async function unscopedUnsubscribeDigest(db: DB, workspaceId: string, use
   const done = await db
     .update(digestSubscriptions)
     .set({ enabled: false, updatedAt: new Date() })
+    .where(and(eq(digestSubscriptions.workspaceId, workspaceId), eq(digestSubscriptions.userId, userId)))
+    .returning({ userId: digestSubscriptions.userId });
+  return done.length > 0;
+}
+
+/**
+ * For the hourly tick: workspaces with a pipeline card past its due date (by UTC tomorrow, so every
+ * time zone is covered; the job checks the workspace's own date) that has not reminded yet, each
+ * with an owner to act as.
+ */
+export async function unscopedReminderWorkspaces(db: DB, now: Date): Promise<{ workspaceId: string; userId: string }[]> {
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const due = await db
+    .selectDistinct({ workspaceId: outreach.workspaceId })
+    .from(outreach)
+    .where(and(lt(outreach.dueDate, tomorrow), notInArray(outreach.stage, ["booked", "lost"]), or(isNull(outreach.remindedFor), ne(outreach.remindedFor, outreach.dueDate))));
+  if (!due.length) return [];
+  const owners = await db
+    .select({ workspaceId: memberships.workspaceId, userId: memberships.userId })
+    .from(memberships)
+    .where(and(inArray(memberships.workspaceId, due.map((d) => d.workspaceId)), eq(memberships.role, "owner")))
+    .orderBy(asc(memberships.createdAt));
+  const first = new Map<string, string>();
+  for (const o of owners) if (!first.has(o.workspaceId)) first.set(o.workspaceId, o.userId);
+  return [...first].map(([workspaceId, userId]) => ({ workspaceId, userId }));
+}
+
+/** For the reminder email's unsubscribe link (no sign-in): turns that person's reminder emails off. */
+export async function unscopedUnsubscribeReminders(db: DB, workspaceId: string, userId: string): Promise<boolean> {
+  const done = await db
+    .update(digestSubscriptions)
+    .set({ remindersEnabled: false, updatedAt: new Date() })
     .where(and(eq(digestSubscriptions.workspaceId, workspaceId), eq(digestSubscriptions.userId, userId)))
     .returning({ userId: digestSubscriptions.userId });
   return done.length > 0;
