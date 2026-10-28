@@ -2,7 +2,7 @@ import type { Role } from "@/lib/db/schema";
 
 /**
  * What each role may do in a workspace. Every check in lib/db/scoped.ts goes through can().
- * viewer: read. member: also plan, comment, resolve, edit and refresh rosters, upload, attach and delete their data, add watches, run and shortlist sponsorship matches, and log event results. admin: also manage people and any plan's
+ * viewer: read. member: also plan, comment, resolve, edit and refresh rosters, upload, attach and delete their data, add watches, run and shortlist sponsorship matches, log event results, and add and move outreach in the pipeline. admin: also manage people and any plan's
  * sharing. owner: also rename the workspace and manage admins and owners.
  */
 export type Action =
@@ -27,6 +27,8 @@ export type Action =
   | "sponsor.edit"
   | "outcome.read"
   | "outcome.log"
+  | "pipeline.read"
+  | "pipeline.edit"
   | "branding.edit"
   | "workspace.rename";
 
@@ -42,6 +44,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "watch.read": "viewer",
   "sponsor.read": "viewer",
   "outcome.read": "viewer",
+  "pipeline.read": "viewer",
   "plan.create": "member",
   "plan.share.own": "member",
   "comment.create": "member",
@@ -51,6 +54,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "watch.edit": "member",
   "sponsor.edit": "member",
   "outcome.log": "member",
+  "pipeline.edit": "member",
   "plan.share.any": "admin",
   "member.invite": "admin",
   "member.manage": "admin",

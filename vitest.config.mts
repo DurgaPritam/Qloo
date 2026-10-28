@@ -10,6 +10,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Each workspace test file boots PGlite and replays every migration; run in parallel, that
+    // outgrows the 10 s / 5 s defaults on a laptop.
+    hookTimeout: 30_000,
+    testTimeout: 15_000,
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     // next-auth imports "next/server" without an extension; let Vite resolve it.
     server: { deps: { inline: ["next-auth"] } },

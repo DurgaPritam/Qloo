@@ -645,7 +645,7 @@ function DeckButton({ plan }: { plan: NonNullable<RunView["plan"]> }) {
 }
 
 /* ---------- 05 Outreach ---------- */
-export function OutreachSection({ view }: { view: RunView }) {
+export function OutreachSection({ view, action }: { view: RunView; action?: ReactNode }) {
   const { outreach } = view;
   const { copied, copy } = useCopy();
   const dim = view.replanFrom !== null;
@@ -655,6 +655,7 @@ export function OutreachSection({ view }: { view: RunView }) {
         <MonoLabel>05 · Outreach</MonoLabel>
         <div className="text-chip text-mute">Drafts only. Takeover never sends email.</div>
       </div>
+      {outreach && action}
       {!outreach ? (
         <Panel className="gap-2.5">
           <Sk.lineShort />

@@ -13,6 +13,8 @@ import type { PitchInput } from "@/lib/export/sponsor";
 import type { DeckFont } from "@/lib/export/branding";
 import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
 import { predictionsFromPlan } from "@/lib/outcomes/predict";
+import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
+import type { OutreachStage } from "@/lib/pipeline/stages";
 
 import type { Plan } from "@/lib/agent/types";
 import { mentionedUserIds } from "@/lib/workspace/mentions";
@@ -35,6 +37,8 @@ import {
   memberships,
   notifications,
   outcomes,
+  outreach,
+  outreachEvents,
   planPredictions,
   plans,
   rosterActs,
@@ -790,6 +794,96 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       },
     },
 
+    /**
+     * The outreach pipeline (Feature 7). Takeover never sends: a card moves to "sent" when the user
+     * says they sent it, and that move keeps a copy of exactly what was sent (rule 5).
+     */
+    pipeline: {
+      async list() {
+        need("pipeline.read");
+        const rows = await db
+          .select({ card: outreach, ownerName: users.name, ownerEmail: users.email })
+          .from(outreach)
+          .leftJoin(users, eq(users.id, outreach.ownerId))
+          .where(eq(outreach.workspaceId, ws))
+          .orderBy(desc(outreach.movedAt), asc(outreach.id));
+        return rows.map((r) => ({ ...r.card, owner: r.ownerName ?? r.ownerEmail ?? null, hash: contentHash(r.card) }));
+      },
+      async get(id: string) {
+        need("pipeline.read");
+        const card = (await db.select().from(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id))).limit(1))[0];
+        if (!card) return null;
+        const events = await db
+          .select({ id: outreachEvents.id, fromStage: outreachEvents.fromStage, toStage: outreachEvents.toStage, sent: outreachEvents.sent, at: outreachEvents.at, actor: users.name, actorEmail: users.email })
+          .from(outreachEvents)
+          .leftJoin(users, eq(users.id, outreachEvents.actorId))
+          .where(and(eq(outreachEvents.workspaceId, ws), eq(outreachEvents.outreachId, id)))
+          .orderBy(asc(outreachEvents.at), asc(outreachEvents.id));
+        return { card: { ...card, hash: contentHash(card) }, events };
+      },
+      /** Adds cards that are not on the board yet; returns how many were new. */
+      async add(cards: NewCard[], link: { planId?: string; sponsorMatchId?: string }) {
+        need("pipeline.edit");
+        if (!cards.length) return 0;
+        const now = new Date();
+        const rows = await db
+          .insert(outreach)
+          .values(cards.map((c) => ({ ...c, workspaceId: ws, ownerId: ctx.userId, planId: link.planId ?? null, sponsorMatchId: link.sponsorMatchId ?? null, createdAt: now, movedAt: now })))
+          .onConflictDoNothing({ target: [outreach.workspaceId, outreach.sourceKey] })
+          .returning({ id: outreach.id });
+        if (rows.length) {
+          await db.insert(outreachEvents).values(rows.map((r) => ({ workspaceId: ws, outreachId: r.id, actorId: ctx.userId, fromStage: null, toStage: "drafted" as const, at: now })));
+          await log("outreach.added", { type: link.planId ? "plan" : "sponsor_match", id: (link.planId ?? link.sponsorMatchId)! }, { cards: rows.length });
+        }
+        return rows.length;
+      },
+      async addFromPlan(planId: string) {
+        const plan = await planById(planId);
+        if (!plan) throw new InputError("That plan isn't in this workspace.");
+        if (!plan.result.outreach?.length) throw new InputError("This plan has no outreach drafts to add.");
+        return repo.pipeline.add(cardsFromPlan(planId, plan.result), { planId });
+      },
+      async addFromMatch(matchId: string) {
+        const match = (await db.select().from(sponsorMatches).where(and(eq(sponsorMatches.workspaceId, ws), eq(sponsorMatches.id, matchId))).limit(1))[0];
+        if (!match) throw new InputError("That match isn't on this workspace's shortlist.");
+        return repo.pipeline.add([cardFromMatch(matchId, match.pitch)], { sponsorMatchId: matchId });
+      },
+      /** Edits a draft; only before it is marked sent, so the log's copy stays what was sent. */
+      async edit(id: string, fields: { recipient: string; recipientEmail: string | null; subject: string; body: string }) {
+        need("pipeline.edit");
+        const card = (await db.select({ stage: outreach.stage }).from(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id))).limit(1))[0];
+        if (!card) throw new InputError("That card isn't in this workspace.");
+        if (card.stage !== "drafted") throw new InputError("Only drafts can be edited. Move it back to Drafted first.");
+        await db.update(outreach).set(fields).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+      },
+      /**
+       * Moves a card. A move to "sent" must carry the hash of the draft the user was looking at: if
+       * someone changed it since, nothing is recorded and the user is asked to check it again.
+       */
+      async move(id: string, to: OutreachStage, seenHash?: string) {
+        need("pipeline.edit");
+        const card = (await db.select().from(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id))).limit(1))[0];
+        if (!card) throw new InputError("That card isn't in this workspace.");
+        if (card.stage === to) return;
+        const now = new Date();
+        const hash = contentHash(card);
+        let sent = null;
+        if (to === "sent") {
+          if (seenHash !== hash) throw new InputError("This draft changed since you opened it. Check it, then mark it sent again.");
+          sent = { recipient: card.recipient, recipientEmail: card.recipientEmail, subject: card.subject, body: card.body, contentHash: hash };
+          await db.update(outreach).set({ stage: to, movedAt: now, sentBy: ctx.userId, sentAt: now, contentHash: hash }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+        } else {
+          await db.update(outreach).set({ stage: to, movedAt: now }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+        }
+        await db.insert(outreachEvents).values({ workspaceId: ws, outreachId: id, actorId: ctx.userId, fromStage: card.stage, toStage: to, sent, at: now });
+        await log(to === "sent" ? "outreach.sent" : "outreach.moved", { type: "outreach", id }, { from: card.stage, to, recipient: card.recipient });
+      },
+      async remove(id: string) {
+        need("pipeline.edit");
+        await db.delete(outreach).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, id)));
+      },
+    },
+
     /** Branded deck settings (Feature 10): every member's exports read them; admins change them. */
     branding: {
       async get() {
@@ -822,12 +916,17 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
     async search(q: string) {
       need("plan.read");
       const term = `%${q.trim().replace(/[\\%_]/g, (c) => `\\${c}`).slice(0, 60)}%`;
-      const [planRows, rosterRows, actRows, watchRows, dataRows] = await Promise.all([
+      const [planRows, rosterRows, actRows, watchRows, dataRows, outreachRows] = await Promise.all([
         db.select({ id: plans.id, label: plans.input }).from(plans).where(and(eq(plans.workspaceId, ws), ilike(plans.input, term))).orderBy(desc(plans.createdAt)).limit(5),
         db.select({ id: rosters.id, label: rosters.name }).from(rosters).where(and(eq(rosters.workspaceId, ws), ilike(rosters.name, term))).limit(5),
         db.select({ id: rosterActs.rosterId, label: rosterActs.name }).from(rosterActs).where(and(eq(rosterActs.workspaceId, ws), ilike(rosterActs.name, term))).limit(5),
         db.select({ id: watchItems.id, label: watchItems.name, kind: watchItems.kind }).from(watchItems).where(and(eq(watchItems.workspaceId, ws), ilike(watchItems.name, term))).limit(5),
         db.select({ id: datasets.id, label: datasets.name }).from(datasets).where(and(eq(datasets.workspaceId, ws), ilike(datasets.name, term))).limit(5),
+        db
+          .select({ id: outreach.id, label: outreach.recipient })
+          .from(outreach)
+          .where(and(eq(outreach.workspaceId, ws), or(ilike(outreach.recipient, term), ilike(outreach.context, term))))
+          .limit(5),
       ]);
       return [
         ...planRows.map((r) => ({ kind: "Plan", label: r.label, href: `/plan/${r.id}` })),
@@ -835,6 +934,7 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         ...actRows.map((r) => ({ kind: "Talent", label: r.label, href: `/workspace/rosters/${r.id}` })),
         ...watchRows.map((r) => ({ kind: r.kind === "city" ? "City" : "Watch", label: r.label, href: "/workspace/watch" })),
         ...dataRows.map((r) => ({ kind: "Data", label: r.label, href: `/workspace/data/${r.id}` })),
+        ...outreachRows.map((r) => ({ kind: "Outreach", label: r.label, href: `/workspace/pipeline?card=${r.id}` })),
       ];
     },
 

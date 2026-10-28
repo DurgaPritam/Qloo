@@ -805,3 +805,22 @@ In mock mode the sticky sidebar and top bar sit below the sample-data banner (a 
 when the banner is on the page), so the banner never covers them. Considered: keeping the tab strip
 (no room for nine destinations on a phone) and a server-rendered shell (the drawer, search and bell
 need client state; account data comes from the existing /api/account).
+
+**D128. Outreach pipeline (Feature 7): tracked, never sent.** A board at /workspace/pipeline with
+the design's six stages (Drafted, Sent, Replied, Negotiating, Booked, Lost), moved by drag and drop
+or by each card's Move select. Cards come only from text Takeover already wrote: a workspace plan's
+partner and venue emails ("Add to pipeline" in its outreach section) and a shortlisted sponsor match
+("Send to pipeline", a templated draft with no figures; terms stay to confirm). No model call. The
+same source cannot be added twice. The architecture planned a Send button through Resend with
+single-use confirmations; the design (and the plan page since the hackathon) says "Takeover never
+sends email", so this build follows the design: the user sends from their own email ("Open in mail"
+pre-fills it, "Copy" copies it) and marks the card sent. That move must carry the hash of the draft
+they were looking at; if a teammate changed it since, nothing is recorded and they are asked to check
+it again. Every move is logged in `outreach_events`, and the move to sent keeps a copy of exactly
+what went out, to whom, by whom and when (rule 5's log, without sending). Drafts can be edited only
+before they are marked sent. The recipient's email address is the user's own data and carries the
+Your data label. Members add and move cards; viewers read the board. Search finds cards by
+recipient and context. Considered: building `sendOutreach` now (it would email third parties from
+our domain, which needs a verified sending domain and a policy the user has not asked for; saved as
+a question), and a separate "sent" confirmation dialog (the "I sent it" click is the user's own
+statement, and the hash check already guards against a changed draft).

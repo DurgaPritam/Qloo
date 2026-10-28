@@ -15,6 +15,7 @@ import { cx, MonoLabel, Wordmark } from "../ui";
 const NAV = [
   { href: "/workspace", label: "Plans" },
   { href: "/workspace/rosters", label: "Rosters" },
+  { href: "/workspace/pipeline", label: "Pipeline" },
   { href: "/workspace/watch", label: "Watchlists" },
   { href: "/workspace/sponsorship", label: "Sponsorship" },
   { href: "/workspace/data", label: "Data" },
@@ -26,7 +27,7 @@ const TOOLS = [
   { href: "/lineup", label: "Lineup builder" },
 ] as const;
 
-const initials = (name: string) =>
+export const initials = (name: string) =>
   name
     .split(/[\s.@_-]+/)
     .filter(Boolean)

@@ -10,6 +10,7 @@ import type { EmailTheme } from "@/lib/email/digest-html";
 import type { PitchInput } from "@/lib/export/sponsor";
 import type { Prediction } from "@/lib/engine/outcomes";
 import type { DeckFont } from "@/lib/export/branding";
+import type { OutreachKind, OutreachStage } from "@/lib/pipeline/stages";
 
 /**
  * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
@@ -607,6 +608,68 @@ export const deckSettings = pgTable("deck_settings", {
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
 });
 
+/* ---------- Outreach pipeline (Feature 7) ---------- */
+
+/**
+ * One draft to one recipient, tracked through the stages. Takeover never sends it: the user sends it
+ * from their own email and moves the card (docs/roadmap-rules.md, rule 5).
+ */
+export const outreach = pgTable(
+  "outreach",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Where the draft came from, so adding the same plan or match twice does not duplicate it. */
+    sourceKey: text("source_key").notNull(),
+    planId: text("plan_id").references(() => plans.id, { onDelete: "set null" }),
+    sponsorMatchId: text("sponsor_match_id").references(() => sponsorMatches.id, { onDelete: "set null" }),
+    kind: text("kind").$type<OutreachKind>().notNull(),
+    /** What the card is about, e.g. "Ali Wong × Hot Ones · Los Angeles". */
+    context: text("context").notNull(),
+    recipient: text("recipient").notNull(),
+    /** The user's own data: typed by them, never looked up. */
+    recipientEmail: text("recipient_email"),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    stage: text("stage").$type<OutreachStage>().notNull().default("drafted"),
+    ownerId: text("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /** Set when the user marks it sent: who, when, and the hash of exactly what they sent. */
+    sentBy: text("sent_by").references(() => users.id, { onDelete: "set null" }),
+    sentAt: timestamp("sent_at", { mode: "date", withTimezone: true }),
+    contentHash: text("content_hash"),
+    createdAt: createdAt(),
+    movedAt: timestamp("moved_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("outreach_source_idx").on(t.workspaceId, t.sourceKey),
+    index("outreach_workspace_idx").on(t.workspaceId, t.stage),
+    check("outreach_stage_check", sql`${t.stage} in ('drafted', 'sent', 'replied', 'negotiating', 'booked', 'lost')`),
+    check("outreach_kind_check", sql`${t.kind} in ('partner', 'venue', 'sponsor')`),
+  ],
+);
+
+/** Every move of every card, in order. A move to "sent" keeps a copy of what was sent and to whom. */
+export const outreachEvents = pgTable(
+  "outreach_events",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    outreachId: text("outreach_id")
+      .notNull()
+      .references(() => outreach.id, { onDelete: "cascade" }),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    fromStage: text("from_stage").$type<OutreachStage>(),
+    toStage: text("to_stage").$type<OutreachStage>().notNull(),
+    sent: jsonb("sent").$type<{ recipient: string; recipientEmail: string | null; subject: string; body: string; contentHash: string }>(),
+    at: timestamp("at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("outreach_events_card_idx").on(t.workspaceId, t.outreachId, t.at)],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -629,4 +692,6 @@ export const TENANT_TABLES = [
   "outcomes",
   "calibration_pairs",
   "deck_settings",
+  "outreach",
+  "outreach_events",
 ] as const;

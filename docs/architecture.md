@@ -111,8 +111,9 @@ starts with it.
 | `plan_predictions` (*Built*) | a plan's predictions (chosen city, partner, venue, sponsors with ranks and scores), frozen when the plan is saved | workspace |
 | `outcomes` (*Built*) | results logged after the event: attendance, tickets sold, capacity, gross, sponsor renewed, notes; `source = 'user'`, logged by, logged at | workspace |
 | `calibration_pairs` (*Built*) | predicted score and confidence beside sell-through, stored for later calibration, never used to change scores | workspace |
-| `outreach` | plan, recipient, draft, status (draft, sent, replied, booked), `sent_by`, `sent_at`, content hash | workspace |
-| `send_confirmations` | one-time token for one draft's content hash, expiry | workspace |
+| `outreach` (*Built*, Feature 7) | one draft to one recipient: source (plan or sponsor match), kind, context, recipient, email (user data), subject, body, stage (drafted, sent, replied, negotiating, booked, lost), owner, `sent_by`, `sent_at`, content hash | workspace |
+| `outreach_events` (*Built*) | every stage move: who, when, from, to; a move to sent keeps a copy of what was sent and to whom | workspace |
+| `send_confirmations` | one-time token for one draft's content hash, expiry. Not built: Takeover does not send outreach (decision D128); needed only if a Send button is added | workspace |
 | `watch_items` (*Built*) | a fanbase (Qloo entity) or city (GeoNames metro) to watch, last and next check, last note | workspace |
 | `snapshots` (*Built*) | per item and week: ranked top lists (entity ids, ranks, values) and the Qloo requests | workspace |
 | `alerts` (*Built*) | a change between two snapshots: kind, list, entity, before, after, templated title and body | workspace |
@@ -178,6 +179,11 @@ health page shows today's global count and the cap.
 - Jobs and the agent cannot mint confirmation tokens; only the Send server action can. A unit
   test checks that no file under `lib/agent`, `lib/tools` or `app/api/jobs` imports
   `sendOutreach`.
+- *Built so far (D128):* the outreach pipeline tracks drafts but sends nothing, as the design says
+  ("Takeover never sends email"). The user sends from their own email and marks the card sent; that
+  move must carry the hash of the draft they saw, and the log keeps a copy. `sendOutreach` and
+  `send_confirmations` are not built. A unit test checks that no pipeline module, route or screen
+  imports `lib/email`, and that nothing under `lib/agent` or `lib/tools` touches the pipeline.
 
 ### User data (rule 2)
 
@@ -266,7 +272,8 @@ All are server-only. None has a `NEXT_PUBLIC_` prefix.
    system, and saved plans moved from the browser into the workspace.
 4. **User data.** `user_facts`, the "Your data" label, and the CSV upload to Blob. (*Built* as
    datasets: upload, column mapping, GeoNames matching, attach to a fanbase, combined ranking.)
-5. **Outreach tracking and Send with confirmation.** Through Resend.
+5. **Outreach tracking and Send with confirmation.** Through Resend. (*Built*: tracking, as the
+   outreach pipeline. Send stays with the user's own email; see D128.)
 6. **Watches and the weekly job.** Through QStash. (*Built*: Market watch. To schedule it, create a
    QStash schedule with cron `0 7 * * 1` and destination `<APP_URL>/api/jobs/watch-tick`.)
 7. **Stripe.** Plans, Checkout, webhook, Portal.

@@ -83,4 +83,12 @@ test("brand view, shortlist, pitch deck and rights-holder view", async ({ page }
     await page.reload();
     await expect(page.locator(`[data-shortlist="${first} × Liquid Death"]`)).toBeVisible();
   });
+
+  await test.step("a shortlisted match goes to the outreach pipeline as a draft", async () => {
+    const row = page.locator(`[data-shortlist="${first} × Liquid Death"]`);
+    await row.getByRole("button", { name: "Send to pipeline" }).click();
+    await expect(row.getByRole("status")).toContainText("Added the draft to the pipeline.");
+    await page.goto("/workspace/pipeline");
+    await expect(page.getByRole("region", { name: "Drafted" }).locator('[data-card="Liquid Death partnerships"]')).toBeVisible();
+  });
 });

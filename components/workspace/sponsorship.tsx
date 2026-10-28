@@ -7,6 +7,7 @@ import type { MatchView, SponsorRun } from "@/lib/sponsorship/service";
 
 import { FIELD } from "../account/fields";
 import { Banner, Button, ConfirmPill, cx, MonoLabel, Panel, ScoreBar, Segmented, SourceBadge } from "../ui";
+import { AddToPipeline } from "./pipeline-add";
 
 type View = "brand" | "rights";
 type HolderKind = "entity" | "event" | "roster";
@@ -280,6 +281,7 @@ function Shortlist({ rows, canEdit, onRemoved }: { rows: ShortlistRow[]; canEdit
               </span>
               <span className="tabular font-mono text-chip">{r.pitch.fit.fit} / 100</span>
               <Button onClick={() => void deck(r.pitch)}>Pitch deck</Button>
+              {canEdit && <AddToPipeline matchId={r.id} label="Send to pipeline" />}
               {canEdit && (
                 <Button
                   onClick={async () => {
@@ -294,7 +296,7 @@ function Shortlist({ rows, canEdit, onRemoved }: { rows: ShortlistRow[]; canEdit
           ))}
         </ul>
       )}
-      <span className="text-chip text-mute">Sending a match to the outreach pipeline arrives with Pipeline.</span>
+      <span className="text-chip text-mute">Send to pipeline adds a draft email to the brand, with no figures: terms stay to confirm. Takeover never sends it.</span>
     </Panel>
   );
 }
