@@ -47,7 +47,7 @@ export function PlanGrid({ plans, shared }: { plans: readonly PlanSummary[]; sha
 
 /** The same question, with and without Qloo, from one stored run and its stored LLM-only answer. */
 export function Comparison({ plan, llmText }: { plan: PlanSummary; llmText: string }) {
-  const llm = llmText.length > 420 ? `${llmText.slice(0, 419).trimEnd()}…` : llmText;
+  const llm = llmText.length > 260 ? `${llmText.slice(0, 259).trimEnd()}…` : llmText;
   return (
     <div className="grid gap-2 md:grid-cols-2">
       <div className="flex flex-col gap-2 rounded-md bg-surf p-[18px] border-card border-ink shadow-card">
@@ -55,15 +55,14 @@ export function Comparison({ plan, llmText }: { plan: PlanSummary; llmText: stri
           <MonoLabel className="text-acc-text">With Qloo</MonoLabel>
           <SourceBadge />
         </div>
-        <div className="t-display text-[22px] leading-[1.05]">
+        <div className="t-display text-[clamp(26px,3vw,36px)] leading-[1.02]">
           {plan.partner} · {plan.city}
         </div>
-        <p className="m-0 text-chip text-mute [text-wrap:pretty]">
+        <p className="m-0 text-[15px] text-mute [text-wrap:pretty]">
           {plan.partner} fans over-index on {plan.fanbase}, and {plan.city} is where both audiences are strongest
-          {plan.populationRank > 1 ? `, though it is #${plan.populationRank} by population` : ""}. Venue: {plan.venue ?? "none tagged"}. Every
-          number is sourced.
+          {plan.populationRank > 1 ? `, though it is #${plan.populationRank} by population` : ""}. Venue: {plan.venue ?? "none tagged"}. Every number is sourced.
         </p>
-        <Link href={planHref(plan.query)} className="text-chip">
+        <Link href={planHref(plan.query)} className="text-[15px]">
           Open the plan →
         </Link>
       </div>
@@ -72,7 +71,7 @@ export function Comparison({ plan, llmText }: { plan: PlanSummary; llmText: stri
           <MonoLabel>Same model, no taste data</MonoLabel>
           <NoSourceBadge />
         </div>
-        <p className="m-0 whitespace-pre-line text-chip text-mute [text-wrap:pretty]">{llm}</p>
+        <p className="m-0 whitespace-pre-line text-[15px] text-mute [text-wrap:pretty]">{llm}</p>
       </div>
     </div>
   );

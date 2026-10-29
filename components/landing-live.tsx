@@ -9,51 +9,9 @@ import type { DailyPuzzle } from "@/lib/server/daily";
 import { TOOLS, overlapHref } from "@/lib/site";
 
 import { GAME_KEY, finishDay, read, write, type Result, type Saved } from "./daily-game";
-import { PlanGrid, planHref } from "./showcase";
+import { PlanGrid } from "./showcase";
 import { OverlapForm, PAIRS } from "./tools/fan-overlap";
 import { Chip, MonoLabel, Panel, Segmented, SourceBadge, cx } from "./ui";
-
-/** One real result at a time, from the preloaded plans; every word comes from the stored run. */
-export function PlanTicker({ plans }: { plans: readonly PlanSummary[] }) {
-  const [i, setI] = useState(0);
-  const [shown, setShown] = useState(true);
-
-  useEffect(() => {
-    if (plans.length < 2) return;
-    const id = setInterval(() => {
-      setShown(false);
-      // Fade out (the design's 250 ms dim), swap, fade back in.
-      setTimeout(() => {
-        setI((n) => (n + 1) % plans.length);
-        setShown(true);
-      }, 250);
-    }, 3500);
-    return () => clearInterval(id);
-  }, [plans.length]);
-
-  const p = plans[i];
-  if (!p) return null;
-  return (
-    <Link
-      href={planHref(p.query)}
-      aria-live="polite"
-      className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border-th border-line px-3.5 py-2.5 text-ink no-underline hover:bg-acc-soft"
-    >
-      <SourceBadge>Planned with Qloo</SourceBadge>
-      <span className={cx("min-w-0 flex-1 basis-[240px] text-body transition-opacity duration-[250ms] [overflow-wrap:anywhere]", !shown && "opacity-0")}>
-        <span className="font-medium">
-          {p.fanbase} × {p.partner}
-        </span>
-        <span className="text-mute">
-          {" "}
-          → {p.city}
-          {p.populationRank > 1 ? `, only #${p.populationRank} by population` : ""}
-        </span>
-      </span>
-      <span className="hidden text-chip sm:inline">Open →</span>
-    </Link>
-  );
-}
 
 /** Round 1 of today's Daily, playable here. Progress is shared with /daily, which picks up at round 2. */
 export function DailyTeaser({ puzzle }: { puzzle: DailyPuzzle }) {
@@ -133,7 +91,7 @@ export function DailyTeaser({ puzzle }: { puzzle: DailyPuzzle }) {
                     {result && isAnswer && " ✓"}
                     {result && isPick && !isAnswer && " ✗"}
                   </span>
-                  <span className="text-chip text-mute">{result ? result.reveal[o.id] ?? o.meta : o.meta}</span>
+                  <span className="text-chip text-mute">{result ? (result.reveal[o.id] ?? o.meta) : o.meta}</span>
                 </button>
               );
             })}
@@ -167,14 +125,14 @@ export function PlayRow({ daily }: { daily: DailyPuzzle | null }) {
   const more = TOOLS.filter((t) => t.href !== "/overlap");
 
   return (
-    <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
-      <MonoLabel>Play with Qloo</MonoLabel>
+    <section className="reveal flex flex-col gap-5 border-t border-line pt-8">
+      <h2 className="t-display m-0 text-[clamp(30px,4vw,48px)] leading-[0.92]">Play with Qloo</h2>
       <div className={cx("grid items-start gap-[18px]", daily && "lg:grid-cols-2")}>
         {daily && <DailyTeaser puzzle={daily} />}
         <Panel>
           <MonoLabel className="text-acc-text">Fan overlap</MonoLabel>
           <h2 className="t-display m-0 text-[clamp(24px,3.5vw,32px)] leading-[0.95]">Would these fans mix?</h2>
-          <p className="m-0 text-chip text-mute">Any two names. Qloo says how much their fans overlap, and where.</p>
+          <p className="m-0 text-[15px] text-mute">Any two names: how much their fans overlap, and where.</p>
           <OverlapForm onSubmit={(a, b) => go(overlapHref(a, b))} />
           <div className="flex flex-wrap items-center gap-2">
             {PAIRS.slice(0, 3).map(([a, b]) => (
@@ -184,7 +142,7 @@ export function PlayRow({ daily }: { daily: DailyPuzzle | null }) {
         </Panel>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-chip text-mute">More tools:</span>
+        <span className="text-[15px] text-mute">More tools:</span>
         {more.map((t) => (
           <Chip key={t.href} label={t.label} onClick={() => go(t.example)} />
         ))}
@@ -201,9 +159,9 @@ export function PlanTabs({ featured, recent, total }: { featured: readonly PlanS
   const [tab, setTab] = useState<"featured" | "recent">("featured");
   const showing = tab === "recent" && recent.length ? recent : featured;
   return (
-    <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
+    <section className="reveal flex flex-col gap-5 border-t border-line pt-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <MonoLabel>Takeovers planned with Qloo</MonoLabel>
+        <h2 className="t-display m-0 text-[clamp(30px,4vw,48px)] leading-[0.92]">Planned with Qloo</h2>
         <div className="flex flex-wrap items-center gap-3">
           {recent.length > 0 && (
             <Segmented

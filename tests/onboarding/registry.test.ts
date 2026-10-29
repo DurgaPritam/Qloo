@@ -28,13 +28,14 @@ describe("the feature registry", () => {
 
   it("is well formed: unique ids, known roles, three picks per role, tiers only from lib/entitlements", () => {
     expect(new Set(REGISTRY.map((f) => f.id)).size).toBe(REGISTRY.length);
+    for (const f of REGISTRY) expect(f.tagline.length, `${f.id}: keep card taglines short`).toBeLessThanOrEqual(56);
     for (const f of REGISTRY) {
       expect(f.roles.length, f.id).toBeGreaterThan(0);
       for (const r of f.roles) expect(ROLE_KEYS).toContain(r);
       if (f.entitlement) expect(Object.keys(FEATURES)).toContain(f.entitlement);
       expect(tierOf(f)).toBe(f.entitlement ? tierFor(f.entitlement) : "free");
       expect(isTier(tierOf(f))).toBe(true);
-      for (const field of [f.name, f.benefit, f.numbers, f.help]) expect(field.trim().length, f.id).toBeGreaterThan(0);
+      for (const field of [f.name, f.benefit, f.tagline, f.numbers, f.help]) expect(field.trim().length, f.id).toBeGreaterThan(0);
     }
     for (const r of ROLE_KEYS) {
       expect(ROLE_PICKS[r]).toHaveLength(3);
@@ -51,7 +52,7 @@ describe("the feature registry", () => {
   it("follows the copy rules: says where numbers come from, no claims about results, reach or revenue, no invented figures", () => {
     const claims = /\b(guarantee\w*|boost\w*|increase\w*|grow\w*|sell(s|ing)? out|more (tickets|sales|fans|revenue)|ROI|roi|viral|best[- ]in[- ]class|instantly)\b/i;
     const allowedNumbers = new Set(TIER_NAMES.flatMap((t) => Object.values(TIERS[t].limits).flatMap((v) => (typeof v === "number" ? [String(v)] : [])))).add("1");
-    const texts = [...REGISTRY.flatMap((f) => [f.name, f.benefit, f.numbers, f.help]), ...HELP_TOPICS.flatMap((t) => [t.q, t.a]), ...RUN_TOUR.flatMap((t) => [t.title, t.body])];
+    const texts = [...REGISTRY.flatMap((f) => [f.name, f.benefit, f.tagline, f.numbers, f.help]), ...HELP_TOPICS.flatMap((t) => [t.q, t.a]), ...RUN_TOUR.flatMap((t) => [t.title, t.body])];
     for (const t of texts) {
       expect(t, t).not.toMatch(claims);
       // "reach" and "revenue" may only appear to say they are not shown.

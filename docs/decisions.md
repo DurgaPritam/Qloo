@@ -1178,3 +1178,15 @@ rows (counts through the scoped repository, nothing copied); a step the plan doe
 the tier that has it and links there. Only the dismissal is stored, per workspace
 (`workspaces.checklist_dismissed_at`); members and above can dismiss it. No analytics or tracking
 anywhere in onboarding.
+
+**D161. A wider, lighter landing page** (user request: text too small, margins too big, too much
+text, more visual). The landing is 1240 px wide (other pages keep their width) with a two-column
+hero: a shorter headline ("Pick a talent. Find the city. Get the plan.") and one line of copy on the
+left; on the right, a card that replays a cached real run step by step (every value comes from a
+stored plan summary; in sample mode it shows only the step names). "What you get" became four
+boxes; role cards show a short registry `tagline` instead of the full benefit; section headings are
+display size and body copy 15–19 px; the site nav moved from 12 px to 14 px. Motion: the hero rises
+in on load, sections fade up as they scroll in (CSS scroll-driven animation, so nothing is hidden
+where it isn't supported), cards lift on hover, and a slow accent glow sits behind the run card.
+All of it is off with reduced motion. Only existing colour tokens are used. The rotating ticker
+under the input was removed: the run card shows the same real plans.

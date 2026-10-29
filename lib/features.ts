@@ -26,6 +26,8 @@ export interface FeatureEntry {
   route: string;
   /** One line: what it gives you. */
   benefit: string;
+  /** A few words for cards (landing role picker). */
+  tagline: string;
   roles: RoleKey[];
   /** The entitlement that gates it (lib/entitlements.ts); null when it is free to use. */
   entitlement: Feature | null;
@@ -52,6 +54,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Plan a takeover",
     route: "/",
     benefit: "Type any fanbase: the agent picks a crossover partner, a city, a venue and sponsors, then writes a brief and two outreach drafts.",
+    tagline: "Partner, city, venue and brief for any fanbase.",
     roles: ["promoter", "fan", "manager", "venue", "brand"],
     entitlement: null,
     account: false,
@@ -65,6 +68,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Fan overlap",
     route: "/overlap",
     benefit: "Any two names: how much their fans overlap, in which cities, and who those fans are.",
+    tagline: "How much two fanbases share, and where.",
     roles: ["fan", "brand", "promoter"],
     entitlement: null,
     account: false,
@@ -76,6 +80,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Meet the fan",
     route: "/fan",
     benefit: "Who a fanbase's fans are, and what else they love across music, TV, film, podcasts and brands.",
+    tagline: "Who the fans are and what else they love.",
     roles: ["fan", "brand"],
     entitlement: null,
     account: false,
@@ -87,6 +92,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Brand match",
     route: "/brand",
     benefit: "The talent, shows and podcasts a brand's customers over-index on, and where those customers are.",
+    tagline: "What a brand's customers over-index on.",
     roles: ["brand"],
     entitlement: null,
     account: false,
@@ -98,6 +104,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Venue booker",
     route: "/venue",
     benefit: "The artists, comedians, podcasts and brands a city over-indexes on, for booking a room.",
+    tagline: "What your city loves, for booking.",
     roles: ["venue", "promoter"],
     entitlement: null,
     account: false,
@@ -109,6 +116,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "City explorer",
     route: "/cities",
     benefit: "A fanbase's strongest cities at home and in three more countries.",
+    tagline: "A fanbase's strongest cities, country by country.",
     roles: ["manager", "fan", "promoter"],
     entitlement: null,
     account: false,
@@ -121,6 +129,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "City pages",
     route: "/city",
     benefit: "What a city over-indexes on, one page per city.",
+    tagline: "What each big city is into.",
     roles: ["venue", "fan"],
     entitlement: null,
     account: false,
@@ -132,6 +141,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Tour optimizer",
     route: "/tour",
     benefit: "A route through a fanbase's strongest cities inside your dates, region and leg limits, with why strong cities were left off.",
+    tagline: "A tour route through the strongest cities.",
     roles: ["manager", "promoter"],
     entitlement: null,
     more: "optimizers",
@@ -144,6 +154,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Lineup optimizer",
     route: "/lineup",
     benefit: "From your pool of acts, fee tiers and budget: the bill with the strongest shared audience, and a poster.",
+    tagline: "The strongest bill inside your budget.",
     roles: ["promoter", "venue"],
     entitlement: null,
     more: "optimizers",
@@ -156,6 +167,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Takeover Daily",
     route: "/daily",
     benefit: "A new fanbase every day: guess its crossover partner, city and sponsor, then share your score.",
+    tagline: "Guess today's crossover, city and sponsor.",
     roles: ["fan"],
     entitlement: null,
     account: false,
@@ -167,6 +179,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Explore",
     route: "/explore",
     benefit: "Plans already run on real Qloo data, to open without waiting.",
+    tagline: "Real plans, ready to open.",
     roles: ["fan", "promoter"],
     entitlement: null,
     account: false,
@@ -178,6 +191,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Workspace plans",
     route: "/workspace",
     benefit: "Plans saved for your team, private by default, with a link you can make public.",
+    tagline: "Plans saved for your team.",
     roles: ["promoter", "manager", "brand", "venue"],
     entitlement: "workspace.plans",
     account: true,
@@ -189,6 +203,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Rosters",
     route: "/workspace/rosters",
     benefit: "Group the acts you represent, see each act's best city, partner and sponsor, and the pairings inside the roster.",
+    tagline: "Every act you represent, and their pairings.",
     roles: ["manager", "promoter"],
     entitlement: "rosters",
     account: true,
@@ -201,6 +216,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Pipeline",
     route: "/workspace/pipeline",
     benefit: "Track outreach from first draft to a confirmed date, with owners, due dates and reminders.",
+    tagline: "Outreach from draft to confirmed date.",
     roles: ["promoter", "manager"],
     entitlement: "pipeline",
     account: true,
@@ -212,6 +228,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Market watch",
     route: "/workspace/watch",
     benefit: "Follow fanbases and cities; each Monday Takeover re-checks Qloo and lists what changed week over week.",
+    tagline: "What changed in your markets each week.",
     roles: ["venue", "promoter", "brand"],
     entitlement: "market.watch",
     account: true,
@@ -224,6 +241,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Sponsorship matchmaker",
     route: "/workspace/sponsorship",
     benefit: "Match a brand with talent and events whose fans over-index on it, from either side, and shortlist them.",
+    tagline: "Brands and talent whose fans already match.",
     roles: ["brand", "venue"],
     entitlement: "sponsorship",
     account: true,
@@ -235,6 +253,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Your data",
     route: "/workspace/data",
     benefit: "Upload a CSV or Excel export from ticketing or a CRM and see it next to Qloo signal, with a weight you set.",
+    tagline: "Your sales next to Qloo signal.",
     roles: ["venue", "promoter", "brand"],
     entitlement: "data.uploads",
     account: true,
@@ -247,6 +266,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Outcomes",
     route: "/workspace/outcomes",
     benefit: "Log what happened after an event and compare it with what the plan predicted.",
+    tagline: "What happened against what was predicted.",
     roles: ["promoter", "venue"],
     entitlement: "outcomes",
     account: true,
@@ -258,6 +278,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Campaign brief",
     route: "/workspace/campaign",
     benefit: "A targeting brief from a plan or a fanbase: audience, interests by category, cities, ad keywords and three creative angles.",
+    tagline: "A targeting brief with ad keywords.",
     roles: ["brand"],
     entitlement: "campaign.briefs",
     account: true,
@@ -269,6 +290,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Members and comments",
     route: "/workspace/members",
     benefit: "Invite teammates as admins, members or viewers, and discuss any decision in a plan with comments and mentions.",
+    tagline: "Teammates, roles and comments.",
     roles: ["promoter", "manager", "brand"],
     entitlement: "collaboration",
     account: true,
@@ -281,6 +303,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Branded decks",
     route: "/workspace/settings/branding",
     benefit: "Decks and exports in your colours, font and logo, with a contrast check.",
+    tagline: "Decks in your colours and logo.",
     roles: ["manager", "brand"],
     entitlement: "exports.branded",
     account: true,
@@ -292,6 +315,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Public API",
     route: "/developers",
     benefit: "Fan overlap, fanbase cities, venues, brand matches and full plans over REST.",
+    tagline: "Takeover's data over REST.",
     roles: ["brand", "promoter"],
     entitlement: "api",
     account: true,
@@ -303,6 +327,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "White-label",
     route: "/workspace/settings/white-label",
     benefit: "Shared plans and embeddable widgets under your brand and your own domain.",
+    tagline: "Your brand on shared plans and widgets.",
     roles: ["brand", "venue"],
     entitlement: "white.label",
     account: true,
@@ -314,6 +339,7 @@ export const REGISTRY: FeatureEntry[] = [
     name: "Workspace settings",
     route: "/workspace/settings",
     benefit: "Name the workspace and set its time zone, currency and plan.",
+    tagline: "Name, time zone, currency and plan.",
     roles: ["promoter", "manager", "brand", "venue"],
     entitlement: null,
     account: true,
@@ -400,6 +426,7 @@ export interface RoleCard {
   name: string;
   tier: TierName;
   benefit: string;
+  tagline: string;
   more: string | null;
   route: string;
   account: boolean;
@@ -411,7 +438,7 @@ export interface RoleCard {
 export function roleCards(examples: Record<string, { label: string; href: string }>): Record<RoleKey, RoleCard[]> {
   const card = (id: string): RoleCard => {
     const f = featureById(id);
-    return { id, name: f.name, tier: tierOf(f), benefit: f.benefit, more: moreOf(f), route: f.route, account: f.account, example: examples[id] ?? null };
+    return { id, name: f.name, tier: tierOf(f), benefit: f.benefit, tagline: f.tagline, more: moreOf(f), route: f.route, account: f.account, example: examples[id] ?? null };
   };
   return Object.fromEntries(ROLE_KEYS.map((r) => [r, ROLE_PICKS[r].map(card)])) as Record<RoleKey, RoleCard[]>;
 }

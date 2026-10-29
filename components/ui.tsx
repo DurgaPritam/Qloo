@@ -70,7 +70,7 @@ function NavLinks({ active }: { active: (href: string) => boolean }) {
           href={item.href}
           aria-current={active(item.href) ? "page" : undefined}
           className={cx(
-            "whitespace-nowrap rounded-btn px-2.5 py-1 text-chip no-underline",
+            "whitespace-nowrap rounded-btn px-3 py-1.5 text-body no-underline",
             active(item.href) ? "bg-acc-soft font-medium text-ink" : "text-mute hover:bg-acc-soft hover:text-ink",
           )}
         >

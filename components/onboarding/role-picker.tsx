@@ -47,13 +47,13 @@ export function WhatCanIDo({ cards }: { cards: Record<RoleKey, RoleCard[]> }) {
   const [role, setRole] = useState<RoleKey>("promoter");
   const keys = ROLES.map((r) => r.key);
   return (
-    <section aria-labelledby="tk-wcid" className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
-      <div className="flex flex-col gap-1.5">
+    <section aria-labelledby="tk-wcid" className="reveal flex flex-col gap-5 border-t border-line pt-8">
+      <div className="flex flex-col gap-2">
         <MonoLabel>Start here</MonoLabel>
-        <h2 id="tk-wcid" className="t-display m-0 text-[clamp(28px,5vw,36px)] leading-[0.92]">
+        <h2 id="tk-wcid" className="t-display m-0 text-[clamp(30px,4vw,48px)] leading-[0.92]">
           What can I do?
         </h2>
-        <p className="m-0 text-mute [text-wrap:pretty]">Pick the role closest to yours to see where to start.</p>
+        <p className="m-0 text-[16px] text-mute [text-wrap:pretty]">Pick the role closest to yours.</p>
       </div>
       <div role="radiogroup" aria-label="Your role" className="flex flex-wrap gap-2" onKeyDown={radioKeys(keys, role, (k) => setRole(k as RoleKey))}>
         {ROLES.map((r) => (
@@ -62,12 +62,12 @@ export function WhatCanIDo({ cards }: { cards: Record<RoleKey, RoleCard[]> }) {
           </RolePill>
         ))}
       </div>
-      <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]" data-role-tools={role}>
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))]" data-role-tools={role}>
         {cards[role].map((tool, i) => (
           <RoleToolCard key={tool.id} n={i + 1} tool={tool} />
         ))}
       </div>
-      <Link href="/guide" className="self-start text-chip">
+      <Link href="/guide" className="self-start text-[15px]">
         See every feature in the guide
       </Link>
     </section>
@@ -76,33 +76,32 @@ export function WhatCanIDo({ cards }: { cards: Record<RoleKey, RoleCard[]> }) {
 
 function RoleToolCard({ n, tool }: { n: number; tool: RoleCard }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-md bg-surf p-[18px] border-card border-ink shadow-card" data-role-tool={tool.id}>
+    <div className="lift flex flex-col gap-2 rounded-lg bg-surf p-panel border-card border-ink shadow-card hover:border-acc-line" data-role-tool={tool.id}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-label uppercase tracking-[0.08em] text-acc-text">Tool {String(n).padStart(2, "0")}</span>
         <TierBadge tier={tool.tier} />
       </div>
-      <h3 className="m-0 text-[16px] font-semibold">{tool.name}</h3>
-      <p className="m-0 text-body text-mute [text-wrap:pretty]">{tool.benefit}</p>
-      <p className="m-0 flex-1 pb-2.5 text-chip text-mute">
-        {tool.account ? "Needs an account. " : ""}
-        {tool.more ? `Free to try; ${tool.more}.` : ""}
+      <h3 className="m-0 text-[20px] font-semibold leading-[1.2]">{tool.name}</h3>
+      <p className="m-0 text-[16px] text-mute [text-wrap:pretty]" title={tool.benefit}>
+        {tool.tagline}
       </p>
+      <p className="m-0 flex-1 pb-2 text-chip text-mute">{[tool.account && "Needs an account", tool.more && `More with ${tool.more.split(":")[0]}`].filter(Boolean).join(" · ")}</p>
       {tool.example ? (
         <Link
           href={tool.example.href}
           data-example
-          className="flex min-h-10 items-center gap-2 rounded-btn border-th border-line px-3 py-2 text-ink no-underline hover:bg-acc-soft hover:text-ink"
+          className="flex min-h-11 items-center gap-2 rounded-btn border-th border-line px-3 py-2 text-ink no-underline hover:bg-acc-soft hover:text-ink"
         >
           <span className="font-mono text-label uppercase tracking-[0.06em] text-mute">Try</span>
-          <span className="min-w-0 flex-1 truncate text-chip">{tool.example.label} · cached run</span>
+          <span className="min-w-0 flex-1 truncate text-[15px]">{tool.example.label} · cached run</span>
           <span aria-hidden className="font-mono text-chip text-acc-text">
             →
           </span>
         </Link>
       ) : (
-        <Link href={tool.route} className="flex min-h-10 items-center gap-2 rounded-btn border-th border-line px-3 py-2 text-ink no-underline hover:bg-acc-soft hover:text-ink">
+        <Link href={tool.route} className="flex min-h-11 items-center gap-2 rounded-btn border-th border-line px-3 py-2 text-ink no-underline hover:bg-acc-soft hover:text-ink">
           <span className="font-mono text-label uppercase tracking-[0.06em] text-mute">Open</span>
-          <span className="min-w-0 flex-1 truncate text-chip">{tool.name}</span>
+          <span className="min-w-0 flex-1 truncate text-[15px]">{tool.name}</span>
           <span aria-hidden className="font-mono text-chip text-acc-text">
             →
           </span>
