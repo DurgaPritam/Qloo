@@ -17,7 +17,25 @@ export const NAV = [
   { href: "/tools", label: "Tools" },
   { href: "/explore", label: "Explore" },
   { href: "/plans", label: "My plans" },
+  { href: "/guide", label: "Guide" },
   { href: "/method", label: "How it works" },
+] as const;
+
+/** The workspace sidebar (components/workspace/shell.tsx): sections, then its Tools menu. */
+export const WORKSPACE_NAV = [
+  { href: "/workspace", label: "Plans" },
+  { href: "/workspace/rosters", label: "Rosters" },
+  { href: "/workspace/pipeline", label: "Pipeline" },
+  { href: "/workspace/watch", label: "Watchlists" },
+  { href: "/workspace/sponsorship", label: "Sponsorship" },
+  { href: "/workspace/data", label: "Data" },
+  { href: "/workspace/settings", label: "Settings", also: ["/workspace/members", "/workspace/inbox"] },
+] as const;
+export const WORKSPACE_TOOLS = [
+  { href: "/workspace/outcomes", label: "Outcomes" },
+  { href: "/tour", label: "Tour optimizer" },
+  { href: "/lineup", label: "Lineup optimizer" },
+  { href: "/workspace/campaign", label: "Campaign brief" },
 ] as const;
 
 /** The footer lists the tools under the nav. */

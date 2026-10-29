@@ -13,6 +13,7 @@ import { FOOTER_EXTRA, LEGAL, NAV, TOOLS } from "@/lib/site";
 
 import { AccountBar } from "./account/account-bar";
 import { AppearanceControls } from "./appearance";
+import { Help } from "./onboarding/help";
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -37,6 +38,7 @@ export function AppHeader({ context, right }: { context?: string; right?: ReactN
         <Suspense fallback={<div className="h-[30px] w-[72px] flex-none" aria-hidden />}>
           <AccountBar />
         </Suspense>
+        <Help />
         <AppearanceControls />
       </div>
       {/* The path is only known at request time; until then the links render without a highlight. */}

@@ -131,6 +131,7 @@ starts with it.
 | `tours` (*Built*) | a Tour optimizer result saved from its server-side draft (the engine's route, scores and requests), with the user's window and per-stop dates and venue sizes (user data) | workspace |
 | `exports` | Blob path, kind (deck, PDF, CSV, poster), created by | workspace |
 | `subscriptions` (*Built*) | Stripe customer and subscription ids, the tier its price buys, interval, status, seats, period end, cancel at period end, when a payment failed, and the last event applied (so an older event never overwrites a newer one) | workspace |
+| `workspaces.checklist_dismissed_at` (*Built*) | when the getting-started checklist was dismissed for the workspace; its ticks come from the workspace's own rows | workspace |
 | `billing_events` (*Built*) | Stripe event ids already applied (idempotency), with the workspace they changed | workspace (nullable: an event for no known workspace is still recorded) |
 | `audit_log` | who did what (invite, role change, send, export, billing) | workspace |
 

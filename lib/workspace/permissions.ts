@@ -34,6 +34,7 @@ export type Action =
   | "api.read"
   | "api.manage"
   | "whitelabel.edit"
+  | "checklist.dismiss"
   | "billing.read"
   | "billing.manage"
   | "workspace.rename";
@@ -62,6 +63,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "sponsor.edit": "member",
   "outcome.log": "member",
   "pipeline.edit": "member",
+  "checklist.dismiss": "member",
   "plan.share.any": "admin",
   "member.invite": "admin",
   "member.manage": "admin",

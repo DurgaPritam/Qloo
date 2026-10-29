@@ -2,10 +2,13 @@ import { connection } from "next/server";
 import { Suspense, cache } from "react";
 
 import { Landing } from "@/components/landing";
+import { WhatCanIDo } from "@/components/onboarding/role-picker";
 import { PlanTabs, PlanTicker, PlayRow } from "@/components/landing-live";
 import { Comparison } from "@/components/showcase";
 import { TrendingStrip } from "@/components/trending";
 import { MonoLabel, Skeleton } from "@/components/ui";
+import { roleCards } from "@/lib/features";
+import { resolvedExamples } from "@/lib/onboarding/examples";
 import { dailyPuzzle, today } from "@/lib/server/daily";
 import { cachedLlmOnly } from "@/lib/server/llm-only";
 import { loadRecent } from "@/lib/server/plan-store";
@@ -22,6 +25,12 @@ async function Ticker() {
   await connection();
   const plans = await plansOnce();
   return plans.length ? <PlanTicker plans={plans} /> : null;
+}
+
+/** "What can I do?": examples only where a cached real run exists. */
+async function Roles() {
+  await connection();
+  return <WhatCanIDo cards={roleCards(await resolvedExamples())} />;
 }
 
 async function Showcase() {
@@ -43,12 +52,8 @@ async function Showcase() {
         <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
           <div className="flex flex-col gap-1.5">
             <MonoLabel>Why taste data</MonoLabel>
-            <h2 className="t-display m-0 text-[clamp(24px,3.5vw,32px)] leading-[0.95]">
-              Ask a chatbot and you get the obvious answer
-            </h2>
-            <p className="m-0 text-body text-mute [text-wrap:pretty]">
-              The same question about {compare.fanbase}, asked with and without Qloo.
-            </p>
+            <h2 className="t-display m-0 text-[clamp(24px,3.5vw,32px)] leading-[0.95]">Ask a chatbot and you get the obvious answer</h2>
+            <p className="m-0 text-body text-mute [text-wrap:pretty]">The same question about {compare.fanbase}, asked with and without Qloo.</p>
           </div>
           <Comparison plan={compare} llmText={llm.text} />
         </section>
@@ -63,6 +68,11 @@ async function Showcase() {
 export default function Home() {
   return (
     <Landing
+      roles={
+        <Suspense fallback={<Skeleton className="h-[320px] w-full rounded-md" />}>
+          <Roles />
+        </Suspense>
+      }
       ticker={
         <Suspense fallback={<Skeleton className="h-[46px] w-full rounded-md" />}>
           <Ticker />

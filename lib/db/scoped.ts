@@ -150,6 +150,11 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         await db.update(workspaces).set({ tier }).where(eq(workspaces.id, ws));
         await log("workspace.tier", { type: "workspace", id: ws }, { tier });
       },
+      /** Hides the getting-started checklist for everyone in the workspace (nothing else changes). */
+      async dismissChecklist() {
+        need("checklist.dismiss");
+        await db.update(workspaces).set({ checklistDismissedAt: new Date() }).where(eq(workspaces.id, ws));
+      },
       /** Time zone (weekly watch run), currency (logged gross) and the Outcomes sample size. */
       async saveSettings(input: { timeZone: string | null; currency: string | null; outcomeMinSample: number | null }) {
         need("workspace.settings");

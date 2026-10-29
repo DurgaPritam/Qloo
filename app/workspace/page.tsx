@@ -5,7 +5,9 @@ import { Suspense } from "react";
 
 import { categoryLabel } from "@/components/run/format";
 import { Banner, MonoLabel, OutlineChip, Skeleton, SourceBadge } from "@/components/ui";
+import { GettingStarted } from "@/components/onboarding/checklist";
 import { ImportOffer } from "@/components/workspace/import-offer";
+import { checklistView } from "@/lib/onboarding/checklist";
 import { summarise } from "@/lib/plan-summary";
 import { can } from "@/lib/workspace/permissions";
 import { featureAccess } from "@/lib/workspace/gate";
@@ -21,17 +23,15 @@ async function Plans({ searchParams }: { searchParams: Promise<Record<string, st
   const { ctx, repo, memberships } = found;
   const welcome = (await searchParams).welcome === "1";
   const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
-  const [rows, access] = await Promise.all([repo.plans.list(), featureAccess(repo, "workspace.plans")]);
+  const [rows, access, checklist] = await Promise.all([repo.plans.list(), featureAccess(repo, "workspace.plans"), checklistView(repo)]);
 
   return (
     <>
       <PageTitle label={current.name} title="Plans" />
+      <GettingStarted view={checklist} workspace={current.name} />
       {access.upgrade && <UpgradePrompt upgrade={access.upgrade} compact />}
       {welcome && (
-        <Banner tone="info">
-          You&apos;re signed in. Plans you make while signed in are saved here, private to this workspace&apos;s members. Invite your team
-          from Members.
-        </Banner>
+        <Banner tone="info">You&apos;re signed in. Plans you make while signed in are saved here, private to this workspace&apos;s members. Invite your team from Members.</Banner>
       )}
       {can(ctx.role, "plan.create") && access.allowed && <ImportOffer workspaceId={ctx.workspaceId} workspaceName={current.name} />}
       {rows.length === 0 ? (

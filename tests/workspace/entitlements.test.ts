@@ -120,6 +120,7 @@ const UNGATED: Record<string, string> = {
   "app/api/workspace/datasets/for-plan/route.ts": "read only: your data already stored (a downgrade keeps it readable)",
   "app/api/workspace/inbox/route.ts": "your own notifications: read and mark read",
   "app/api/workspace/members/route.ts": "managing existing members (role, remove, leave) stays open so a downgraded workspace can get under its seats",
+  "app/api/workspace/onboarding/route.ts": "the getting-started checklist: reads counts and stores its dismissal, on every tier",
   "app/api/workspace/search/route.ts": "read only: searching what the workspace stored",
   "app/api/workspace/settings/route.ts": "workspace name, time zone, currency: every tier",
   "app/api/workspace/watch/[id]/route.ts": "DELETE only: removing data is always allowed",

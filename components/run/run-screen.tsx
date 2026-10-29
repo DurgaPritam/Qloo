@@ -11,6 +11,7 @@ import { STEPS } from "@/lib/agent/types";
 
 import { AppHeader, Banner, Button, InputBar, MonoLabel, OutlineChip, Page, Sk, StepCard, cx, type StepData } from "../ui";
 import { AudiencePanel } from "../audience";
+import { TourOverlay, useRunTour } from "../onboarding/tour";
 import { categoryLabel } from "./format";
 import { PlanYourData } from "../workspace/your-data";
 import { BriefSection, CitySection, CrossoverSection, OutreachSection, RoomSection, type LlmOnly } from "./sections";
@@ -60,6 +61,7 @@ export function RunScreen() {
   const llm = llmState.q === query ? llmState : { state: "idle" as const, on: false, q: query };
   const setLlm = (next: LlmOnly & { on: boolean }) => setLlmState({ ...next, q: query });
   const [draft, setDraft] = useState(query);
+  const tourRoot = useRef<HTMLDivElement>(null);
 
   const run = useCallback(
     (o: Overrides = {}, from: StepId | null = null) => {
@@ -93,6 +95,16 @@ export function RunScreen() {
   }, [view.plan, savedTo]);
 
   const goTo = (q: string) => router.push(`/run?q=${encodeURIComponent(q)}`);
+
+  // The guided tour: once per browser after a complete run, or when asked (?tour=1, the help panel).
+  const tour = useRunTour({
+    ready: Boolean(query) && view.phase === "done" && view.plan?.status === "complete" && Boolean(view.fanbase),
+    asked: params.get("tour") === "1",
+    onStep: (target) => {
+      if (target === "log" || target === "qloo") setShowLog(true);
+      if (target === "qloo") setOpen((o) => ({ ...o, "03": true }));
+    },
+  });
 
   const toggleLlm = async (on: boolean) => {
     setLlm({ ...llm, on });
@@ -132,20 +144,12 @@ export function RunScreen() {
   const current = steps.find((s) => s.status === "running" || s.status === "error");
   const finished = view.phase === "done";
   const needs = view.needsInput;
-  const status =
-    view.error ? "Stopped" : needs && finished ? "Waiting for you" : finished ? `Complete · ${complete} / 7` : `Step ${Math.min(complete + 1, 7)} of 7`;
-  const currentTitle = view.error
-    ? "Stopped"
-    : finished
-      ? needs
-        ? "Waiting for your pick"
-        : "Run complete"
-      : (current?.title ?? steps[0].title);
-  const shareUrl =
-    view.plan && typeof window !== "undefined" ? `${window.location.origin}/plan/${view.plan.runId}` : undefined;
+  const status = view.error ? "Stopped" : needs && finished ? "Waiting for you" : finished ? `Complete · ${complete} / 7` : `Step ${Math.min(complete + 1, 7)} of 7`;
+  const currentTitle = view.error ? "Stopped" : finished ? (needs ? "Waiting for your pick" : "Run complete") : (current?.title ?? steps[0].title);
+  const shareUrl = view.plan && typeof window !== "undefined" ? `${window.location.origin}/plan/${view.plan.runId}` : undefined;
 
   const log = (
-    <section className="flex flex-col gap-2" aria-label="Agent log">
+    <section className="flex flex-col gap-2" aria-label="Agent log" data-tour="log">
       <div className="flex justify-between pb-1 font-mono text-label uppercase tracking-[0.08em] text-mute">
         <span>Agent log</span>
         <span className="tabular">{complete} / 7</span>
@@ -154,14 +158,10 @@ export function RunScreen() {
         {current?.liveText ?? (finished ? currentTitle : "")}
       </div>
       {steps.map((s, i) => (
-        <StepCard
-          key={s.n}
-          step={s}
-          showBranch={s.showBranch}
-          open={!!open[s.n]}
-          onToggle={() => setOpen((o) => ({ ...o, [s.n]: !o[s.n] }))}
-          onRetry={i > 0 ? retry : undefined}
-        />
+        // Step 03's Qloo call is the tour's second stop.
+        <div key={s.n} data-tour={i === 2 ? "qloo" : undefined}>
+          <StepCard step={s} showBranch={s.showBranch} open={!!open[s.n]} onToggle={() => setOpen((o) => ({ ...o, [s.n]: !o[s.n] }))} onRetry={i > 0 ? retry : undefined} />
+        </div>
       ))}
       {view.plan?.notes.length ? (
         <div className="flex flex-col gap-1 pt-1 text-chip text-mute">
@@ -184,6 +184,7 @@ export function RunScreen() {
         right={
           <>
             <div className="tabular font-mono text-[11px] uppercase tracking-[0.06em] text-mute">{status}</div>
+            {finished && view.plan?.status === "complete" && fanbase && <Button onClick={tour.start}>Tour</Button>}
             <Button onClick={() => run()} loading={view.phase === "running"}>
               Replay
             </Button>
@@ -191,117 +192,123 @@ export function RunScreen() {
         }
       />
 
-      {/* Mobile: log collapses into a progress bar */}
-      <div className="flex flex-col gap-2.5 rounded-md bg-surf p-4 border-card border-ink shadow-card md:hidden print:hidden">
-        <div className="flex items-baseline gap-2">
-          <div className="tabular font-mono text-label uppercase tracking-[0.08em] text-acc-text">{complete} / 7</div>
-          <div className="min-w-0 flex-1 truncate text-body font-medium">{currentTitle}</div>
-          <button
-            type="button"
-            onClick={() => setShowLog((v) => !v)}
-            aria-expanded={showLog}
-            className="cursor-pointer border-0 bg-transparent py-1 font-mono text-label uppercase tracking-[0.06em] text-mute"
-          >
-            {showLog ? "Hide log" : "Show log"}
-          </button>
-        </div>
-        <div className="h-2 overflow-hidden rounded-pill bg-track">
-          <div className="h-full rounded-pill bg-acc-line transition-[width] duration-[400ms]" style={{ width: `${(complete / 7) * 100}%` }} />
-        </div>
-      </div>
-
-      <div className="grid items-start gap-[22px] md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] print:block">
-        <div className={cx(showLog ? "block" : "hidden", "md:block print:hidden")}>{log}</div>
-
-        <section className="flex min-w-0 flex-col gap-[18px]" aria-label="Results">
-          <div className="flex flex-col gap-2 print:hidden">
-            <MonoLabel>Results</MonoLabel>
-            <h1 className="t-display m-0 text-[clamp(30px,4.5vw,44px)] leading-[0.92] [text-wrap:balance]">
-              {fanbase?.name ?? query} takeover
-            </h1>
-            <div className="flex min-h-[22px] flex-wrap items-center gap-2">
-              {fanbase && <OutlineChip>{categoryLabel(fanbase.category)}</OutlineChip>}
-              {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
-              {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
-              {finished && view.plan?.status === "complete" && (
-                <Link
-                  href={`/plan/${view.plan.runId}#vote`}
-                  className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink"
-                >
-                  Ask your team to vote
-                </Link>
-              )}
-              {savedTo && finished && view.plan?.status === "complete" && (
-                <Link href="/workspace" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
-                  Saved to {savedTo}
-                </Link>
-              )}
-              {!savedTo && saved && saved === view.plan?.runId && (
-                <Link href="/plans" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
-                  Saved to My plans
-                </Link>
-              )}
-              {upgrade && finished && (
-                <Link href="/workspace/settings/billing" className="rounded-pill border-th border-acc-line px-2.5 py-0.5 text-chip text-acc-text no-underline" data-upgrade-note>
-                  {upgrade} See plans →
-                </Link>
-              )}
-              {view.plan?.cachedRun && (
-                <OutlineChip>
-                  Cached run · recorded{" "}
-                  {new Date(view.plan.cachedRun.recordedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                </OutlineChip>
-              )}
-            </div>
+      <div ref={tourRoot} className="relative flex flex-col gap-[22px]">
+        {/* Mobile: log collapses into a progress bar */}
+        <div className="flex flex-col gap-2.5 rounded-md bg-surf p-4 border-card border-ink shadow-card md:hidden print:hidden" data-tour="log">
+          <div className="flex items-baseline gap-2">
+            <div className="tabular font-mono text-label uppercase tracking-[0.08em] text-acc-text">{complete} / 7</div>
+            <div className="min-w-0 flex-1 truncate text-body font-medium">{currentTitle}</div>
+            <button
+              type="button"
+              onClick={() => setShowLog((v) => !v)}
+              aria-expanded={showLog}
+              className="cursor-pointer border-0 bg-transparent py-1 font-mono text-label uppercase tracking-[0.06em] text-mute"
+            >
+              {showLog ? "Hide log" : "Show log"}
+            </button>
           </div>
+          <div className="h-2 overflow-hidden rounded-pill bg-track">
+            <div className="h-full rounded-pill bg-acc-line transition-[width] duration-[400ms]" style={{ width: `${(complete / 7) * 100}%` }} />
+          </div>
+        </div>
 
-          {view.error?.kind === "busy" && <ApiBusy message={view.error.message} onRetry={retry} onExample={goTo} />}
-          {view.error && view.error.kind !== "busy" && (
-            <Banner tone="err" action={<Button variant="primary" onClick={retry}>Retry</Button>}>
-              {view.error.message}
-            </Banner>
-          )}
+        <div className="grid items-start gap-[22px] md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] print:block">
+          <div className={cx(showLog ? "block" : "hidden", "md:block print:hidden")}>{log}</div>
 
-          {pausedForInput && needs.kind === "ambiguous" && (
-            <EntityPicker needs={needs} onPick={pick} busy={view.phase === "running"} />
-          )}
-          {pausedForInput && needs.kind !== "ambiguous" && (
-            <NoMatch query={query} needs={needs} onPick={pick} onExample={goTo} />
-          )}
+          <section className="flex min-w-0 flex-col gap-[18px]" aria-label="Results">
+            <div className="flex flex-col gap-2 print:hidden">
+              <MonoLabel>Results</MonoLabel>
+              <h1 className="t-display m-0 text-[clamp(30px,4.5vw,44px)] leading-[0.92] [text-wrap:balance]">{fanbase?.name ?? query} takeover</h1>
+              <div className="flex min-h-[22px] flex-wrap items-center gap-2">
+                {fanbase && <OutlineChip>{categoryLabel(fanbase.category)}</OutlineChip>}
+                {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
+                {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
+                {finished && view.plan?.status === "complete" && (
+                  <Link href={`/plan/${view.plan.runId}#vote`} className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
+                    Ask your team to vote
+                  </Link>
+                )}
+                {savedTo && finished && view.plan?.status === "complete" && (
+                  <Link href="/workspace" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
+                    Saved to {savedTo}
+                  </Link>
+                )}
+                {!savedTo && saved && saved === view.plan?.runId && (
+                  <Link href="/plans" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
+                    Saved to My plans
+                  </Link>
+                )}
+                {upgrade && finished && (
+                  <Link href="/workspace/settings/billing" className="rounded-pill border-th border-acc-line px-2.5 py-0.5 text-chip text-acc-text no-underline" data-upgrade-note>
+                    {upgrade} See plans →
+                  </Link>
+                )}
+                {view.plan?.cachedRun && (
+                  <OutlineChip>
+                    Cached run · recorded {new Date(view.plan.cachedRun.recordedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </OutlineChip>
+                )}
+              </div>
+            </div>
 
-          {!pausedForInput && !(view.error?.kind === "busy") && (
-            <>
-              {stoppedEarly && (
-                <div className="print:hidden">
-                  <Banner tone="warn">This plan is partial: some steps could not finish. Each gap is labelled in the log.</Banner>
-                </div>
-              )}
-              {view.replanFrom === "city" && (
-                <div className="print:hidden">
-                  <Banner tone="info">Replanning room, brief and outreach…</Banner>
-                </div>
-              )}
-              <CrossoverSection view={view} llm={llm} onToggle={toggleLlm} onUsePartner={usePartner} />
-              {finished && fanbase && view.plan?.status === "complete" && (
-                <div className="print:hidden">
-                  <AudiencePanel people={audiencePeople(view)} />
-                </div>
-              )}
-              <CitySection
-                view={view}
-                onUseCity={useCity}
-                extra={
-                  savedTo && finished && view.plan ? (
-                    <PlanYourData planId={view.plan.runId} chosenCityId={view.city?.chosen?.pick.city.id} onUseCity={useCity} />
-                  ) : undefined
+            {view.error?.kind === "busy" && <ApiBusy message={view.error.message} onRetry={retry} onExample={goTo} />}
+            {view.error && view.error.kind !== "busy" && (
+              <Banner
+                tone="err"
+                action={
+                  <Button variant="primary" onClick={retry}>
+                    Retry
+                  </Button>
                 }
-              />
-              <RoomSection view={view} />
-              <BriefSection view={view} shareUrl={shareUrl} />
-              <OutreachSection view={view} />
-            </>
-          )}
-        </section>
+              >
+                {view.error.message}
+              </Banner>
+            )}
+
+            {pausedForInput && needs.kind === "ambiguous" && <EntityPicker needs={needs} onPick={pick} busy={view.phase === "running"} />}
+            {pausedForInput && needs.kind !== "ambiguous" && <NoMatch query={query} needs={needs} onPick={pick} onExample={goTo} />}
+
+            {!pausedForInput && !(view.error?.kind === "busy") && (
+              <>
+                {stoppedEarly && (
+                  <div className="print:hidden">
+                    <Banner tone="warn">This plan is partial: some steps could not finish. Each gap is labelled in the log.</Banner>
+                  </div>
+                )}
+                {view.replanFrom === "city" && (
+                  <div className="print:hidden">
+                    <Banner tone="info">Replanning room, brief and outreach…</Banner>
+                  </div>
+                )}
+                <div data-tour="swap">
+                  <CrossoverSection view={view} llm={llm} onToggle={toggleLlm} onUsePartner={usePartner} />
+                </div>
+                {finished && fanbase && view.plan?.status === "complete" && (
+                  <div className="print:hidden">
+                    <AudiencePanel people={audiencePeople(view)} />
+                  </div>
+                )}
+                <div id="city" className="scroll-mt-4">
+                  <CitySection
+                    view={view}
+                    onUseCity={useCity}
+                    extra={
+                      savedTo && finished && view.plan ? <PlanYourData planId={view.plan.runId} chosenCityId={view.city?.chosen?.pick.city.id} onUseCity={useCity} /> : undefined
+                    }
+                  />
+                </div>
+                <RoomSection view={view} />
+                <div data-tour="brief">
+                  <BriefSection view={view} shareUrl={shareUrl} />
+                </div>
+                <div data-tour="outreach">
+                  <OutreachSection view={view} />
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+        <TourOverlay rootRef={tourRoot} tour={tour} />
       </div>
     </Page>
   );

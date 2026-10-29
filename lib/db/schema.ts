@@ -103,6 +103,8 @@ export const workspaces = pgTable("workspaces", {
   tier: text("tier").notNull().default("free"),
   /** Team seats bought (the subscription's quantity); null otherwise. */
   seats: integer("seats"),
+  /** When a member dismissed the getting-started checklist for this workspace; null while it shows. */
+  checklistDismissedAt: timestamp("checklist_dismissed_at", { mode: "date", withTimezone: true }),
 });
 
 export const memberships = pgTable(

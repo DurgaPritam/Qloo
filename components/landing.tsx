@@ -34,7 +34,7 @@ const FAQ = [
   },
 ];
 
-export function Landing({ ticker, showcase }: { ticker?: ReactNode; showcase?: ReactNode }) {
+export function Landing({ ticker, showcase, roles }: { ticker?: ReactNode; showcase?: ReactNode; roles?: ReactNode }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   // Busy only while the navigation is in flight. A flag set by hand would survive a Back
@@ -84,6 +84,8 @@ export function Landing({ ticker, showcase }: { ticker?: ReactNode; showcase?: R
         </div>
         {ticker}
       </section>
+
+      {roles}
 
       <section className="flex flex-col gap-[18px] border-t border-line pt-[18px]">
         <MonoLabel>What you get</MonoLabel>

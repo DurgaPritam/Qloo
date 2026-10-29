@@ -87,6 +87,24 @@
 @utility shadow-tab {
   box-shadow: var(--shadow-tab, none);
 }
+@utility shadow-pop {
+  box-shadow: var(--pop-shadow);
+}
+
+/* Onboarding (design handoff, added): the tour spotlight and help panel scrim, and popover shadow. */
+:root,
+[data-theme="dark"] {
+  --scrim: rgba(10, 11, 18, 0.55);
+  --pop-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+[data-theme="light"] {
+  --scrim: rgba(22, 24, 38, 0.28);
+  --pop-shadow: 0 8px 24px rgba(22, 24, 38, 0.12);
+}
+[data-theme="genz"] {
+  --scrim: rgba(22, 24, 38, 0.28);
+  --pop-shadow: 4px 4px 0 #1d1b26;
+}
 
 :root {
   --d-headline: 52px;

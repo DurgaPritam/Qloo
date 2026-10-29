@@ -22,7 +22,15 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL, extraHTTPHeaders: headers, trace: "retain-on-failure", acceptDownloads: true },
+  use: {
+    baseURL,
+    extraHTTPHeaders: headers,
+    trace: "retain-on-failure",
+    acceptDownloads: true,
+    // The run tour opens once per browser; specs about other things start with it seen.
+    // e2e/onboarding.spec.ts starts from empty storage.
+    storageState: { cookies: [], origins: [{ origin: new URL(baseURL).origin, localStorage: [{ name: "tk.runTour.done", value: "1" }] }] },
+  },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] }, grepInvert: /@mobile/ },
     { name: "mobile", use: { ...devices["Desktop Chrome"], viewport: { width: 380, height: 800 }, hasTouch: true }, grep: /@mobile/ },

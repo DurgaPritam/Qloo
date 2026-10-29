@@ -1134,3 +1134,47 @@ on every request; only the Qloo allowance is cached (30 s per server instance, d
 instance that applied the change), so another instance may count against the old allowance for up
 to 30 s. A cancellation "at the end of the period" keeps the plan until Stripe ends it; the page
 shows the end date. `docs/billing-test.md` is the test-card run for when the Stripe keys exist.
+
+## Onboarding (29 Oct, branch roadmap/foundation)
+
+Design source: `design/Takeover design system (2).zip` (onboarding: `src/components/onboarding.tsx`,
+`src/screens/Guide.tsx`, the `onboarding-*` screens). The design's own data (routes such as
+`/watchlists` and `/tools/lineup`, tiers, "SSO & audit log", "Editor" role, "we reply within one
+working day") is placeholder and is not used: everything reads from the registry below.
+
+**D156. One registry for every feature.** `lib/features.ts` lists each feature once: name, route,
+one-line benefit, roles, the entitlement that gates it (its tier is computed by
+`lib/entitlements.ts`, never written here), whether it needs an account, where its numbers come from,
+help text, an optional example and its checklist step. The landing role picker, /guide, the help
+panel and the checklist read only from it. The workspace sidebar lists moved to `lib/site.ts` so a
+test can fail when a sidebar or tools-menu page has no registry entry, or an entry points to a page
+that doesn't exist. The same test enforces the copy rules: every entry says where its numbers come
+from, no claims about results, reach or revenue, and no figure that isn't a tier limit.
+
+**D157. Examples are cached real runs, or nothing.** An example is a preloaded run (`SHOWCASE`)
+and is shown only when its stored recording exists and is live Qloo data; in sample mode, or when
+the run isn't stored, the card links to the tool itself ("Open …") instead. Tool pages such as Fan
+overlap have no example, because opening them makes a live request rather than a cached run.
+
+**D158. The run tour.** Five tips (agent log, the Qloo call behind step 03, swap the partner, the
+brief, outreach), opened 400 ms after a complete run, once per browser (`localStorage`
+`tk.runTour.done`, read and written in try/catch; when storage is blocked it is remembered for the
+page instead). Skip or Esc closes it and counts as seen; → and ← move; focus goes to Next on each tip
+and returns afterwards. It restarts from the run header's Tour button, the help panel, or
+`?tour=1`. Reduced motion turns off the smooth scroll and transitions. On a phone the log opens for
+the first two tips. E2E specs about other screens start with the tour marked seen.
+
+**D159. Help panel and /guide.** "?" (outside text fields) or the header's ? button opens the help
+panel on every page: it searches each feature's help text and a few general questions, and links
+formulas to /method. The design's "Contact support" footer is replaced by a link to How it works
+(there is no support address yet). /guide groups the registry by role with tier badges, where each
+feature's numbers come from, and its example; signed out, each row says whether it needs an account
+or a paid tier and links to sign-in (then the feature), so nothing is a dead end. Signed in, a
+feature the plan lacks links to Plans & billing.
+
+**D160. Getting-started checklist.** On the workspace home: save a plan, create a roster, watch a
+fanbase or city, upload your data, invite a teammate. Each step ticks from the workspace's own
+rows (counts through the scoped repository, nothing copied); a step the plan doesn't include shows
+the tier that has it and links there. Only the dismissal is stored, per workspace
+(`workspaces.checklist_dismissed_at`); members and above can dismiss it. No analytics or tracking
+anywhere in onboarding.

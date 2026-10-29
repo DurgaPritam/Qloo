@@ -6,27 +6,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { AccountState } from "@/app/api/account/route";
 import { signOutAction } from "@/app/signin/actions";
+import { WORKSPACE_NAV, WORKSPACE_TOOLS } from "@/lib/site";
 import { ROLE_LABEL } from "@/lib/workspace/permissions";
 
 import { AppearanceControls } from "../appearance";
+import { Help } from "../onboarding/help";
 import { cx, MonoLabel, Wordmark } from "../ui";
 
 /** The design's App Shell: workspace pages sit inside it; public pages keep the site header. */
-const NAV = [
-  { href: "/workspace", label: "Plans" },
-  { href: "/workspace/rosters", label: "Rosters" },
-  { href: "/workspace/pipeline", label: "Pipeline" },
-  { href: "/workspace/watch", label: "Watchlists" },
-  { href: "/workspace/sponsorship", label: "Sponsorship" },
-  { href: "/workspace/data", label: "Data" },
-  { href: "/workspace/settings", label: "Settings", also: ["/workspace/members", "/workspace/inbox"] },
-] as const;
-const TOOLS = [
-  { href: "/workspace/outcomes", label: "Outcomes" },
-  { href: "/tour", label: "Tour optimizer" },
-  { href: "/lineup", label: "Lineup optimizer" },
-  { href: "/workspace/campaign", label: "Campaign brief" },
-] as const;
+const NAV = WORKSPACE_NAV;
+const TOOLS = WORKSPACE_TOOLS;
 
 export const initials = (name: string) =>
   name
@@ -175,6 +164,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           </button>
           <Search />
           <div className="flex-1" />
+          <Help workspace />
           <Bell unread={account?.unread ?? 0} onRead={() => setAccount((a) => (a ? { ...a, unread: 0 } : a))} />
           <div className="hidden sm:block">
             <AppearanceControls />

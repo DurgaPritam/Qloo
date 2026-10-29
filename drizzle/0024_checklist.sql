@@ -1,0 +1,1 @@
+ALTER TABLE "workspaces" ADD COLUMN "checklist_dismissed_at" timestamp with time zone;

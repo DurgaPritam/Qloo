@@ -169,6 +169,13 @@
       "when": 1793253472495,
       "tag": "0023_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793268670985,
+      "tag": "0024_checklist",
+      "breakpoints": true
     }
   ]
 }
