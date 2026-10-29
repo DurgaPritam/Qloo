@@ -97,6 +97,7 @@ const UNGATED: Record<string, string> = {
   "app/api/billing/webhook/route.ts": "Stripe webhooks: signature-verified, they set the tier",
   "app/api/workspace/billing/checkout/route.ts": "buying a plan is open to every tier (owners only)",
   "app/api/workspace/billing/contact/route.ts": "the Enterprise contact form, on every tier",
+  "app/api/workspace/billing/return/route.ts": "reads the workspace's own subscription back from Stripe after Checkout or the portal",
   "app/api/workspace/billing/portal/route.ts": "managing or cancelling a plan is always allowed (owners only)",
   "app/api/auth/[...nextauth]/route.ts": "sign-in",
   "app/api/daily/route.ts": "Daily game: Free",

@@ -1117,3 +1117,20 @@ card), and invoices come from Stripe. `/terms` and `/privacy` are placeholders f
 written from what the code does today; there are no analytics or advertising cookies, so there is no
 cookie notice, and the privacy page says one will come with analytics. A test renders the campaign
 brief's printed page (its PDF) and fails on any number not from the engine, Qloo's names or the user.
+
+**D154. Paid plans wait for the commercial Qloo agreement.** The hackathon Qloo key and quota can't
+serve paying customers, so in production (`VERCEL_ENV=production`) checkout, the portal and the
+webhooks report "Paid plans open once Takeover's commercial agreement with Qloo is in place", and
+the public API stays off even with `TAKEOVER_PUBLIC_API=1`, until `QLOO_COMMERCIAL_TERMS=1`
+(`lib/qloo/commercial.ts`). Local and preview runs keep working in Stripe test mode.
+
+**D155. The plan applies on the way back from Stripe.** Checkout's success URL and the portal's
+return URL go through `/api/workspace/billing/return`, which reads the subscription from Stripe and
+applies it to the current workspace before showing the billing page. So a Team upgrade unlocks on
+the next request and a portal cancellation applies at once, without waiting for the webhook (which
+still arrives and, being older, changes nothing). It applies only a session this workspace started
+and a Stripe customer linked to no other workspace. Feature checks read the tier from the database
+on every request; only the Qloo allowance is cached (30 s per server instance, dropped on the
+instance that applied the change), so another instance may count against the old allowance for up
+to 30 s. A cancellation "at the end of the period" keeps the plan until Stripe ends it; the page
+shows the end date. `docs/billing-test.md` is the test-card run for when the Stripe keys exist.

@@ -11,7 +11,7 @@ export async function POST(req: Request): Promise<Response> {
     const sub = await repo.billing.get();
     if (!sub?.stripeCustomerId) return Response.json({ error: "This workspace has no subscription yet. Pick a plan first." }, { status: 400 });
     try {
-      return Response.json({ url: await createPortal(found.config, sub.stripeCustomerId, `${appOrigin(req)}/workspace/settings/billing`) });
+      return Response.json({ url: await createPortal(found.config, sub.stripeCustomerId, `${appOrigin(req)}/api/workspace/billing/return?from=portal`) });
     } catch (err) {
       if (err instanceof StripeError) return Response.json({ error: `Stripe: ${err.message}` }, { status: 502 });
       throw err;

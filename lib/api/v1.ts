@@ -5,6 +5,7 @@ import { InputError } from "@/lib/db/scoped";
 import { has, limitsOf, upgradeFor } from "@/lib/entitlements";
 import type { QlooScope } from "@/lib/qloo/allowance";
 import { QLOO_RUN_BUDGET } from "@/lib/qloo/client";
+import { qlooCommercialReady } from "@/lib/qloo/commercial";
 import { BudgetExceededError } from "@/lib/qloo/errors";
 import { getQlooSource, type QlooSource } from "@/lib/qloo/source";
 import { apiLimiter } from "@/lib/server/rate-limit";
@@ -17,11 +18,11 @@ import { ATTRIBUTION } from "./attribution";
  * The public API's request handling (/api/v1): a workspace key, the tier's per-minute limit and
  * monthly quota, a Qloo source on the workspace's allowance, and one envelope for every answer:
  *   { data, evidence, attribution, meta }
- * Errors carry the attribution too. Off in production until TAKEOVER_PUBLIC_API=1 (the commercial
- * Qloo agreement decides whether Qloo data may be served to third parties).
+ * Errors carry the attribution too. Off on Vercel until TAKEOVER_PUBLIC_API=1, and in production
+ * also until the commercial Qloo agreement is in place (lib/qloo/commercial.ts).
  */
 type Env = Record<string, string | undefined>;
-export const publicApiEnabled = (env: Env = process.env) => env.TAKEOVER_PUBLIC_API === "1" || !env.VERCEL_ENV;
+export const publicApiEnabled = (env: Env = process.env) => (env.TAKEOVER_PUBLIC_API === "1" || !env.VERCEL_ENV) && qlooCommercialReady(env);
 
 export type ApiContext = NonNullable<Awaited<ReturnType<typeof apiKeyContext>>> & { source: QlooSource; scope: QlooScope; runId: string };
 export interface ApiAnswer {

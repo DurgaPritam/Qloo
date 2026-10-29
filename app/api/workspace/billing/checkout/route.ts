@@ -21,7 +21,7 @@ export async function POST(req: Request): Promise<Response> {
     try {
       const sub = await repo.billing.get();
       if (sub?.stripeCustomerId && liveSubscription(sub.status)) {
-        return Response.json({ url: await createPortal(found.config, sub.stripeCustomerId, `${appOrigin(req)}/workspace/settings/billing`), portal: true });
+        return Response.json({ url: await createPortal(found.config, sub.stripeCustomerId, `${appOrigin(req)}/api/workspace/billing/return?from=portal`), portal: true });
       }
       const [members, pending] = await Promise.all([repo.members.list(), repo.invitations.listPending()]);
       const inUse = Math.max(1, members.length + pending.length);

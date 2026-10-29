@@ -289,36 +289,58 @@ export async function unscopedApplyBilling(db: DB, event: { id: string; type: st
       return { status: "applied", workspaceId };
     }
 
-    const existing = (await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1))[0] ?? null;
-    // Stripe doesn't promise order: an older event about the same subscription never overwrites a newer one.
-    if (existing?.lastEventAt && existing.stripeSubscriptionId === change.subscriptionId && existing.lastEventAt > change.eventAt) return { status: "ignored", workspaceId };
-    // Another subscription ending (e.g. replaced by a new one) doesn't touch the current one.
-    if (existing?.stripeSubscriptionId && existing.stripeSubscriptionId !== change.subscriptionId && change.status === "canceled") return { status: "ignored", workspaceId };
-    const row = {
-      stripeCustomerId: change.customerId,
-      stripeSubscriptionId: change.subscriptionId,
-      tier: change.tier,
-      interval: change.interval,
-      status: change.status,
-      seats: change.seats,
-      currentPeriodEnd: change.currentPeriodEnd,
-      cancelAtPeriodEnd: change.cancelAtPeriodEnd,
-      lastEventAt: change.eventAt,
-      updatedAt: now,
-    };
-    await tx
-      .insert(subscriptions)
-      .values({ workspaceId, ...row })
-      .onConflictDoUpdate({ target: subscriptions.workspaceId, set: row });
+    return applySubscription(tx, workspaceId, change);
+  });
+}
 
-    const current = workspace ?? (await tx.select({ id: workspaces.id, tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0];
-    if (!current || !billingManaged(current.tier)) return { status: "applied", workspaceId, tier: current?.tier };
-    const tier = tierForSubscription({ tier: change.tier, status: change.status });
-    await tx
-      .update(workspaces)
-      .set({ tier, seats: perSeat(tier) ? change.seats : null })
-      .where(eq(workspaces.id, workspaceId));
-    if (tier !== current.tier) await tx.insert(activityLog).values({ workspaceId, actorId: null, action: "billing.tier", targetType: "workspace", targetId: workspaceId, detail: { from: current.tier, to: tier, status: change.status } });
-    return { status: "applied", workspaceId, tier };
+type Tx = Parameters<Parameters<DB["transaction"]>[0]>[0];
+
+/** Writes a subscription's state and the tier it gives the workspace (shared by webhooks and the return sync). */
+async function applySubscription(tx: Tx, workspaceId: string, change: Extract<BillingChange, { kind: "subscription" }>): Promise<BillingOutcome> {
+  const now = new Date();
+  const existing = (await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1))[0] ?? null;
+  // Stripe doesn't promise order: an older event about the same subscription never overwrites a newer one.
+  if (existing?.lastEventAt && existing.stripeSubscriptionId === change.subscriptionId && existing.lastEventAt > change.eventAt) return { status: "ignored", workspaceId };
+  // Another subscription ending (e.g. replaced by a new one) doesn't touch the current one.
+  if (existing?.stripeSubscriptionId && existing.stripeSubscriptionId !== change.subscriptionId && change.status === "canceled") return { status: "ignored", workspaceId };
+  const row = {
+    stripeCustomerId: change.customerId,
+    stripeSubscriptionId: change.subscriptionId,
+    tier: change.tier,
+    interval: change.interval,
+    status: change.status,
+    seats: change.seats,
+    currentPeriodEnd: change.currentPeriodEnd,
+    cancelAtPeriodEnd: change.cancelAtPeriodEnd,
+    lastEventAt: change.eventAt,
+    updatedAt: now,
+  };
+  await tx
+    .insert(subscriptions)
+    .values({ workspaceId, ...row })
+    .onConflictDoUpdate({ target: subscriptions.workspaceId, set: row });
+
+  const current = (await tx.select({ id: workspaces.id, tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0];
+  if (!current || !billingManaged(current.tier)) return { status: "applied", workspaceId, tier: current?.tier };
+  const tier = tierForSubscription({ tier: change.tier, status: change.status });
+  await tx
+    .update(workspaces)
+    .set({ tier, seats: perSeat(tier) ? change.seats : null })
+    .where(eq(workspaces.id, workspaceId));
+  if (tier !== current.tier) await tx.insert(activityLog).values({ workspaceId, actorId: null, action: "billing.tier", targetType: "workspace", targetId: workspaceId, detail: { from: current.tier, to: tier, status: change.status } });
+  return { status: "applied", workspaceId, tier };
+}
+
+/**
+ * After Checkout or the portal: the subscription as Stripe has it now, for the workspace the user
+ * is in, so the plan applies before the webhook arrives. A subscription that belongs to another
+ * workspace (by metadata, or a customer linked elsewhere) is refused.
+ */
+export async function unscopedSyncSubscription(db: DB, workspaceId: string, change: Extract<BillingChange, { kind: "subscription" }>): Promise<BillingOutcome> {
+  if (change.workspaceId && change.workspaceId !== workspaceId) return { status: "ignored", workspaceId: null };
+  return db.transaction(async (tx) => {
+    const owner = (await tx.select({ workspaceId: subscriptions.workspaceId }).from(subscriptions).where(eq(subscriptions.stripeCustomerId, change.customerId)).limit(1))[0];
+    if (owner && owner.workspaceId !== workspaceId) return { status: "ignored", workspaceId: null };
+    return applySubscription(tx, workspaceId, change);
   });
 }

@@ -5,8 +5,12 @@ import { POST as webhook } from "@/app/api/billing/webhook/route";
 import { POST as checkout } from "@/app/api/workspace/billing/checkout/route";
 import { POST as contact } from "@/app/api/workspace/billing/contact/route";
 import { POST as portal } from "@/app/api/workspace/billing/portal/route";
+import { POST as invite } from "@/app/api/workspace/invitations/route";
+import { GET as billingReturn } from "@/app/api/workspace/billing/return/route";
 import { POST as createRoster, GET as listRosters } from "@/app/api/workspace/rosters/route";
+import { publicApiEnabled } from "@/lib/api/v1";
 import { signPayload, stripeConfig, verifySignature } from "@/lib/billing/stripe";
+import { COMMERCIAL_PENDING } from "@/lib/qloo/commercial";
 import { getDb, type DB } from "@/lib/db";
 import { forWorkspace, type WorkspaceRepo } from "@/lib/db/scoped";
 import { activityLog, billingEvents, subscriptions, workspaces } from "@/lib/db/schema";
@@ -249,6 +253,117 @@ describe("checkout and the portal", () => {
     const res = await checkout(post({ tier: "pro", interval: "month" }));
     expect(res.status).toBe(503);
     expect((await res.json()).error).toMatch(/test-mode/);
+  });
+});
+
+describe("done when: a test card upgrades to Team, features unlock at once, cancelling in the portal downgrades, nothing is deleted", () => {
+  /** Stripe in test mode as the browser would leave it: a paid Checkout session, then the subscription as the portal left it. */
+  function stripeTestMode(workspaceId: string) {
+    const customer = `cus_${workspaceId.slice(0, 8)}`;
+    const subscription: Record<string, unknown> = {
+      id: `sub_${workspaceId.slice(0, 8)}`,
+      customer,
+      status: "active",
+      cancel_at_period_end: false,
+      metadata: { workspace_id: workspaceId },
+      items: { data: [{ price: { id: "price_team_m" }, quantity: 3, current_period_end: 1_800_000_000 }] },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const path = new URL(url).pathname;
+        if (path === "/v1/checkout/sessions") return Response.json({ url: "https://checkout.stripe.test/c/cs_test_card" });
+        if (path === "/v1/checkout/sessions/cs_test_card") return Response.json({ id: "cs_test_card", client_reference_id: workspaceId, customer, subscription });
+        if (path === "/v1/billing_portal/sessions") return Response.json({ url: "https://billing.stripe.test/p/session" });
+        if (path === `/v1/subscriptions/${subscription.id}`) return Response.json(subscription);
+        return Response.json({ error: { message: "unexpected" } }, { status: 404 });
+      }),
+    );
+    return subscription;
+  }
+  const back = (q: string) => billingReturn(new Request(`http://localhost/api/workspace/billing/return?${q}`));
+
+  it("upgrade on return from Checkout, before any webhook; cancel in the portal; everything kept, read-only", async () => {
+    const { ctx, repo } = await owner("card@bill.test");
+    const subscription = stripeTestMode(ctx.workspaceId);
+    expect((await createRoster(post({ name: "Before" }))).status).toBe(402);
+
+    // Pay with the test card on Stripe's page, then come back.
+    expect(await (await checkout(post({ tier: "team", interval: "month", seats: 3 }))).json()).toEqual({ url: "https://checkout.stripe.test/c/cs_test_card" });
+    const returned = await back("session_id=cs_test_card");
+    expect(returned.status).toBe(303);
+    expect(returned.headers.get("location")).toBe("http://localhost/workspace/settings/billing?checkout=done");
+
+    // Team at once (no webhook has arrived): its features work on the next request.
+    expect(await tierOf(ctx.workspaceId)).toEqual({ tier: "team", seats: 3 });
+    expect(await tierAllowance(ctx.workspaceId)).toBe(TIERS.team.limits.qlooMonthly);
+    const roster = await (await createRoster(post({ name: "Fall tour" }))).json();
+    expect(roster.id).toBeTruthy();
+    for (const email of ["a@card.test", "b@card.test"]) expect((await invite(post({ email, role: "member" }))).status).toBe(200);
+    expect((await invite(post({ email: "c@card.test", role: "member" }))).status).toBe(402); // 3 seats bought
+    const planId = crypto.randomUUID();
+    await repo.plans.create({ id: planId, query: "Phoebe Bridgers", result: { runId: planId } as never });
+    // The webhooks arrive afterwards and change nothing.
+    await event(
+      "checkout.session.completed",
+      { mode: "subscription", customer: subscription.customer, client_reference_id: ctx.workspaceId },
+      { created: Math.floor(Date.now() / 1000) - 5 },
+    ).send();
+    await event("customer.subscription.created", subscription, { created: Math.floor(Date.now() / 1000) - 5 }).send();
+    expect((await tierOf(ctx.workspaceId)).tier).toBe("team");
+
+    // Manage billing → cancel in the portal → back.
+    expect(await (await portal(post({}))).json()).toEqual({ url: "https://billing.stripe.test/p/session" });
+    subscription.status = "canceled";
+    expect((await back("from=portal")).headers.get("location")).toBe("http://localhost/workspace/settings/billing?portal=1");
+    expect(await tierOf(ctx.workspaceId)).toEqual({ tier: "free", seats: null });
+    await event("customer.subscription.deleted", subscription).send();
+
+    // Nothing deleted: the roster, the plan, the invitations and the subscription record are all there to read.
+    const { rosters } = await (await listRosters()).json();
+    expect(rosters.map((r: { id: string }) => r.id)).toEqual([roster.id]);
+    expect((await repo.plans.list()).map((p) => p.id)).toContain(planId);
+    expect((await repo.invitations.listPending()).map((i) => i.email).sort()).toEqual(["a@card.test", "b@card.test"]);
+    expect(await repo.billing.get()).toMatchObject({ stripeCustomerId: subscription.customer, status: "canceled" });
+    // …and read-only: writes answer with the upgrade, never a dead end.
+    const refused = await createRoster(post({ name: "After" }));
+    expect(refused.status).toBe(402);
+    expect((await refused.json()).upgrade).toMatchObject({ tier: "team", selfServe: true });
+  });
+
+  it("a cancellation at the period's end keeps Team until Stripe ends it", async () => {
+    const { ctx } = await owner("period@bill.test");
+    const subscription = stripeTestMode(ctx.workspaceId);
+    await back("session_id=cs_test_card");
+    Object.assign(subscription, { cancel_at_period_end: true });
+    await back("from=portal");
+    expect((await tierOf(ctx.workspaceId)).tier).toBe("team");
+    expect(await current!.repo.billing.get()).toMatchObject({ cancelAtPeriodEnd: true });
+    subscription.status = "canceled";
+    await event("customer.subscription.deleted", subscription).send();
+    expect((await tierOf(ctx.workspaceId)).tier).toBe("free");
+  });
+
+  it("a Checkout session from another workspace changes nothing here", async () => {
+    const other = await owner("other@bill.test");
+    stripeTestMode(other.ctx.workspaceId);
+    const { ctx } = await owner("mine@bill.test");
+    await back("session_id=cs_test_card");
+    expect((await tierOf(ctx.workspaceId)).tier).toBe("free");
+  });
+});
+
+describe("before the commercial Qloo agreement", () => {
+  it("production sells no paid plan and serves no public API, until QLOO_COMMERCIAL_TERMS=1", async () => {
+    await owner("prod@bill.test");
+    vi.stubEnv("VERCEL_ENV", "production");
+    const res = await checkout(post({ tier: "team", interval: "month" }));
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe(COMMERCIAL_PENDING);
+    expect(publicApiEnabled({ VERCEL_ENV: "production", TAKEOVER_PUBLIC_API: "1" })).toBe(false);
+    expect(publicApiEnabled({ VERCEL_ENV: "production", TAKEOVER_PUBLIC_API: "1", QLOO_COMMERCIAL_TERMS: "1" })).toBe(true);
+    expect(stripeConfig({ VERCEL_ENV: "production", QLOO_COMMERCIAL_TERMS: "1", STRIPE_SECRET_KEY: "sk_test_x" }).ok).toBe(true);
+    expect(stripeConfig({ VERCEL_ENV: "preview", STRIPE_SECRET_KEY: "sk_test_x" }).ok).toBe(true);
   });
 });
 

@@ -3,6 +3,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { isTier, SELF_SERVE, type TierName } from "@/lib/entitlements";
+import { COMMERCIAL_PENDING, qlooCommercialReady } from "@/lib/qloo/commercial";
 
 /**
  * Stripe over its REST API (no SDK dependency). Test mode only: a live key is refused, so no real
@@ -23,6 +24,9 @@ type Env = Record<string, string | undefined>;
 export const NOT_SET_UP = "Billing isn't set up yet: the plans can't be bought here for now.";
 
 export function stripeConfig(env: Env = process.env): { ok: true; config: StripeConfig } | { ok: false; reason: string } {
+  // The hackathon Qloo key and quota can't serve paying customers: no paid plans in production
+  // until the commercial agreement is in place.
+  if (!qlooCommercialReady(env)) return { ok: false, reason: COMMERCIAL_PENDING };
   const secretKey = env.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) return { ok: false, reason: NOT_SET_UP };
   if (!/^(sk|rk)_test_/.test(secretKey)) return { ok: false, reason: "Billing accepts only Stripe test-mode keys for now." };
@@ -99,6 +103,8 @@ export async function createCheckout(config: StripeConfig, input: CheckoutInput,
   const price = config.prices[input.tier]?.[input.interval];
   if (!price) throw new StripeError("That plan has no price set up yet.", 400);
   const back = `${input.origin}/workspace/settings/billing`;
+  // Back through the return route, which reads the subscription from Stripe so the plan applies at once.
+  const done = `${input.origin}/api/workspace/billing/return?session_id={CHECKOUT_SESSION_ID}`;
   const session = await call<{ url: string }>(
     config,
     "POST",
@@ -110,12 +116,22 @@ export async function createCheckout(config: StripeConfig, input: CheckoutInput,
       ...(input.customerId ? { customer: input.customerId } : input.email ? { customer_email: input.email } : {}),
       metadata: { workspace_id: input.workspaceId },
       subscription_data: { metadata: { workspace_id: input.workspaceId } },
-      success_url: `${back}?checkout=done`,
+      success_url: done,
       cancel_url: `${back}?checkout=cancelled`,
     },
     deps,
   );
   return session.url;
+}
+
+/** A finished Checkout session, with its subscription. */
+export async function retrieveCheckout(config: StripeConfig, sessionId: string, deps?: StripeDeps) {
+  const s = await call<{ client_reference_id: string | null; customer: unknown; subscription: unknown }>(config, "GET", `/checkout/sessions/${encodeURIComponent(sessionId)}`, { expand: { 0: "subscription" } }, deps);
+  return { workspaceId: str(s.client_reference_id), customerId: idOf(s.customer), subscription: s.subscription && typeof s.subscription === "object" ? (s.subscription as Record<string, unknown>) : null };
+}
+
+export async function retrieveSubscription(config: StripeConfig, subscriptionId: string, deps?: StripeDeps): Promise<Record<string, unknown>> {
+  return call<Record<string, unknown>>(config, "GET", `/subscriptions/${encodeURIComponent(subscriptionId)}`, {}, deps);
 }
 
 /** The Customer Portal: change plan or seats, update the card, see invoices, cancel. */
@@ -246,27 +262,8 @@ export function changeFor(event: StripeEvent, config: StripeConfig): BillingChan
       return o.mode === "subscription" && customerId ? { kind: "link", workspaceId: str(o.client_reference_id) ?? meta(o), customerId } : { kind: "ignore" };
     case "customer.subscription.created":
     case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      const subscriptionId = str(o.id);
-      if (!customerId || !subscriptionId) return { kind: "ignore" };
-      const item = ((o.items as { data?: Record<string, unknown>[] } | undefined)?.data ?? [])[0] ?? {};
-      const bought = tierForPrice(config, idOf(item.price));
-      // Newer API versions keep the period on the item; older ones on the subscription.
-      const end = Number(item.current_period_end ?? o.current_period_end);
-      return {
-        kind: "subscription",
-        workspaceId: meta(o),
-        customerId,
-        subscriptionId,
-        tier: bought?.tier ?? null,
-        interval: bought?.interval ?? null,
-        status: event.type === "customer.subscription.deleted" ? "canceled" : (str(o.status) ?? "incomplete"),
-        seats: typeof item.quantity === "number" ? item.quantity : null,
-        currentPeriodEnd: Number.isFinite(end) && end > 0 ? new Date(end * 1000) : null,
-        cancelAtPeriodEnd: o.cancel_at_period_end === true,
-        eventAt: new Date(event.created * 1000),
-      };
-    }
+    case "customer.subscription.deleted":
+      return subscriptionChange(event.type === "customer.subscription.deleted" ? { ...o, status: "canceled" } : o, config, new Date(event.created * 1000));
     case "invoice.payment_failed":
       return customerId ? { kind: "payment_failed", customerId, at: new Date(event.created * 1000) } : { kind: "ignore" };
     case "invoice.paid":
@@ -274,4 +271,28 @@ export function changeFor(event: StripeEvent, config: StripeConfig): BillingChan
     default:
       return { kind: "ignore" };
   }
+}
+
+/** A subscription object (from an event or read from Stripe) as of `at`. */
+export function subscriptionChange(o: Record<string, unknown>, config: StripeConfig, at: Date): BillingChange {
+  const customerId = idOf(o.customer);
+  const subscriptionId = str(o.id);
+  if (!customerId || !subscriptionId) return { kind: "ignore" };
+  const item = ((o.items as { data?: Record<string, unknown>[] } | undefined)?.data ?? [])[0] ?? {};
+  const bought = tierForPrice(config, idOf(item.price));
+  // Newer API versions keep the period on the item; older ones on the subscription.
+  const end = Number(item.current_period_end ?? o.current_period_end);
+  return {
+    kind: "subscription",
+    workspaceId: meta(o),
+    customerId,
+    subscriptionId,
+    tier: bought?.tier ?? null,
+    interval: bought?.interval ?? null,
+    status: str(o.status) ?? "incomplete",
+    seats: typeof item.quantity === "number" ? item.quantity : null,
+    currentPeriodEnd: Number.isFinite(end) && end > 0 ? new Date(end * 1000) : null,
+    cancelAtPeriodEnd: o.cancel_at_period_end === true,
+    eventAt: at,
+  };
 }

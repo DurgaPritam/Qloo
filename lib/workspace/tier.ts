@@ -2,7 +2,7 @@ import "server-only";
 
 import { getDb } from "@/lib/db";
 import type { BillingChange } from "@/lib/billing/stripe";
-import { unscopedApplyBilling, unscopedWorkspaceTier } from "@/lib/db/unscoped";
+import { unscopedApplyBilling, unscopedSyncSubscription, unscopedWorkspaceTier } from "@/lib/db/unscoped";
 import { limitsOf } from "@/lib/entitlements";
 
 /**
@@ -36,5 +36,12 @@ export function forgetTier(workspaceId: string) {
 export async function applyBillingEvent(event: { id: string; type: string }, change: BillingChange) {
   const outcome = await unscopedApplyBilling(await getDb(), event, change);
   if (outcome.workspaceId) forgetTier(outcome.workspaceId);
+  return outcome;
+}
+
+/** The subscription as Stripe has it now, for the user's own workspace (the return from Checkout or the portal). */
+export async function syncSubscription(workspaceId: string, change: Extract<BillingChange, { kind: "subscription" }>) {
+  const outcome = await unscopedSyncSubscription(await getDb(), workspaceId, change);
+  forgetTier(workspaceId);
   return outcome;
 }
