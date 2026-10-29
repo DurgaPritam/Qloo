@@ -6,6 +6,8 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui";
 import { RosterScreen } from "@/components/workspace/roster";
 import { rosterView } from "@/lib/roster/service";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Roster · Takeover", robots: { index: false } };
@@ -16,7 +18,13 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   if (!found) redirect(`/signin?next=/workspace/rosters/${encodeURIComponent(id)}`);
   const view = /^[0-9a-f-]{36}$/.test(id) ? await rosterView(found.repo, id) : null;
   if (!view) notFound();
-  return <RosterScreen initial={view} />;
+  const access = await featureAccess(found.repo, "rosters");
+  return (
+    <>
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} compact />}
+      <RosterScreen initial={view} />
+    </>
+  );
 }
 
 export default function RosterPage({ params }: PageProps<"/workspace/rosters/[id]">) {

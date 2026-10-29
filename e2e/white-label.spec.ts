@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/** White-label: a Pro workspace's brand on a shared plan, the widget snippets, and the widgets' strict CSP. */
+import { useTier } from "./tier";
+
+/** White-label: an Enterprise workspace's brand on a shared plan, the widget snippets, and the widgets' strict CSP. */
 const run = Math.random().toString(36).slice(2, 8);
 const EMAIL = `wren.${run}@e2e.test`;
 
@@ -17,7 +19,7 @@ async function signIn(page: Page, email: string) {
 test("brand a shared plan, embed its city vote, and set up a custom domain", async ({ page, request }) => {
   test.setTimeout(120_000);
   await signIn(page, EMAIL);
-  expect((await page.request.post("/api/dev/tier", { data: { tier: "pro" } })).ok()).toBe(true);
+  await useTier(page, "enterprise");
 
   // The workspace's colours (Branded decks) and a publicly shared plan.
   expect((await page.request.post("/api/workspace/branding", { data: { bg: "#ffffff", text: "#101010", accent: "#0044cc", font: "inter", logo: null } })).ok()).toBe(true);

@@ -1,7 +1,7 @@
 import { makeBrief } from "@/lib/campaign/service";
 import { createProvider } from "@/lib/llm";
 import { getQlooSource } from "@/lib/qloo/source";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 const text = (x: unknown, max: number) => (typeof x === "string" ? x.trim().slice(0, max) : "");
 
@@ -11,7 +11,7 @@ const text = (x: unknown, max: number) => (typeof x === "string" ? x.trim().slic
  */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("campaign.briefs", async ({ repo }) => {
     const source = getQlooSource();
     const planId = text(body.planId, 40);
     const target = planId ? { planId } : { query: text(body.query, 100), entityId: text(body.entityId, 200) || undefined };

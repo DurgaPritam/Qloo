@@ -1,4 +1,7 @@
 import type { Category } from "@/lib/engine/types";
+import { upgradeForLimit } from "@/lib/entitlements";
+import { visitorLimits } from "@/lib/workspace/gate";
+import { currentWorkspace } from "@/lib/workspace/session";
 import { toolRequest, text } from "@/lib/server/tool-route";
 import { MAX_POOL, scorePool } from "@/lib/tools/lineup";
 
@@ -19,6 +22,12 @@ export async function POST(req: Request): Promise<Response> {
     })
     .filter((a) => a.id && a.name && a.category);
   if (acts.length < 2) return Response.json({ error: "Add at least two acts.", mock: r.mock }, { status: 400 });
+  // The pool size follows the visitor's plan (lib/entitlements.ts): Free when signed out.
+  const plan = await visitorLimits(await currentWorkspace().catch(() => null));
+  if (acts.length > plan.limits.lineupPool) {
+    const upgrade = upgradeForLimit(plan.tier, "lineupPool", `Your plan scores pools of up to ${plan.limits.lineupPool} acts.`);
+    return Response.json({ error: `${upgrade?.reason ?? ""} ${upgrade ? `${upgrade.label} raises it.` : ""}`.trim(), code: "upgrade_required", upgrade, mock: r.mock }, { status: 402 });
+  }
   try {
     return Response.json(await scorePool(acts, r.source, { runId: r.runId }));
   } catch (err) {

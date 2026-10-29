@@ -1,7 +1,7 @@
 import { EMAIL_THEMES, type EmailTheme } from "@/lib/email/digest-html";
 import { getLimiters, isE2eRequest, visitorId } from "@/lib/server/rate-limit";
 import { sendTestDigest } from "@/lib/watch/service";
-import { appOrigin, inWorkspace, readJson } from "@/lib/workspace/route";
+import { appOrigin, readJson, inFeature } from "@/lib/workspace/route";
 
 /**
  * POST {enabled} turns the caller's own weekly digest on or off; {theme} sets how it looks;
@@ -9,7 +9,7 @@ import { appOrigin, inWorkspace, readJson } from "@/lib/workspace/route";
  */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo, user, memberships, ctx }) => {
+  return inFeature("market.watch", async ({ repo, user, memberships, ctx }) => {
     if (body.test === true) {
       if (!user.email) return Response.json({ error: "Your account has no email address." }, { status: 400 });
       if (!isE2eRequest(req.headers)) {

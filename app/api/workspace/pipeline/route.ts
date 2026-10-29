@@ -1,4 +1,5 @@
-import { inPlanWorkspace, inWorkspace, readJson } from "@/lib/workspace/route";
+import { needFeature } from "@/lib/workspace/gate";
+import { inPlanWorkspace, inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 /**
  * GET → the board. POST {planId} adds a plan's two drafts (to the plan's own workspace);
@@ -10,6 +11,10 @@ export async function GET(): Promise<Response> {
 
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  if (body.planId !== undefined) return inPlanWorkspace(body.planId, async ({ repo, plan }) => Response.json({ added: await repo.pipeline.addFromPlan(plan.runId) }));
-  return inWorkspace(async ({ repo }) => Response.json({ added: await repo.pipeline.addFromMatch(typeof body.matchId === "string" ? body.matchId : "") }));
+  if (body.planId !== undefined)
+    return inPlanWorkspace(body.planId, async ({ repo, plan }) => {
+      await needFeature(repo, "pipeline");
+      return Response.json({ added: await repo.pipeline.addFromPlan(plan.runId) });
+    });
+  return inFeature("pipeline", async ({ repo }) => Response.json({ added: await repo.pipeline.addFromMatch(typeof body.matchId === "string" ? body.matchId : "") }));
 }

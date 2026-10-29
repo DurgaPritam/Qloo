@@ -1,3 +1,4 @@
+import { featureAccess, needFeature } from "@/lib/workspace/gate";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -7,6 +8,7 @@ import { MonoLabel, Skeleton } from "@/components/ui";
 import { DatasetScreen } from "@/components/workspace/your-data";
 import { datasetView, fanbaseCityScores } from "@/lib/data/service";
 import { getQlooSource } from "@/lib/qloo/source";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Your data · Takeover", robots: { index: false } };
@@ -17,10 +19,19 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   if (!found) redirect(`/signin?next=/workspace/data/${encodeURIComponent(id)}`);
   const { repo, ctx } = found;
   const view = /^[0-9a-f-]{36}$/.test(id)
-    ? await datasetView(repo, id, async (entity) => (await fanbaseCityScores(repo, entity, getQlooSource(), { kind: "workspace", workspaceId: ctx.workspaceId })))
+    ? await datasetView(repo, id, async (entity) => {
+      await needFeature(repo, "data.uploads");
+      return fanbaseCityScores(repo, entity, getQlooSource(), { kind: "workspace", workspaceId: ctx.workspaceId });
+    })
     : null;
   if (!view) notFound();
-  return <DatasetScreen initial={view} />;
+  const access = await featureAccess(repo, "data.uploads");
+  return (
+    <>
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} compact />}
+      <DatasetScreen initial={view} />
+    </>
+  );
 }
 
 export default function DatasetPage({ params }: PageProps<"/workspace/data/[id]">) {

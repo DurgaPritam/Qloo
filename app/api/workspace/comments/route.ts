@@ -1,3 +1,4 @@
+import { needFeature } from "@/lib/workspace/gate";
 import { connection } from "next/server";
 
 import { COMMENT_TARGETS, type CommentTarget } from "@/lib/db/schema";
@@ -41,6 +42,7 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: "Send targetType, targetId and body." }, { status: 400 });
   }
   return inPlanWorkspace(body.planId, async ({ repo, plan }) => {
+    await needFeature(repo, "collaboration");
     const added = await repo.comments.add({
       planId: plan.runId,
       targetType,

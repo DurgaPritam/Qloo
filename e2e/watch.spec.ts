@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /**
  * Market watch: watch a fanbase and a city, see that one snapshot never alerts, run next Monday's
  * check through the job queue (locally, with the e2e token), turn the digest on, get a test,
@@ -23,6 +25,7 @@ async function signIn(page: Page, email: string) {
 test("watch a fanbase and a city, first snapshot, weekly check, digest test and unsubscribe", async ({ page, request }) => {
   test.setTimeout(120_000);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
 
   await test.step("empty state, then watch a fanbase: first snapshot, no alert", async () => {
     await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Watchlists" }).click();

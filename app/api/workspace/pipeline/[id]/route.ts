@@ -1,6 +1,6 @@
 import { InputError } from "@/lib/db/scoped";
 import { isStage } from "@/lib/pipeline/stages";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: Ctx): Promise<Response> {
 export async function PATCH(req: Request, { params }: Ctx): Promise<Response> {
   const { id } = await params;
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("pipeline", async ({ repo }) => {
     if (body.draft && typeof body.draft === "object") {
       const d = body.draft as Record<string, unknown>;
       const email = text(d.recipientEmail, 200);

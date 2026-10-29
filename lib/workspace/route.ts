@@ -1,8 +1,10 @@
 import "server-only";
 
 import { InputError } from "@/lib/db/scoped";
+import type { Feature } from "@/lib/entitlements";
 import { loadPlan } from "@/lib/server/plan-store";
 
+import { needFeature, UpgradeRequiredError } from "./gate";
 import { ForbiddenError } from "./permissions";
 import { currentWorkspace, planForRequest } from "./session";
 
@@ -13,6 +15,10 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
   } catch (err) {
+    if (err instanceof UpgradeRequiredError) {
+      const how = err.upgrade.selfServe ? `Upgrade to ${err.upgrade.label} in Settings → Plans & billing.` : `${err.upgrade.label} is set up with us: Settings → Plans & billing → Contact us.`;
+      return Response.json({ error: `${err.message} ${how}`, code: "upgrade_required", upgrade: err.upgrade }, { status: 402 });
+    }
     if (err instanceof ForbiddenError) return Response.json({ error: "Your role in this workspace doesn't allow that." }, { status: 403 });
     if (err instanceof InputError) return Response.json({ error: err.message }, { status: 400 });
     console.error("[workspace] request failed:", err instanceof Error ? err.name : "unknown");
@@ -26,6 +32,18 @@ export function inWorkspace(fn: (w: Found) => Promise<Response>): Promise<Respon
     const found = await currentWorkspace();
     if (!found) return Response.json({ error: "Sign in first." }, { status: 401 });
     return fn(found);
+  });
+}
+
+/**
+ * Runs `fn` in the current workspace when its tier includes `feature` (lib/entitlements.ts);
+ * otherwise 402 with the upgrade that unlocks it. Used for writes and anything that spends Qloo
+ * calls; reads of stored data stay open, so a downgrade leaves data read-only.
+ */
+export function inFeature(feature: Feature, fn: (w: Found) => Promise<Response>): Promise<Response> {
+  return inWorkspace(async (w) => {
+    await needFeature(w.repo, feature);
+    return fn(w);
   });
 }
 

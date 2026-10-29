@@ -11,6 +11,7 @@ import { DAILY_ID, getLimiters, isE2eRequest, LIMITS, visitorId, type LimitResul
 import { loadRecording, replay } from "@/lib/server/replay";
 import { SSE_HEADERS, sseStream } from "@/lib/server/sse";
 import { can } from "@/lib/workspace/permissions";
+import { planSaving } from "@/lib/workspace/gate";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 /** A run makes about six model calls; on a slow day Gemini takes 10–15 s each (decisions D39). */
@@ -91,7 +92,10 @@ export async function POST(req: Request): Promise<Response> {
   // Signed-in members save to their workspace: private by default, so never to the public
   // store, the "Just planned" list or trending. Viewers and signed-out visitors save as before.
   const found = limited ? null : await currentWorkspace();
-  const workspace = found && can(found.ctx.role, "plan.create") ? found : null;
+  // Saving to a workspace is a Pro feature with a monthly limit (lib/entitlements.ts); otherwise the
+  // run is kept like a signed-out one, in My plans, and the header says what would unlock saving.
+  const gate = found && can(found.ctx.role, "plan.create") ? await planSaving(found.repo) : null;
+  const workspace = gate?.ok ? found : null;
   const workspaceName = workspace?.memberships.find((m) => m.workspaceId === workspace.ctx.workspaceId)?.name;
 
   const stream = sseStream(async (send) => {
@@ -142,7 +146,7 @@ export async function POST(req: Request): Promise<Response> {
     }
   });
 
-  const saved: Record<string, string> = workspaceName ? { "X-Saved-To": encodeURIComponent(workspaceName) } : {};
+  const saved: Record<string, string> = workspaceName ? { "X-Saved-To": encodeURIComponent(workspaceName) } : gate && !gate.ok ? { "X-Upgrade": encodeURIComponent(gate.reason) } : {};
   return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": runId, ...saved } });
 }
 

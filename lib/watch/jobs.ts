@@ -1,5 +1,7 @@
 import "server-only";
 
+import { featureAccess } from "@/lib/workspace/gate";
+
 import { queueMode, type WatchRefreshMessage } from "@/lib/jobs/queue";
 import { getQlooSource } from "@/lib/qloo/source";
 import { jobWorkspace } from "@/lib/workspace/session";
@@ -20,6 +22,8 @@ export async function runWatchJob(message: WatchRefreshMessage): Promise<void> {
     return;
   }
   const { repo } = found;
+  // A workspace whose plan no longer includes market watch keeps its history, read-only, and spends no calls.
+  if (!(await featureAccess(repo, "market.watch")).allowed) return;
   const workspace = await repo.workspace.get();
   const jobId = await repo.jobs.create({ kind: "watch.refresh", targetId: message.workspaceId, status: "running" });
   await repo.jobs.update(jobId, { startedAt: new Date() });

@@ -4,6 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { openPptx } from "../tests/support/pptx";
 
+import { useTier } from "./tier";
+
 /** Sponsorship: brand view, save to the shortlist, a pitch deck, then the rights-holder view. */
 
 const run = Math.random().toString(36).slice(2, 8);
@@ -23,6 +25,7 @@ async function signIn(page: Page, email: string) {
 test("brand view, shortlist, pitch deck and rights-holder view", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
   await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Sponsorship" }).click();
   await expect(page.getByRole("heading", { name: "Brand view" })).toBeVisible();
 

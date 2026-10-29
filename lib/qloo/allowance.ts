@@ -4,11 +4,13 @@ import type { Redis } from "@upstash/redis";
 
 import { isMockMode } from "@/lib/mock-mode";
 import { getRedis } from "@/lib/server/redis";
+import { tierAllowance as defaultTierAllowance } from "@/lib/workspace/tier";
 
 /**
  * The two Qloo limits on top of the per-run cap (docs/roadmap-rules.md, rule 4):
  * - a global daily cap on uncached calls across the whole deployment (QLOO_DAILY_CALL_CAP);
- * - a monthly allowance per workspace (QLOO_WORKSPACE_MONTHLY_CALLS until plans set one).
+ * - a monthly allowance per workspace, from its plan tier (lib/entitlements.ts), lowered by
+ *   QLOO_WORKSPACE_MONTHLY_CALLS when an operator sets that ceiling.
  * Jobs may not use the last QLOO_JOB_RESERVE calls of the daily cap. Cache hits are never counted.
  */
 export type QlooScope =
@@ -24,7 +26,10 @@ export interface AllowanceConfig {
   /** Null: no global cap. */
   dailyCap: number | null;
   jobReserve: number;
+  /** Used when a workspace's tier allowance is unknown (no resolver, or an unknown workspace). */
   workspaceMonthly: number;
+  /** The operator's ceiling on every workspace's allowance; null when unset. */
+  workspaceCeiling?: number | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -41,6 +46,7 @@ export function allowanceConfig(env: Env = process.env): AllowanceConfig {
     // A tenth of the cap when unset, so jobs never take the last calls of the day from people.
     jobReserve: positive(env.QLOO_JOB_RESERVE) ?? (dailyCap ? Math.ceil(dailyCap / 10) : 0),
     workspaceMonthly: positive(env.QLOO_WORKSPACE_MONTHLY_CALLS) ?? DEFAULT_WORKSPACE_MONTHLY_CALLS,
+    workspaceCeiling: positive(env.QLOO_WORKSPACE_MONTHLY_CALLS),
   };
 }
 
@@ -144,15 +150,21 @@ export function defaultCounters(): CounterStore {
   return shared.__takeoverCounters;
 }
 
+/** The workspace's cap: its tier's allowance when known, never above the operator's ceiling. */
+export function workspaceCap(config: AllowanceConfig, tierAllowance: number | null | undefined): number {
+  const base = tierAllowance ?? config.workspaceMonthly;
+  return config.workspaceCeiling != null ? Math.min(base, config.workspaceCeiling) : base;
+}
+
 /** The counters a call in this scope is charged to. */
-export function chargeFor(scope: QlooScope, config: AllowanceConfig, now: Date): Charge {
+export function chargeFor(scope: QlooScope, config: AllowanceConfig, now: Date, tierAllowance?: number | null): Charge {
   const workspaceId = scope.kind === "visitor" ? null : scope.workspaceId;
   return {
     dailyKey: dayKey(now),
     dailyCap: config.dailyCap,
     dailyKeep: scope.kind === "job" ? config.jobReserve : 0,
     workspaceKey: workspaceId ? monthKey(workspaceId, now) : null,
-    workspaceCap: config.workspaceMonthly,
+    workspaceCap: workspaceCap(config, tierAllowance),
   };
 }
 
@@ -168,17 +180,18 @@ export interface WorkspaceUsage {
 
 export async function workspaceUsage(
   workspaceId: string,
-  deps: { counters?: CounterStore; env?: Env; now?: Date } = {},
+  deps: { counters?: CounterStore; env?: Env; now?: Date; tierAllowance?: (workspaceId: string) => Promise<number | null> } = {},
 ): Promise<WorkspaceUsage> {
   const counters = deps.counters ?? defaultCounters();
   const config = allowanceConfig(deps.env);
+  const allowance = workspaceCap(config, await (deps.tierAllowance ?? defaultTierAllowance)(workspaceId));
   const now = deps.now ?? new Date();
   const [used, daily] = await Promise.all([counters.read(monthKey(workspaceId, now)), counters.read(dayKey(now))]);
   const dailyRemaining = config.dailyCap === null ? null : Math.max(0, config.dailyCap - daily);
   return {
     used,
-    allowance: config.workspaceMonthly,
-    remaining: Math.max(0, config.workspaceMonthly - used),
+    allowance,
+    remaining: Math.max(0, allowance - used),
     dailyRemaining,
     jobDailyRemaining: dailyRemaining === null ? null : Math.max(0, dailyRemaining - config.jobReserve),
   };

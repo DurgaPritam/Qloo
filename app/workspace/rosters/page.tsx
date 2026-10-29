@@ -6,6 +6,8 @@ import { Suspense } from "react";
 import { MonoLabel, Skeleton } from "@/components/ui";
 import { CreateRoster } from "@/components/workspace/roster";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 import { PageTitle } from "@/components/workspace/shell";
 
@@ -16,16 +18,18 @@ async function Content() {
   if (!found) redirect("/signin?next=/workspace/rosters");
   const { ctx, repo } = found;
   const rosters = await repo.rosters.list();
-  const canEdit = can(ctx.role, "roster.edit");
+  const access = await featureAccess(repo, "rosters");
+  const canEdit = can(ctx.role, "roster.edit") && access.allowed;
 
   return (
     <>
       <PageTitle label="Workspace" title="Rosters" />
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
       {rosters.length === 0 ? (
         <section className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-line px-panel py-12 sm:px-12">
           <h2 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">No rosters yet</h2>
           <p className="m-0 max-w-[400px] text-body text-mute">Group the talent you represent so you can plan for several at once.</p>
-          {canEdit ? <CreateRoster /> : <p className="m-0 text-chip text-mute">Members can create rosters; your role can view them.</p>}
+          {canEdit ? <CreateRoster /> : access.allowed ? <p className="m-0 text-chip text-mute">Members can create rosters; your role can view them.</p> : null}
         </section>
       ) : (
         <section className="flex flex-col gap-[18px]">

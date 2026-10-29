@@ -5,6 +5,8 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui";
 import { Members } from "@/components/workspace/members";
 import { assignableRoles, can, canManage } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 
@@ -14,7 +16,8 @@ async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/members");
   const { ctx, repo } = found;
-  const canInvite = can(ctx.role, "member.invite");
+  const access = await featureAccess(repo, "team.seats");
+  const canInvite = can(ctx.role, "member.invite") && access.allowed;
   const [members, invites] = await Promise.all([repo.members.list(), canInvite ? repo.invitations.listPending() : null]);
   const assignable = assignableRoles(ctx.role);
 
@@ -22,6 +25,7 @@ async function Content() {
     <>
       <SettingsTabs />
       <PageTitle label="Settings" title="Members" />
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} compact />}
       <Members
         members={members.map((m) => ({
           userId: m.userId,

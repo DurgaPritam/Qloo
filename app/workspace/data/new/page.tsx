@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { MonoLabel, Skeleton } from "@/components/ui";
 import { DataUpload } from "@/components/workspace/your-data";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Upload data · Takeover", robots: { index: false } };
@@ -13,7 +14,7 @@ export const metadata: Metadata = { title: "Upload data · Takeover", robots: { 
 async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/data/new");
-  if (!can(found.ctx.role, "data.edit")) redirect("/workspace/data");
+  if (!can(found.ctx.role, "data.edit") || !(await featureAccess(found.repo, "data.uploads")).allowed) redirect("/workspace/data");
   return <DataUpload />;
 }
 

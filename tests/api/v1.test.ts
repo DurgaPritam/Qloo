@@ -16,6 +16,8 @@ import { apiKeys, apiUsage, workspaces } from "@/lib/db/schema";
 import { unscopedEnsurePersonalWorkspace } from "@/lib/db/unscoped";
 import { TIERS } from "@/lib/entitlements";
 
+const API = TIERS.enterprise.limits.api;
+
 import { addUser } from "../support/db";
 
 let db: DB;
@@ -23,6 +25,7 @@ let db: DB;
 async function workspaceWithKey(email: string) {
   const user = await addUser(db, email, email.split("@")[0]);
   const workspaceId = await unscopedEnsurePersonalWorkspace(db, user);
+  await db.update(workspaces).set({ tier: "enterprise" }).where(eq(workspaces.id, workspaceId));
   const repo = forWorkspace(db, { userId: user.id, workspaceId, role: "owner" });
   const { id, key } = await repo.api.createKey("Test");
   return { user, workspaceId, repo, keyId: id, key };
@@ -60,10 +63,8 @@ describe("API keys", () => {
     expect((await overlapRoute(get("/api/v1/overlap?a=x&b=y"))).status).toBe(401);
   });
 
-  it("are capped per plan tier, and only admins make them", async () => {
-    const { repo, user, workspaceId } = await workspaceWithKey("cap@v1.test");
-    for (let i = 1; i < TIERS.free.api.keys; i++) await repo.api.createKey(`k${i}`);
-    await expect(repo.api.createKey("one too many")).rejects.toThrow(/allows 2 active keys/);
+  it("are made only by admins (the per-tier key cap is in tests/workspace/entitlements.test.ts)", async () => {
+    const { user, workspaceId } = await workspaceWithKey("cap@v1.test");
     const member = forWorkspace(db, { userId: user.id, workspaceId, role: "member" });
     await expect(member.api.createKey("x")).rejects.toThrow();
   });
@@ -83,24 +84,29 @@ describe("quotas", () => {
   it("refuse a request once the monthly quota is used, with nothing run", async () => {
     const { key, keyId, workspaceId } = await workspaceWithKey("quota@v1.test");
     const month = new Date().toISOString().slice(0, 7);
-    await db.insert(apiUsage).values({ workspaceId, keyId, month, endpoint: "*", count: TIERS.free.api.monthly });
+    await db.insert(apiUsage).values({ workspaceId, keyId, month, endpoint: "*", count: API.monthly });
     const res = await venuesRoute(get("/api/v1/venues?city=Austin", key));
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.error.code).toBe("quota_exceeded");
     expect(body.attribution).toEqual(ATTRIBUTION);
-    expect(res.headers.get("X-Quota-Limit")).toBe(String(TIERS.free.api.monthly));
+    expect(res.headers.get("X-Quota-Limit")).toBe(String(API.monthly));
     const [total] = await db.select().from(apiUsage).where(and(eq(apiUsage.keyId, keyId), eq(apiUsage.endpoint, "*")));
-    expect(total.count).toBe(TIERS.free.api.monthly);
+    expect(total.count).toBe(API.monthly);
   });
 
   it("follow the workspace's tier, and the per-minute rate limit applies per key", async () => {
     const { key, workspaceId } = await workspaceWithKey("rate@v1.test");
-    await db.update(workspaces).set({ tier: "free" }).where(eq(workspaces.id, workspaceId));
     const statuses: number[] = [];
-    for (let i = 0; i <= TIERS.free.api.perMinute; i++) statuses.push((await venuesRoute(get("/api/v1/venues?city=Austin", key))).status);
-    expect(statuses.slice(0, TIERS.free.api.perMinute).every((s) => s === 200)).toBe(true);
+    for (let i = 0; i <= API.perMinute; i++) statuses.push((await venuesRoute(get("/api/v1/venues?city=Austin", key))).status);
+    expect(statuses.slice(0, API.perMinute).every((s) => s === 200)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
+
+    // Below Enterprise the API answers 402 with the upgrade, and runs nothing.
+    await db.update(workspaces).set({ tier: "team" }).where(eq(workspaces.id, workspaceId));
+    const res = await venuesRoute(get("/api/v1/venues?city=Austin", key));
+    expect(res.status).toBe(402);
+    expect((await res.json()).attribution).toEqual(ATTRIBUTION);
   });
 });
 
@@ -118,7 +124,7 @@ describe("every response carries Qloo's attribution and its evidence", () => {
       const body = await res.json();
       expect(body.attribution).toEqual(ATTRIBUTION);
       expect(body.evidence.requests.length).toBeGreaterThan(0);
-      expect(body.meta.quota.limit).toBe(TIERS.free.api.monthly);
+      expect(body.meta.quota.limit).toBe(API.monthly);
       expect(body.data.status).toBe("done");
     }
     for (const res of [await overlapRoute(get("/api/v1/overlap?a=x", key)), await overlapRoute(get("/api/v1/overlap?a=x&b=y"))]) {

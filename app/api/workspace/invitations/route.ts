@@ -1,6 +1,7 @@
+import { planOf, withinLimit } from "@/lib/workspace/gate";
 import { linkEmail, sendEmail } from "@/lib/email/mailer";
 import { getLimiters, isE2eRequest, visitorId } from "@/lib/server/rate-limit";
-import { appOrigin, inWorkspace, readJson } from "@/lib/workspace/route";
+import { appOrigin, inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 import { ROLE_LABEL } from "@/lib/workspace/permissions";
 
 /**
@@ -9,12 +10,17 @@ import { ROLE_LABEL } from "@/lib/workspace/permissions";
  */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo, user, ctx, memberships }) => {
-    if (body.action === "revoke") {
+  // Cancelling an invitation is always allowed, whatever the plan.
+  if (body.action === "revoke") {
+    return inWorkspace(async ({ repo }) => {
       if (typeof body.id !== "string") return Response.json({ error: "Send id." }, { status: 400 });
       await repo.invitations.revoke(body.id);
       return Response.json({ ok: true });
-    }
+    });
+  }
+  return inFeature("team.seats", async ({ repo, user, ctx, memberships }) => {
+    const [members, pending] = await Promise.all([repo.members.list(), repo.invitations.listPending()]);
+    withinLimit(await planOf(repo), "seats", members.length + pending.length, `Every seat on this plan is taken (members and pending invitations).`);
     const role = body.role === "admin" || body.role === "member" || body.role === "viewer" ? body.role : null;
     if (typeof body.email !== "string" || !role) return Response.json({ error: "Send an email and a role." }, { status: 400 });
     if (!isE2eRequest(req.headers)) {

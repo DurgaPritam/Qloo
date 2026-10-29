@@ -51,7 +51,7 @@ export function RunScreen() {
   const entityParam = params.get("entity") ?? "";
   const partnerParam = params.get("partner") ?? "";
   const partnerCategoryParam = params.get("pc") ?? "";
-  const { view, start, savedTo } = usePlanStream();
+  const { view, start, savedTo, upgrade } = usePlanStream();
   const overrides = useRef<Overrides>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [showLog, setShowLog] = useState(false);
@@ -239,6 +239,11 @@ export function RunScreen() {
               {!savedTo && saved && saved === view.plan?.runId && (
                 <Link href="/plans" className="rounded-pill border-th border-line px-2.5 py-0.5 text-chip text-mute no-underline hover:text-ink">
                   Saved to My plans
+                </Link>
+              )}
+              {upgrade && finished && (
+                <Link href="/workspace/settings/billing" className="rounded-pill border-th border-acc-line px-2.5 py-0.5 text-chip text-acc-text no-underline" data-upgrade-note>
+                  {upgrade} See plans →
                 </Link>
               )}
               {view.plan?.cachedRun && (

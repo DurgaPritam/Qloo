@@ -1,3 +1,4 @@
+import { needFeature } from "@/lib/workspace/gate";
 import { searchCity } from "@/lib/data/service";
 import { inDataset, readJson } from "@/lib/workspace/route";
 
@@ -16,6 +17,7 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
   const rawCountry = typeof body.rawCountry === "string" ? body.rawCountry : null;
   if (!rawCity) return Response.json({ error: "Which city?" }, { status: 400 });
   return inDataset(id, async ({ repo }) => {
+    await needFeature(repo, "data.uploads");
     if (typeof body.search === "string") return Response.json({ options: searchCity(str(body.search, 120), rawCountry) });
     const cityId = typeof body.cityId === "string" && /^\d{1,12}$/.test(body.cityId) ? body.cityId : null;
     await repo.datasets.resolveCity(id, rawCity, rawCountry, cityId);

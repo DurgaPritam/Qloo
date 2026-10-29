@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /** Saving a tour to the workspace: the route as optimized, plus the user's own date, reopened later. */
 
 const run = Math.random().toString(36).slice(2, 8);
@@ -22,6 +24,8 @@ test("optimize a tour, set a date, save it to the workspace and reopen it", asyn
   await expect(page.getByRole("button", { name: "Save to workspace" })).toHaveCount(0); // signed out: nothing to save to
 
   await signIn(page, EMAIL);
+
+  await useTier(page, "enterprise");
   await page.goto("/tour?q=John%20Mulaney");
   const first = page.getByRole("list", { name: "Stops" }).locator("[data-stop]").first();
   await expect(first).toBeVisible({ timeout: 30_000 });

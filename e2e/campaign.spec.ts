@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /** Campaign brief: empty state, a brief from a plan, read it, and its print and copy actions. */
 
 const run = Math.random().toString(36).slice(2, 8);
@@ -19,6 +21,7 @@ test("make a campaign brief from a plan and read it", async ({ page, context }) 
   test.setTimeout(120_000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
 
   await page.getByRole("navigation", { name: "Tools" }).getByRole("link", { name: "Campaign brief" }).click();
   await expect(page.getByRole("heading", { name: "No campaign briefs yet" })).toBeVisible();

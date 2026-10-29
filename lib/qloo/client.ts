@@ -7,6 +7,8 @@ import {
   type CacheStore,
   type QlooParams,
 } from "./cache";
+import { tierAllowance as defaultTierAllowance } from "@/lib/workspace/tier";
+
 import { allowanceConfig, chargeFor, defaultCounters, type AllowanceConfig, type CounterStore, type QlooScope } from "./allowance";
 import { BudgetExceededError, NotFoundError, RateLimitedError, UpstreamError } from "./errors";
 
@@ -63,6 +65,8 @@ export interface QlooClientDeps {
   /** Daily and workspace counters (lib/qloo/allowance.ts). */
   counters?: CounterStore;
   allowance?: () => AllowanceConfig;
+  /** A workspace's allowance from its tier; null when unknown (then the config's default applies). */
+  tierAllowance?: (workspaceId: string) => Promise<number | null>;
   clock?: () => Date;
 }
 
@@ -85,6 +89,7 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
   const ttlSeconds = deps.ttlSeconds ?? QLOO_CACHE_TTL_SECONDS;
   const counters = () => deps.counters ?? defaultCounters();
   const readAllowance = deps.allowance ?? (() => allowanceConfig());
+  const tierAllowance = deps.tierAllowance ?? defaultTierAllowance;
   const clock = deps.clock ?? (() => new Date());
 
   const runCalls = new Map<string, number>();
@@ -104,7 +109,8 @@ export function createQlooClient(deps: QlooClientDeps = {}): QlooClient {
 
   /** The daily cap, the job reserve and the workspace allowance, checked and counted together. */
   async function chargeScope(scope: QlooScope, runId: string, endpoint: string, params: Record<string, string>) {
-    const result = await counters().charge(chargeFor(scope, readAllowance(), clock()));
+    const cap = scope.kind === "visitor" ? null : await tierAllowance(scope.workspaceId);
+    const result = await counters().charge(chargeFor(scope, readAllowance(), clock(), cap));
     if (!result.ok) throw new BudgetExceededError({ endpoint, params, runId, limit: result.cap, limitName: result.limit });
   }
 

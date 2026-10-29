@@ -1,5 +1,5 @@
 import { shortlistMatch } from "@/lib/sponsorship/service";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 /** GET → the shortlist. POST {draftId, key} saves a match from a run. DELETE ?id= removes one. */
 export async function GET(): Promise<Response> {
@@ -8,7 +8,7 @@ export async function GET(): Promise<Response> {
 
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("sponsorship", async ({ repo }) => {
     const id = await shortlistMatch(repo, typeof body.draftId === "string" ? body.draftId : "", typeof body.key === "string" ? body.key.slice(0, 200) : "");
     return Response.json({ id });
   });

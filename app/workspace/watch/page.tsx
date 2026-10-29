@@ -6,6 +6,8 @@ import { MonoLabel, Skeleton } from "@/components/ui";
 import { WatchScreen } from "@/components/workspace/watch";
 import { watchView } from "@/lib/watch/service";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Market watch · Takeover", robots: { index: false } };
@@ -14,7 +16,7 @@ async function Content() {
   const found = await currentWorkspace();
   if (!found) redirect("/signin?next=/workspace/watch");
   const { ctx, repo, user } = found;
-  const [view, mine, recipients] = await Promise.all([watchView(repo), repo.digest.get(), repo.digest.recipients()]);
+  const [view, mine, recipients, access] = await Promise.all([watchView(repo), repo.digest.get(), repo.digest.recipients(), featureAccess(repo, "market.watch")]);
   return (
     <>
       <section className="flex flex-col gap-1.5">
@@ -22,9 +24,10 @@ async function Content() {
         <h1 className="t-display m-0 text-[clamp(30px,5vw,44px)] leading-[0.92]">Market watch</h1>
         <p className="m-0 text-chip text-mute">Qloo affinity is re-checked every Monday. Changes are week over week.</p>
       </section>
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
       <WatchScreen
         initial={view}
-        canEdit={can(ctx.role, "watch.edit")}
+        canEdit={can(ctx.role, "watch.edit") && access.allowed}
         me={{ email: user.email, digestOn: Boolean(mine?.enabled), theme: mine?.theme ?? "light" }}
         recipients={recipients.flatMap((r) => (r.email ? [r.email] : []))}
       />

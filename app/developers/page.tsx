@@ -30,13 +30,11 @@ export default function DevelopersPage() {
       </Panel>
 
       <Panel>
-        <MonoLabel>Limits per key</MonoLabel>
+        <MonoLabel>Plan and limits per key</MonoLabel>
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body">
-          {Object.values(TIERS).map((t) => (
-            <li key={t.label} className="tabular font-mono text-chip">
-              {t.label}: {t.api.perMinute} requests a minute, {t.api.monthly.toLocaleString("en-GB")} a month, {t.api.keys} keys
-            </li>
-          ))}
+          <li className="tabular font-mono text-chip">
+            {TIERS.enterprise.label}: {TIERS.enterprise.limits.api.perMinute} requests a minute, {TIERS.enterprise.limits.api.monthly.toLocaleString("en-GB")} a month, {TIERS.enterprise.limits.api.keys} keys
+          </li>
         </ul>
         <span className="text-chip text-mute">{PLACEHOLDER_NOTE} Over the minute limit: 429 rate_limited with Retry-After. Over the month: 429 quota_exceeded, until the 1st (UTC).</span>
       </Panel>

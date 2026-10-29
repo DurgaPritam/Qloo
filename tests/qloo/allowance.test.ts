@@ -73,11 +73,15 @@ describe("Qloo allowance", () => {
   });
 
   it("reads configuration and usage", async () => {
-    expect(allowanceConfig({})).toEqual({ dailyCap: null, jobReserve: 0, workspaceMonthly: 500 });
-    expect(allowanceConfig({ QLOO_DAILY_CALL_CAP: "300", QLOO_WORKSPACE_MONTHLY_CALLS: "40" })).toEqual({ dailyCap: 300, jobReserve: 30, workspaceMonthly: 40 });
+    expect(allowanceConfig({})).toEqual({ dailyCap: null, jobReserve: 0, workspaceMonthly: 500, workspaceCeiling: null });
+    expect(allowanceConfig({ QLOO_DAILY_CALL_CAP: "300", QLOO_WORKSPACE_MONTHLY_CALLS: "40" })).toEqual({ dailyCap: 300, jobReserve: 30, workspaceMonthly: 40, workspaceCeiling: 40 });
     const counters = new MemoryCounters();
     await counters.charge({ dailyKey: "qloo:daily:2026-11-03", dailyCap: null, dailyKeep: 0, workspaceKey: monthKey("ws-1", NOW), workspaceCap: 40 });
-    const usage = await workspaceUsage("ws-1", { counters, env: { QLOO_WORKSPACE_MONTHLY_CALLS: "40", QLOO_DAILY_CALL_CAP: "10", QLOO_JOB_RESERVE: "4" }, now: NOW });
+    const usage = await workspaceUsage("ws-1", { counters, env: { QLOO_WORKSPACE_MONTHLY_CALLS: "40", QLOO_DAILY_CALL_CAP: "10", QLOO_JOB_RESERVE: "4" }, now: NOW, tierAllowance: async () => 1000 });
     expect(usage).toEqual({ used: 1, allowance: 40, remaining: 39, dailyRemaining: 9, jobDailyRemaining: 5 });
+    // The tier's allowance applies when it is below the operator's ceiling.
+    const tier = await workspaceUsage("ws-1", { counters, env: { QLOO_WORKSPACE_MONTHLY_CALLS: "40" }, now: NOW, tierAllowance: async () => 25 });
+    expect(tier).toMatchObject({ allowance: 25, remaining: 24 });
+    expect((await workspaceUsage("ws-1", { counters, env: {}, now: NOW, tierAllowance: async () => 25 })).allowance).toBe(25);
   });
 });

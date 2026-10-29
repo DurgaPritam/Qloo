@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { PublicBrand } from "@/lib/workspace/session";
-import { entitlementsFor } from "@/lib/entitlements";
+import { has } from "@/lib/entitlements";
 
 import type { BrandColours } from "./theme";
 
@@ -11,7 +11,7 @@ import type { BrandColours } from "./theme";
  */
 export function applied(brand: PublicBrand | null): { brand: { colours: BrandColours; logo: string | null; name: string } | null; frameAncestors: string[] } {
   if (!brand) return { brand: null, frameAncestors: [] };
-  const on = entitlementsFor(brand.tier).whiteLabel && brand.branding;
+  const on = has(brand.tier, "white.label") && brand.branding;
   return {
     brand: on ? { colours: { bg: brand.branding!.bg, text: brand.branding!.text, accent: brand.branding!.accent }, logo: brand.branding!.logoData, name: brand.name } : null,
     frameAncestors: brand.embedOrigins,

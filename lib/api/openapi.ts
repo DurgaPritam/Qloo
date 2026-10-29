@@ -133,9 +133,7 @@ export function openApiSpec(serverUrl: string) {
     info: {
       title: "Takeover API",
       version: "1.0.0",
-      description: `Event planning signals from Qloo taste data. Every response carries Qloo's attribution, which you must show wherever you display the data. Limits per key: ${Object.values(TIERS)
-        .map((t) => `${t.label} ${t.api.perMinute}/min, ${t.api.monthly}/month`)
-        .join("; ")} (placeholders to confirm).`,
+      description: `Event planning signals from Qloo taste data. Every response carries Qloo's attribution, which you must show wherever you display the data. The API comes with ${TIERS.enterprise.label}: ${TIERS.enterprise.limits.api.perMinute} requests a minute and ${TIERS.enterprise.limits.api.monthly} a month per key (placeholders to confirm).`,
     },
     servers: [{ url: `${serverUrl}/api/v1` }],
     components: {

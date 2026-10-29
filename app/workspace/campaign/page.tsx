@@ -7,6 +7,8 @@ import { DataTable, MonoLabel, Skeleton } from "@/components/ui";
 import { NewBrief } from "@/components/workspace/campaign";
 import { PageTitle } from "@/components/workspace/shell";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Campaign brief · Takeover", robots: { index: false } };
@@ -21,7 +23,8 @@ async function Content() {
     const partner = plan.partners?.picks.find((x) => x.pick.entity.id === plan.partners?.chosenId)?.pick.entity;
     return plan.fanbase ? [{ id: p.id, label: `${plan.fanbase.name}${partner ? ` × ${partner.name}` : ""}${plan.room?.cityName ? ` · ${plan.room.cityName}` : ""}` }] : [];
   });
-  const canMake = can(ctx.role, "plan.create");
+  const access = await featureAccess(repo, "campaign.briefs");
+  const canMake = can(ctx.role, "plan.create") && access.allowed;
 
   return (
     <>
@@ -41,6 +44,7 @@ async function Content() {
       ) : (
         <PageTitle label="Tools" title="Campaign brief" sub="A one-page targeting brief from a plan or a fanbase: audience, interests, cities, keywords and creative angles, every figure from Qloo." />
       )}
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
       {canMake && <NewBrief plans={ready} />}
       {briefs.length > 0 && (
         <section className="flex flex-col gap-2" aria-label="Briefs">

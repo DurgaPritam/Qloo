@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 import type { DB } from "@/lib/db";
 import { forWorkspace, InputError } from "@/lib/db/scoped";
-import { memberships, TENANT_TABLES } from "@/lib/db/schema";
+import { memberships, TENANT_TABLES, workspaces } from "@/lib/db/schema";
 import { unscopedAcceptInvitation, unscopedEnsurePersonalWorkspace } from "@/lib/db/unscoped";
 import { scoreRosterPairs } from "@/lib/engine/roster";
 import type { RosterRefreshMessage } from "@/lib/jobs/queue";
@@ -40,6 +40,7 @@ const scope = { kind: "visitor" as const };
 async function person(email: string) {
   const user = await addUser(db, email, email.split("@")[0]);
   const workspaceId = await unscopedEnsurePersonalWorkspace(db, user);
+  await db.update(workspaces).set({ tier: "team" }).where(eq(workspaces.id, workspaceId));
   return { user, workspaceId, repo: forWorkspace(db, { userId: user.id, workspaceId, role: "owner" }) };
 }
 
@@ -113,12 +114,10 @@ describe("roster scoping", () => {
     expectAllScoped(queries, TENANT_TABLES);
   });
 
-  it("refuses duplicates and caps the roster size", async () => {
+  it("refuses duplicates (the tier's roster size is checked by the routes: tests/workspace/entitlements.test.ts)", async () => {
     const { repo } = await person("dee@d.test");
     const id = await rosterWith(repo, ["Phoebe Bridgers"]);
     expect(await repo.rosters.addActs(id, [{ entity: await entity("Phoebe Bridgers") }], "search")).toEqual({ added: [], already: 1 });
-    const many = Array.from({ length: 40 }, (_, i) => ({ entity: { id: `x${i}`, name: `X${i}`, category: "artist" as const, popularity: 0.5 } }));
-    await expect(repo.rosters.addActs(id, many, "csv")).rejects.toThrow(/up to 40 acts/);
   });
 });
 

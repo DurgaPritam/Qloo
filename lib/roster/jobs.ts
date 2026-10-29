@@ -1,5 +1,7 @@
 import "server-only";
 
+import { featureAccess } from "@/lib/workspace/gate";
+
 import type { RosterRefreshMessage } from "@/lib/jobs/queue";
 import { getQlooSource } from "@/lib/qloo/source";
 import { can } from "@/lib/workspace/permissions";
@@ -24,6 +26,7 @@ export async function runRosterJob(message: RosterRefreshMessage): Promise<void>
   const fail = (note: string) => repo.jobs.update(job.id, { status: "failed", note, finishedAt: new Date() });
   if (!can(found.ctx.role, "roster.edit")) return void (await fail("The member who asked can no longer edit rosters."));
   if (!(await repo.rosters.get(message.rosterId))) return void (await fail("The roster was deleted."));
+  if (!(await featureAccess(repo, "rosters")).allowed) return void (await fail("This workspace's plan no longer includes roster intelligence; the roster stays readable."));
 
   await repo.jobs.update(job.id, { status: "running", startedAt: new Date() });
   try {

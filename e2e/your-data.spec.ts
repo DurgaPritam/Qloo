@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /**
  * Your data: upload a CSV, map columns, check unclear cities, attach it to a fanbase, rank cities
  * by Qloo signal, your data and combined, see the same columns in a plan's city step, and delete
@@ -38,6 +40,7 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
   const page = await newPage(browser);
   const other = await newPage(browser);
   await signIn(page, `dara.${run}@e2e.test`);
+  await useTier(page, "enterprise");
   let datasetUrl = "";
   let planUrl = "";
 
@@ -102,6 +105,7 @@ test("upload, map, review, attach, rank with three columns, see it in a plan, de
 
   await test.step("another workspace cannot open it", async () => {
     await signIn(other, `ola.${run}@e2e.test`);
+    await useTier(other, "enterprise");
     await other.goto(datasetUrl);
     await expect(other.getByRole("heading", { name: "We couldn't find that page" })).toBeVisible();
     await expect(other.getByText("ticket_sales_2026.csv")).toHaveCount(0);

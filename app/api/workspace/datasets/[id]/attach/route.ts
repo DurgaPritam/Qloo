@@ -1,3 +1,4 @@
+import { needFeature } from "@/lib/workspace/gate";
 import { BudgetExceededError } from "@/lib/qloo/errors";
 import { getQlooSource } from "@/lib/qloo/source";
 import { findAct } from "@/lib/roster/resolve";
@@ -13,6 +14,7 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
   const body = await readJson(req);
   return inDataset(id, async ({ repo, ctx }) => {
     if (!can(ctx.role, "data.edit")) throw new ForbiddenError("data.edit");
+    await needFeature(repo, "data.uploads");
     if (body.detach === true) {
       await repo.datasets.attach(id, null);
       return Response.json({ status: "detached" });

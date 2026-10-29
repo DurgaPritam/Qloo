@@ -19,7 +19,8 @@ const eslintConfig = defineConfig([
   // files below may touch the raw client or the named unscoped lookups.
   {
     files: ["**/*.ts", "**/*.tsx"],
-    ignores: ["lib/db/**", "lib/auth.ts", "lib/workspace/context.ts", "lib/workspace/session.ts", "tests/**", "scripts/**"],
+    // lib/workspace/tier.ts: the one tier lookup the Qloo client needs for each workspace's allowance.
+    ignores: ["lib/db/**", "lib/auth.ts", "lib/workspace/context.ts", "lib/workspace/session.ts", "lib/workspace/tier.ts", "tests/**", "scripts/**"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",

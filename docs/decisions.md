@@ -1056,3 +1056,32 @@ own workspace's plans. Branding and custom domains need a tier with white-label 
 the allowed-sites setting applies on every tier. Until billing exists, the tier is set only by an
 e2e-only dev route. Considered: reusing /plan/{id} on custom domains (it carries the app's
 navigation and member features, which a white-label domain must not expose).
+
+## Entitlements and billing (29 Oct, branch roadmap/foundation)
+
+**D148. One tier map, gates at the edges** (Prompt 12, part 1). `lib/entitlements.ts` is the only
+place that knows what Free, Pro, Team and Enterprise include: each tier adds features to the ones
+below it, and each has limits (plans saved per month, acts per roster, watch items, seats, Qloo
+calls a month, API per minute, month and keys, lineup pool, tour stops). All limit numbers are
+placeholders until pricing is confirmed. Routes use `inFeature`/`needFeature`/`withinLimit` and pages
+use `featureAccess` (`lib/workspace/gate.ts`); a refusal is HTTP 402 with the tier that unlocks it
+and everything that tier adds, never a dead end. The rule for what is gated: **writes and anything
+that spends Qloo calls; never reads or deletes**, so a downgrade leaves a workspace's data readable
+and removable, never deleted. Managing existing members (role, remove, leave) stays open on every
+tier, so a downgraded workspace can get under its seats. Background jobs (roster refresh, market
+watch, pipeline reminders) skip a workspace whose tier no longer includes the feature. A test scans
+every API route and fails unless it checks an entitlement, hands the check to a named module, or is
+on a list of ungated routes with a reason; another fails if any other file compares tier names.
+Considered: a middleware gate by URL (it cannot tell a read from a write that shares a route, and
+it would sit apart from the code that spends Qloo calls).
+
+**D149. The Qloo allowance comes from the tier.** Each workspace's monthly Qloo calls are its tier's
+`qlooMonthly`, looked up through a 30-second cache. `QLOO_WORKSPACE_MONTHLY_CALLS` is now only an
+operator ceiling: the allowance is the lower of the two. The global daily cap and the job reserve
+are unchanged, so no tier can spend calls needed before judging ends.
+
+**D150. Signed-in plans on Free.** Saving a run to a workspace is a Pro feature (with a monthly
+limit). On Free, or past the limit, a signed-in run is kept like a signed-out one, in My plans in the
+browser, and the run screen says why with a link to the plans. Single plans stay free, as the tier
+table says. The free tools stay free; the tour optimizer's stops and the lineup optimizer's pool are
+limited per tier (4 on Free), because both scale the Qloo calls of one request.

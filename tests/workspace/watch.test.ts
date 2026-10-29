@@ -1,8 +1,9 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DB } from "@/lib/db";
 import { forWorkspace } from "@/lib/db/scoped";
-import { TENANT_TABLES } from "@/lib/db/schema";
+import { TENANT_TABLES, workspaces } from "@/lib/db/schema";
 import { unscopedAcceptInvitation, unscopedEnsurePersonalWorkspace, unscopedUnsubscribeDigest, unscopedWatchWorkspacesDue } from "@/lib/db/unscoped";
 import { readOutbox } from "@/lib/email/mailer";
 import type { Candidate } from "@/lib/engine/types";
@@ -58,6 +59,7 @@ function weekTwo(): QlooSource {
 async function person(email: string) {
   const user = await addUser(db, email, email.split("@")[0]);
   const workspaceId = await unscopedEnsurePersonalWorkspace(db, user);
+  await db.update(workspaces).set({ tier: "enterprise" }).where(eq(workspaces.id, workspaceId));
   return { user, workspaceId, repo: forWorkspace(db, { userId: user.id, workspaceId, role: "owner" }) };
 }
 

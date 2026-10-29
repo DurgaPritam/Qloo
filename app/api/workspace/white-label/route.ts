@@ -1,7 +1,6 @@
 import { InputError } from "@/lib/db/scoped";
-import { entitlementsFor } from "@/lib/entitlements";
 import { normaliseDomain, normaliseOrigins, verifyDomain } from "@/lib/white-label/domain";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inFeature, readJson } from "@/lib/workspace/route";
 
 /**
  * POST {domain} sets (or with "" clears) the custom domain; POST {verify: true} checks its TXT
@@ -9,10 +8,9 @@ import { inWorkspace, readJson } from "@/lib/workspace/route";
  */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("white.label", async ({ repo }) => {
     if (typeof body.domain === "string") {
       if (!body.domain.trim()) return Response.json(await repo.whiteLabel.setDomain(null));
-      if (!entitlementsFor((await repo.workspace.get())?.tier).whiteLabel) throw new InputError("Custom domains come with a plan that includes white-label.");
       const d = normaliseDomain(body.domain);
       if ("error" in d) throw new InputError(d.error);
       return Response.json(await repo.whiteLabel.setDomain(d.domain));

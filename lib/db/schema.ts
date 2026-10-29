@@ -99,8 +99,10 @@ export const workspaces = pgTable("workspaces", {
   currency: text("currency"),
   /** Events needed before Outcomes compares cities and partners; null means the engine default. */
   outcomeMinSample: integer("outcome_min_sample"),
-  /** Plan tier (lib/entitlements.ts); "free" until billing exists. */
+  /** Plan tier (lib/entitlements.ts), set by billing (Stripe webhooks) or by hand for Enterprise. */
   tier: text("tier").notNull().default("free"),
+  /** Team seats bought (the subscription's quantity); null otherwise. */
+  seats: integer("seats"),
 });
 
 export const memberships = pgTable(

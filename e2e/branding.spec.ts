@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
 
+import { useTier } from "./tier";
+
 /** Branded decks: an admin sets colours and a font; the workspace's next deck uses them. */
 
 const run = Math.random().toString(36).slice(2, 8);
@@ -22,6 +24,7 @@ async function signIn(page: Page, email: string) {
 test("set the deck branding, and a pitch deck comes out in it", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
   await page.goto("/workspace/settings");
   await page.getByRole("link", { name: "Branded decks →" }).click();
   await expect(page.getByRole("heading", { name: "Branded decks" })).toBeVisible();

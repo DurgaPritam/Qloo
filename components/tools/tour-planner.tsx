@@ -56,8 +56,14 @@ export interface SavedTourView {
   createdAt: string;
 }
 
-export function TourPlanner({ workspace, saved }: { workspace: { name: string; tours: { id: string; name: string; createdAt: string }[] } | null; saved?: SavedTourView }) {
-  const [c, setC] = useState<Constraints>({ region: "", stops: 5, maxLegKm: "", start: "", end: "", include: "", exclude: "", distanceWeight: DEFAULT_WEIGHT });
+export function TourPlanner({
+  workspace,
+  saved,
+}: {
+  workspace: { name: string; canSave: boolean; upgradeLabel: string | null; tours: { id: string; name: string; createdAt: string }[] } | null;
+  saved?: SavedTourView;
+}) {
+  const [c, setC] = useState<Constraints>({ region: "", stops: 4, maxLegKm: "", start: "", end: "", include: "", exclude: "", distanceWeight: DEFAULT_WEIGHT });
   /** Multi-country tours: which scale the scores are shown on. The route always uses one scale. */
   const [scale, setScale] = useState<"region" | "country">("region");
   const [dates, setDates] = useState(saved?.userData.window ?? { from: "", to: "" });
@@ -340,10 +346,15 @@ export function TourPlanner({ workspace, saved }: { workspace: { name: string; t
                 <Link href={planHref(r.fanbase.name)} className="rounded-btn bg-acc px-3.5 py-2 text-chip font-medium text-on-acc no-underline">
                   Plan the opening takeover →
                 </Link>
-                {workspace && r.draftId && !viewingSaved && (
+                {workspace && r.draftId && !viewingSaved && workspace.canSave && (
                   <Button onClick={() => void save(r.draftId!)} loading={saving.busy}>
                     Save to workspace
                   </Button>
+                )}
+                {workspace && r.draftId && !viewingSaved && !workspace.canSave && workspace.upgradeLabel && (
+                  <Link href="/workspace/settings/billing" className="text-chip" data-upgrade-note>
+                    Saving tours comes with {workspace.upgradeLabel} →
+                  </Link>
                 )}
                 {saving.text && (
                   <span className="text-chip text-mute" role="status">

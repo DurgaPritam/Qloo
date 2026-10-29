@@ -5,6 +5,8 @@ import { Suspense } from "react";
 
 import { Banner, MonoLabel, OutlineChip, Skeleton, YourDataBadge } from "@/components/ui";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Your data · Takeover", robots: { index: false } };
@@ -16,7 +18,8 @@ async function Content({ searchParams }: { searchParams: Promise<Record<string, 
   if (!found) redirect("/signin?next=/workspace/data");
   const { ctx, repo } = found;
   const list = await repo.datasets.list();
-  const canEdit = can(ctx.role, "data.edit");
+  const access = await featureAccess(repo, "data.uploads");
+  const canEdit = can(ctx.role, "data.edit") && access.allowed;
   const deleted = (await searchParams).deleted === "1";
 
   return (
@@ -27,6 +30,7 @@ async function Content({ searchParams }: { searchParams: Promise<Record<string, 
         <p className="m-0 text-chip text-mute">Upload your own sales or CRM export. Takeover keeps it separate from Qloo signal and shows both.</p>
       </section>
       {deleted && <Banner tone="info">Deleted: the rows and the file are gone from this workspace.</Banner>}
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
       {list.length === 0 ? (
         <section className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-line px-panel py-12 sm:px-12">
           <h3 className="t-display m-0 text-[clamp(30px,5vw,40px)] leading-[0.92]">No data sources added</h3>

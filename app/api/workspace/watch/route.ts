@@ -1,8 +1,9 @@
+import { planOf, withinLimit } from "@/lib/workspace/gate";
 import { BudgetExceededError } from "@/lib/qloo/errors";
 import { getQlooSource } from "@/lib/qloo/source";
 import { qlooReady } from "@/lib/roster/service";
 import { addWatch, watchView } from "@/lib/watch/service";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 /** GET → the Market watch page's data. POST {kind, query, entityId?, cityId?} → watch it (first snapshot now). */
 export async function GET(): Promise<Response> {
@@ -14,7 +15,9 @@ export async function POST(req: Request): Promise<Response> {
   const kind = body.kind === "city" ? "city" : body.kind === "fanbase" ? "fanbase" : null;
   const query = typeof body.query === "string" ? body.query.trim().slice(0, 100) : "";
   if (!kind || !query) return Response.json({ error: "Name a fanbase or a city to watch." }, { status: 400 });
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("market.watch", async ({ repo }) => {
+    const plan = await planOf(repo);
+    withinLimit(plan, "watchItems", (await repo.watch.items()).length, `This plan watches up to ${plan.limits.watchItems} fanbases and cities.`);
     const source = getQlooSource();
     if (!qlooReady(source)) return Response.json({ error: "Qloo data is unavailable right now." }, { status: 503 });
     try {

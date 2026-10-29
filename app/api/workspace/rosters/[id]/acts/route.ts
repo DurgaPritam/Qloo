@@ -1,3 +1,4 @@
+import { needFeature, withinLimit } from "@/lib/workspace/gate";
 import { can, ForbiddenError } from "@/lib/workspace/permissions";
 import { findAct } from "@/lib/roster/resolve";
 import { qlooReady } from "@/lib/roster/service";
@@ -18,6 +19,8 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
   const entityId = typeof body.entityId === "string" && body.entityId.length <= 200 ? body.entityId : undefined;
   if (!query) return Response.json({ error: "Type an act's name." }, { status: 400 });
   return inRoster(id, async ({ repo, ctx }) => {
+    const plan = await needFeature(repo, "rosters");
+    withinLimit(plan, "rosterActs", (await repo.rosters.acts(id)).length, `This plan's rosters hold up to ${plan.limits.rosterActs} acts.`);
     if (!can(ctx.role, "roster.edit")) throw new ForbiddenError("roster.edit");
     const source = getQlooSource();
     if (!qlooReady(source)) return Response.json({ error: "Qloo data is unavailable right now." }, { status: 503 });

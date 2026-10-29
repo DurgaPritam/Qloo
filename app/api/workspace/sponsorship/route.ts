@@ -2,7 +2,7 @@ import { BudgetExceededError } from "@/lib/qloo/errors";
 import { getQlooSource } from "@/lib/qloo/source";
 import { qlooReady } from "@/lib/roster/service";
 import { runBrandView, runRightsView, type HolderInput } from "@/lib/sponsorship/service";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { readJson, inFeature } from "@/lib/workspace/route";
 
 export const maxDuration = 30;
 
@@ -15,7 +15,7 @@ const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice
  */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("sponsorship", async ({ repo }) => {
     const source = getQlooSource();
     if (!qlooReady(source)) return Response.json({ error: "Qloo data is unavailable right now." }, { status: 503 });
     try {

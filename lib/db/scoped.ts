@@ -13,7 +13,7 @@ import type { PitchInput } from "@/lib/export/sponsor";
 import type { DeckFont } from "@/lib/export/branding";
 import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
 import { predictionsFromPlan } from "@/lib/outcomes/predict";
-import { entitlementsFor, type TierName } from "@/lib/entitlements";
+import type { TierName } from "@/lib/entitlements";
 import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
 import type { OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
@@ -87,10 +87,6 @@ export class InputError extends Error {
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_COMMENT = 2000;
 const MAX_NAME = 60;
-/** Pairings grow with the square of the roster, and each refresh asks Qloo once per act. */
-export const MAX_ROSTER_ACTS = 40;
-/** Each watch costs a few Qloo calls a week. */
-export const MAX_WATCH_ITEMS = 30;
 
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 export const newToken = () => randomBytes(32).toString("base64url");
@@ -168,6 +164,12 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async get(id: string) {
         need("plan.read");
         return planById(id);
+      },
+      /** Plans saved since a date, for the plans-a-month limit. */
+      async countSince(since: Date) {
+        need("plan.read");
+        const [row] = await db.select({ n: count() }).from(plans).where(and(eq(plans.workspaceId, ws), gte(plans.createdAt, since), isNull(plans.importedFrom)));
+        return row?.n ?? 0;
       },
       async create(input: { id: string; query: string; result: Plan }) {
         need("plan.create");
@@ -431,9 +433,6 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         if (!(await rosterById(rosterId))) throw new InputError("That roster isn't in this workspace.");
         const existing = new Set((await actRows(rosterId)).map((a) => a.qlooEntityId));
         const fresh = entries.filter((e, i) => !existing.has(e.entity.id) && entries.findIndex((x) => x.entity.id === e.entity.id) === i);
-        if (existing.size + fresh.length > MAX_ROSTER_ACTS) {
-          throw new InputError(`A roster holds up to ${MAX_ROSTER_ACTS} acts; this one has ${existing.size}.`);
-        }
         if (fresh.length) {
           await db.insert(rosterActs).values(
             fresh.map(({ entity, homeCity }) => ({
@@ -622,8 +621,6 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         need("watch.edit");
         const existing = (await db.select().from(watchItems).where(and(eq(watchItems.workspaceId, ws), eq(watchItems.kind, input.kind), eq(watchItems.targetId, input.targetId))).limit(1))[0];
         if (existing) return { id: existing.id, added: false };
-        const [{ n }] = await db.select({ n: count() }).from(watchItems).where(eq(watchItems.workspaceId, ws));
-        if (n >= MAX_WATCH_ITEMS) throw new InputError(`A workspace can watch up to ${MAX_WATCH_ITEMS} fanbases and cities.`);
         const id = crypto.randomUUID();
         await db.insert(watchItems).values({ id, workspaceId: ws, createdBy: ctx.userId, ...input, entity: input.entity ?? null });
         await log("watch.added", { type: "watch", id }, { name: input.name, kind: input.kind });
@@ -1063,16 +1060,18 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         need("api.manage");
         const clean = name.trim().slice(0, MAX_NAME);
         if (!clean) throw new InputError("Name the key, e.g. Website or Zapier.");
-        const workspace = (await db.select({ tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, ws)).limit(1))[0];
-        const live = await db.select({ n: count() }).from(apiKeys).where(and(eq(apiKeys.workspaceId, ws), isNull(apiKeys.revokedAt)));
-        const max = entitlementsFor(workspace?.tier).api.keys;
-        if ((live[0]?.n ?? 0) >= max) throw new InputError(`This plan allows ${max} active keys. Revoke one first.`);
         const key = `tk_${newToken()}`;
         const id = crypto.randomUUID();
         await db.insert(apiKeys).values({ id, workspaceId: ws, name: clean, prefix: key.slice(0, 9), hash: hashToken(key), createdBy: ctx.userId });
         await log("api.key_created", { type: "api_key", id }, { name: clean });
         // The only time the key leaves the server.
         return { id, key, prefix: key.slice(0, 9) };
+      },
+      /** Keys not revoked, for the tier's key limit (checked by the route). */
+      async liveKeys() {
+        need("api.read");
+        const [row] = await db.select({ n: count() }).from(apiKeys).where(and(eq(apiKeys.workspaceId, ws), isNull(apiKeys.revokedAt)));
+        return row?.n ?? 0;
       },
       async revokeKey(id: string) {
         need("api.manage");

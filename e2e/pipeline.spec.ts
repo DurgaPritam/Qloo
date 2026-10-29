@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /**
  * The outreach pipeline: a plan's two drafts go onto the board, one is edited and marked sent (the
  * history keeps what went out), the other moves by its menu. Takeover sends nothing.
@@ -21,6 +23,7 @@ async function signIn(page: Page, email: string) {
 test("a plan's drafts go onto the board, one is marked sent with its content logged, one is booked", async ({ page }) => {
   test.setTimeout(150_000);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
 
   await test.step("the board starts empty", async () => {
     await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Pipeline" }).click();

@@ -1,3 +1,4 @@
+import { needFeature } from "@/lib/workspace/gate";
 import { startRefresh } from "@/lib/roster/service";
 import { inRoster, readJson } from "@/lib/workspace/route";
 
@@ -11,6 +12,7 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
   const { id } = await params;
   const body = await readJson(req);
   return inRoster(id, async ({ repo }) => {
+    await needFeature(repo, "rosters");
     const outcome = await startRefresh(repo, id, { force: body.force === true });
     return Response.json(outcome, { status: outcome.status === "blocked" ? 429 : 200 });
   });

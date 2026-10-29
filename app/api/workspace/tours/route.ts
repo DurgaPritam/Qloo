@@ -2,7 +2,7 @@ import { InputError } from "@/lib/db/scoped";
 import type { TourUserData } from "@/lib/db/schema";
 import { tourDraft } from "@/lib/tools/tour";
 import { VENUE_BANDS } from "@/lib/tools/venue-bands";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = (x: unknown) => (typeof x === "string" && DATE.test(x) && !Number.isNaN(Date.parse(x)) ? x : "");
@@ -17,7 +17,7 @@ export async function GET(): Promise<Response> {
 
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("optimizers", async ({ repo }) => {
     const result = await tourDraft(typeof body.draftId === "string" ? body.draftId : "");
     if (!result) throw new InputError("That tour has expired. Optimize it again, then save.");
     const w = (body.window ?? {}) as Record<string, unknown>;

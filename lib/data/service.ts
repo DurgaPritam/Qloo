@@ -283,7 +283,11 @@ export async function datasetView(
       scores = got.scores;
       qlooTrace = got.trace;
     } catch (err) {
-      qlooNote = err instanceof BudgetExceededError ? `${err.message}; showing your data only.` : "Qloo did not answer, so this shows your data only. Try again later.";
+      // A plan without "Your data + Qloo" (a downgrade) still shows the upload, read-only.
+      qlooNote =
+        err instanceof BudgetExceededError || (err instanceof Error && err.name === "UpgradeRequiredError")
+          ? `${err.message}; showing your data only.`
+          : "Qloo did not answer, so this shows your data only. Try again later.";
     }
   }
   const totals = Object.fromEntries(d.metrics.map((m) => [m.key, metricByCity(rows, m.key)]));

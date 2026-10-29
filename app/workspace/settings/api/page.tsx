@@ -5,7 +5,9 @@ import { Suspense } from "react";
 import { Banner, Skeleton } from "@/components/ui";
 import { ApiKeys } from "@/components/workspace/api-keys";
 import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
-import { entitlementsFor, PLACEHOLDER_NOTE } from "@/lib/entitlements";
+import { PLACEHOLDER_NOTE, TIERS } from "@/lib/entitlements";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
 
@@ -24,14 +26,15 @@ async function Content() {
     );
   }
   const month = new Date().toISOString().slice(0, 7);
-  const [keys, usage, ws] = await Promise.all([repo.api.keys(), repo.api.usage(month), repo.workspace.get()]);
-  const e = entitlementsFor(ws?.tier);
+  const [keys, usage, access] = await Promise.all([repo.api.keys(), repo.api.usage(month), featureAccess(repo, "api")]);
+  const e = { label: TIERS[access.plan.tier as keyof typeof TIERS]?.label ?? "Free", api: access.plan.limits.api };
   return (
     <>
       <SettingsTabs />
       <PageTitle label="Settings" title="API" sub="Keys for the public API, and what each used this month." />
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
       <ApiKeys
-        canManage={can(ctx.role, "api.manage")}
+        canManage={can(ctx.role, "api.manage") && access.allowed}
         tier={e.label}
         limits={e.api}
         note={PLACEHOLDER_NOTE}

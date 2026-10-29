@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /** Settings → API: a key is shown once, listed by its prefix only, used, and revoked. */
 const run = Math.random().toString(36).slice(2, 8);
 const EMAIL = `kai.${run}@e2e.test`;
@@ -16,6 +18,7 @@ async function signIn(page: Page, email: string) {
 
 test("create an API key, use it, see the usage, revoke it", async ({ page, request }) => {
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
   await page.goto("/workspace/settings");
   await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "API" }).click();
   await page.getByRole("textbox", { name: "Key name" }).fill("Website");

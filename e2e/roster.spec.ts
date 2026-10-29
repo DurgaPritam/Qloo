@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /**
  * Roster intelligence, signed in through the local outbox: create a roster, add five acts (one
  * through the picker for an ambiguous name), see the budget before refreshing, see the
@@ -25,6 +27,7 @@ async function signIn(page: Page, email: string) {
 test("a 10-act roster: full matrix, ranked pairings, estimate matches calls, scores link to evidence, a pair opens as a plan", async ({ page }) => {
   test.setTimeout(180_000);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
 
   await test.step("create a roster from the empty state", async () => {
     await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Rosters" }).click();
@@ -57,7 +60,7 @@ test("a 10-act roster: full matrix, ranked pairings, estimate matches calls, sco
     const line = bar.getByText(/To refresh: 10 acts: .* up to \d+ Qloo calls\./);
     await expect(line).toBeVisible();
     estimate = Number((await line.innerText()).match(/up to (\d+) Qloo calls/)![1]);
-    await expect(bar.getByText(/of 500 Qloo calls left this month/)).toBeVisible();
+    await expect(bar.getByText(/of [0-9,]+ Qloo calls left this month/)).toBeVisible();
     await bar.getByRole("button", { name: `Refresh · ${estimate} calls` }).click();
     await expect(page.getByText(/Refreshing in the background/).first()).toBeVisible();
     await expect(page.getByText("Not scored yet · refresh to score with Qloo")).toHaveCount(0, { timeout: 60_000 });

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { featureAccess } from "@/lib/workspace/gate";
+
 import type { WorkspaceRepo } from "@/lib/db/scoped";
 import { sendEmail } from "@/lib/email/mailer";
 import { queueMode, type PipelineRemindersMessage } from "@/lib/jobs/queue";
@@ -55,7 +57,7 @@ const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": 
 export async function runRemindersJob(message: PipelineRemindersMessage): Promise<void> {
   const now = message.asOf && queueMode() === "local" ? new Date(message.asOf) : new Date();
   const found = await jobWorkspace(message.workspaceId, message.userId);
-  if (!found) return;
+  if (!found || !(await featureAccess(found.repo, "pipeline")).allowed) return;
   const jobId = await found.repo.jobs.create({ kind: "pipeline.reminders", targetId: message.workspaceId, status: "running" });
   try {
     const r = await sendReminders(found.repo, { now, appUrl: appUrl() });

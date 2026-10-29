@@ -6,6 +6,8 @@ import { MonoLabel, Skeleton } from "@/components/ui";
 import { OutcomesReport } from "@/components/workspace/outcomes";
 import { reportView } from "@/lib/outcomes/service";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Outcomes · Takeover", robots: { index: false } };
@@ -15,7 +17,7 @@ async function Content() {
   if (!found) redirect("/signin?next=/workspace/outcomes");
   const { ctx, repo, memberships } = found;
   const current = memberships.find((m) => m.workspaceId === ctx.workspaceId)!;
-  const [view, plans, logged, predictions] = await Promise.all([reportView(repo, current.name), repo.plans.list(100), repo.outcomes.logged(), repo.outcomes.predictions()]);
+  const [view, plans, logged, predictions, access] = await Promise.all([reportView(repo, current.name), repo.plans.list(100), repo.outcomes.logged(), repo.outcomes.predictions(), featureAccess(repo, "outcomes")]);
   const done = new Set(logged.map((l) => l.planId));
   const frozen = new Map(predictions.map((p) => [p.planId, p.predicted]));
   // Labels from the frozen predictions (what the plan chose when it was made), not the stored plan.
@@ -32,7 +34,8 @@ async function Content() {
         <h1 className="t-display m-0 text-[clamp(30px,5vw,44px)] leading-[0.92]">Predicted vs actual</h1>
         <p className="m-0 text-chip text-mute">How your events went against what each plan predicted, by your own median.</p>
       </section>
-      <OutcomesReport view={view} plans={list} canLog={can(ctx.role, "outcome.log")} />
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
+      <OutcomesReport view={view} plans={list} canLog={can(ctx.role, "outcome.log") && access.allowed} />
     </>
   );
 }

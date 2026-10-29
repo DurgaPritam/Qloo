@@ -3,14 +3,14 @@ import { MAX_FILE_BYTES } from "@/lib/data/table";
 import type { ColumnRole } from "@/lib/data/types";
 import { FilesNotConfiguredError, getFileStore } from "@/lib/files/store";
 import { getLimiters, isE2eRequest, visitorId } from "@/lib/server/rate-limit";
-import { inWorkspace } from "@/lib/workspace/route";
+import { inFeature } from "@/lib/workspace/route";
 
 /**
  * POST multipart {file, mapping} → reads the file on the server, matches cities, stores the file
  * privately and the rows with source "user". The mapping comes from the browser's preview step.
  */
 export async function POST(req: Request): Promise<Response> {
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("data.uploads", async ({ repo }) => {
     const form = await req.formData().catch(() => null);
     const file = form?.get("file");
     const mappingText = form?.get("mapping");

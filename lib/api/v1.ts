@@ -2,7 +2,7 @@ import "server-only";
 
 import { withBudget } from "@/lib/agent/budget";
 import { InputError } from "@/lib/db/scoped";
-import { entitlementsFor } from "@/lib/entitlements";
+import { has, limitsOf, upgradeFor } from "@/lib/entitlements";
 import type { QlooScope } from "@/lib/qloo/allowance";
 import { QLOO_RUN_BUDGET } from "@/lib/qloo/client";
 import { BudgetExceededError } from "@/lib/qloo/errors";
@@ -44,7 +44,11 @@ export async function v1(req: Request, endpoint: string, handle: (ctx: ApiContex
   if (!key) return apiError(401, "unauthorized", "Send your API key as: Authorization: Bearer tk_…");
   const found = await apiKeyContext(key);
   if (!found) return apiError(401, "unauthorized", "That API key is not valid, or it has been revoked.");
-  const limits = entitlementsFor(found.tier).api;
+  if (!has(found.tier, "api")) {
+    const up = upgradeFor("api");
+    return Response.json({ error: { code: "upgrade_required", message: up.reason }, upgrade: up, attribution: ATTRIBUTION }, { status: 402 });
+  }
+  const limits = limitsOf(found.tier).api;
   const now = opts.now ?? new Date();
 
   const rate = await apiLimiter(limits.perMinute).check(found.keyId);

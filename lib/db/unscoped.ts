@@ -244,3 +244,8 @@ export const unscopedBrandByDomain = (db: DB, host: string) => publicBrand(db, a
 export const unscopedBrandByPublicId = (db: DB, publicId: string) => publicBrand(db, eq(whiteLabel.publicId, publicId));
 /** For a shared plan: the plan's workspace's public branding, when it has white-label settings. */
 export const unscopedBrandByWorkspace = (db: DB, workspaceId: string) => publicBrand(db, eq(workspaces.id, workspaceId));
+
+/** For the Qloo client's counters: a workspace's tier (its allowance comes from lib/entitlements.ts). */
+export async function unscopedWorkspaceTier(db: DB, workspaceId: string): Promise<{ tier: string } | null> {
+  return (await db.select({ tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0] ?? null;
+}

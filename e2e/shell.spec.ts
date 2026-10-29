@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /** The App Shell: sidebar navigation, workspace search, notifications, settings tabs and the phone drawer. */
 
 const run = Math.random().toString(36).slice(2, 8);
@@ -17,6 +19,7 @@ async function signIn(page: Page, email: string) {
 
 test("the sidebar, search, bell and settings tabs", async ({ page }) => {
   await signIn(page, `shel.${run}@e2e.test`);
+  await useTier(page, "enterprise");
   const nav = page.getByRole("navigation", { name: "Workspace" });
   await expect(page.getByRole("button", { name: /^Workspace: shel\./ })).toContainText("1 member");
   await nav.getByRole("link", { name: "Rosters" }).click();
@@ -49,6 +52,7 @@ test("the sidebar, search, bell and settings tabs", async ({ page }) => {
 
 test("@mobile the sidebar becomes a drawer behind the menu button", async ({ page }) => {
   await signIn(page, `mob.${run}@e2e.test`);
+  await useTier(page, "enterprise");
   await expect(page.getByRole("navigation", { name: "Workspace" })).toBeHidden();
   await page.getByRole("button", { name: "Open menu" }).click();
   const drawer = page.getByRole("complementary", { name: "Menu" });

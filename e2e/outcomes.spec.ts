@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /** Outcomes: plan, log results after the event, compare with the frozen predictions, report and export. */
 
 const run = Math.random().toString(36).slice(2, 8);
@@ -21,6 +23,7 @@ async function signIn(page: Page, email: string) {
 test("log results on a plan, see predicted vs actual, and the workspace report", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, EMAIL);
+  await useTier(page, "enterprise");
 
   await test.step("an empty report until there is a plan", async () => {
     await page.goto("/workspace/outcomes");
@@ -70,6 +73,7 @@ test("log results on a plan, see predicted vs actual, and the workspace report",
 test("three logged plans give a report with the right sample sizes", async ({ page }) => {
   test.setTimeout(150_000);
   await signIn(page, `trio.${run}@e2e.test`);
+  await useTier(page, "enterprise");
   const plans = ["Phoebe Bridgers", "John Mulaney", "Clairo"];
   for (const q of plans) {
     await page.goto(`/run?q=${encodeURIComponent(q)}`);

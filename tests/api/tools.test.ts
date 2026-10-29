@@ -98,7 +98,7 @@ describe("POST /api/tools/tour", () => {
     expect(again.route).toEqual(body.route);
   });
   it("scores a mixed-country tour on one scale, keeping each country's own scale for display only", async () => {
-    const body = await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 5, region: "us-ca" }, "192.0.2.93"))).json();
+    const body = await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 4, region: "us-ca" }, "192.0.2.93"))).json();
     expect(body.status).toBe("done");
     expect(body.markets.map((m: { code: string }) => m.code).sort()).toEqual(["CA", "US"]);
     type Stop = { city: { country: string; score: number; countryScore: number } };
@@ -124,7 +124,7 @@ describe("POST /api/tools/tour", () => {
   });
 
   it("takes the user's distance weight: 0 ignores distance, a high weight shortens the route", async () => {
-    const at = async (w: number, ip: string) => (await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 5, region: "US", distanceWeight: w }, ip))).json()).route;
+    const at = async (w: number, ip: string) => (await (await tour(postJson("http://localhost/api/tools/tour", { fanbase: "John Mulaney", stops: 4, region: "US", distanceWeight: w }, ip))).json()).route;
     const free = await at(0, "192.0.2.96");
     const tight = await at(20, "192.0.2.97");
     expect(free.distanceWeight).toBe(0);

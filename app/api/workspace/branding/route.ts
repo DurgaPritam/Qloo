@@ -1,7 +1,7 @@
 import { InputError } from "@/lib/db/scoped";
 import { brandingFrom, DECK_FONTS, isHex, logoProblem, normaliseHex, type DeckFont } from "@/lib/export/branding";
 import { currentWorkspace } from "@/lib/workspace/session";
-import { inWorkspace, readJson } from "@/lib/workspace/route";
+import { inWorkspace, readJson, inFeature } from "@/lib/workspace/route";
 
 /** GET → the deck branding for the current workspace (null when signed out: the house deck). */
 export async function GET(): Promise<Response> {
@@ -14,7 +14,7 @@ export async function GET(): Promise<Response> {
 /** POST {bg, text, accent, font, logo?: {dataUrl, width, height} | null} → saves (admins). */
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson(req);
-  return inWorkspace(async ({ repo }) => {
+  return inFeature("exports.branded", async ({ repo }) => {
     const [bg, text, accent] = [body.bg, body.text, body.accent].map((v) => (typeof v === "string" ? normaliseHex(v) : ""));
     if (![bg, text, accent].every(isHex)) throw new InputError("Colours must be hex values like #161826.");
     const font = (DECK_FONTS as readonly string[]).includes(String(body.font)) ? (body.font as DeckFont) : null;

@@ -6,6 +6,8 @@ import { MonoLabel, Skeleton } from "@/components/ui";
 import { BrandingSettings } from "@/components/workspace/branding";
 import { brandingFrom } from "@/lib/export/branding";
 import { can } from "@/lib/workspace/permissions";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { currentWorkspace } from "@/lib/workspace/session";
 import { SettingsTabs } from "@/components/workspace/shell";
 
@@ -16,8 +18,13 @@ async function Content() {
   if (!found) redirect("/signin?next=/workspace/settings/branding");
   const { ctx, repo, memberships } = found;
   const name = memberships.find((m) => m.workspaceId === ctx.workspaceId)?.name ?? "";
-  const row = await repo.branding.get();
-  return <BrandingSettings initial={brandingFrom(row, name)} saved={Boolean(row)} canEdit={can(ctx.role, "branding.edit")} />;
+  const [row, access] = await Promise.all([repo.branding.get(), featureAccess(repo, "exports.branded")]);
+  return (
+    <>
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
+      <BrandingSettings initial={brandingFrom(row, name)} saved={Boolean(row)} canEdit={can(ctx.role, "branding.edit") && access.allowed} />
+    </>
+  );
 }
 
 export default function BrandingPage() {

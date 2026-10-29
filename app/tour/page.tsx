@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { TourPlanner } from "@/components/tools/tour-planner";
 import { AppHeader, Page } from "@/components/ui";
+import { featureAccess } from "@/lib/workspace/gate";
 import { currentWorkspace } from "@/lib/workspace/session";
 
 export const metadata: Metadata = { title: "Tour optimizer · Takeover" };
@@ -12,10 +13,10 @@ async function Planner({ searchParams }: { searchParams: Promise<{ saved?: strin
   const [{ saved }, found] = await Promise.all([searchParams, currentWorkspace()]);
   if (!found) return <TourPlanner workspace={null} />;
   const name = found.memberships.find((m) => m.workspaceId === found.ctx.workspaceId)?.name ?? "your workspace";
-  const [list, open] = await Promise.all([found.repo.tours.list(), typeof saved === "string" && /^[0-9a-f-]{36}$/.test(saved) ? found.repo.tours.get(saved) : null]);
+  const [list, open, access] = await Promise.all([found.repo.tours.list(), typeof saved === "string" && /^[0-9a-f-]{36}$/.test(saved) ? found.repo.tours.get(saved) : null, featureAccess(found.repo, "optimizers")]);
   return (
     <TourPlanner
-      workspace={{ name, tours: list.map((t) => ({ id: t.id, name: t.name, createdAt: t.createdAt.toISOString() })) }}
+      workspace={{ name, canSave: access.allowed, upgradeLabel: access.upgrade?.label ?? null, tours: list.map((t) => ({ id: t.id, name: t.name, createdAt: t.createdAt.toISOString() })) }}
       saved={open ? { id: open.id, name: open.name, result: open.result, userData: open.userData, createdAt: open.createdAt.toISOString() } : undefined}
     />
   );

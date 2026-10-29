@@ -182,6 +182,8 @@ export function usePlanStream() {
   const abort = useRef<AbortController | null>(null);
   /** The workspace a signed-in run is saved to (X-Saved-To), or null for browser-only saves. */
   const [savedTo, setSavedTo] = useState<string | null>(null);
+  /** Why a signed-in run was kept in My plans instead (X-Upgrade): the plan's tier or monthly limit. */
+  const [upgrade, setUpgrade] = useState<string | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -191,6 +193,7 @@ export function usePlanStream() {
     abort.current = controller;
     dispatch({ type: "start", replanFrom });
     setSavedTo(null);
+    setUpgrade(null);
 
     try {
       const res = await fetch("/api/plan", {
@@ -209,6 +212,8 @@ export function usePlanStream() {
       }
       const saved = res.headers.get("X-Saved-To");
       setSavedTo(saved ? decodeURIComponent(saved) : null);
+      const up = res.headers.get("X-Upgrade");
+      setUpgrade(up ? decodeURIComponent(up) : null);
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = "";
       for (;;) {
@@ -233,7 +238,7 @@ export function usePlanStream() {
     }
   }, []);
 
-  return { view, start, savedTo };
+  return { view, start, savedTo, upgrade };
 }
 
 /** A finished plan as a static view, for the share page. */

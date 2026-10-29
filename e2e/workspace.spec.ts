@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { useTier } from "./tier";
+
 /**
  * The team flow, signed in through the local outbox (no email service in e2e): sign up, plan,
  * invite, accept, comment with a mention, resolve, and private vs public share links.
@@ -45,6 +47,14 @@ test("sign up, plan, invite, comment with a mention, resolve, and share", async 
     await expect(alice.getByRole("heading", { level: 1 })).toHaveText("Plans");
     await expect(alice.getByRole("button", { name: `Workspace: alice.${run}'s workspace` })).toBeVisible();
     await expect(alice.getByText("You're signed in.")).toBeVisible();
+  });
+
+  await test.step("on Free, a run stays in this browser and says what saving to the workspace needs", async () => {
+    await alice.goto("/run?q=Phoebe%20Bridgers");
+    await expect(alice.getByText("Complete · 7 / 7")).toBeVisible({ timeout: 45_000 });
+    await expect(alice.locator("[data-upgrade-note]")).toContainText("Saving plans to your workspace comes with Pro.");
+    await expect(alice.getByRole("link", { name: `Saved to alice.${run}'s workspace` })).toHaveCount(0);
+    await useTier(alice, "team");
   });
 
   await test.step("a signed-in run saves to the workspace, private by default", async () => {

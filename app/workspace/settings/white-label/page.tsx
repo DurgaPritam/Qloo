@@ -5,7 +5,8 @@ import { Suspense } from "react";
 import { Banner, Skeleton } from "@/components/ui";
 import { PageTitle, SettingsTabs } from "@/components/workspace/shell";
 import { WhiteLabelSettings } from "@/components/workspace/white-label";
-import { entitlementsFor } from "@/lib/entitlements";
+import { featureAccess } from "@/lib/workspace/gate";
+import { UpgradePrompt } from "@/components/workspace/upgrade";
 import { txtName, txtValue } from "@/lib/white-label/domain";
 import { can } from "@/lib/workspace/permissions";
 import { currentWorkspace } from "@/lib/workspace/session";
@@ -17,7 +18,7 @@ async function Content() {
   if (!found) redirect("/signin?next=/workspace/settings/white-label");
   const { ctx, repo } = found;
   const canEdit = can(ctx.role, "whitelabel.edit");
-  const [ws, existing, branding, plans] = await Promise.all([repo.workspace.get(), repo.whiteLabel.get(), repo.branding.get(), repo.plans.list(50)]);
+  const [access, existing, branding, plans] = await Promise.all([featureAccess(repo, "white.label"), repo.whiteLabel.get(), repo.branding.get(), repo.plans.list(50)]);
   const row = existing ?? (canEdit ? await repo.whiteLabel.ensure() : null);
   if (!row) {
     return (
@@ -32,10 +33,11 @@ async function Content() {
     <>
       <SettingsTabs />
       <PageTitle label="Settings" title="White-label" sub="Your brand on shared plans and embeddable widgets, on your own domain." />
+      {access.upgrade && <UpgradePrompt upgrade={access.upgrade} />}
       <WhiteLabelSettings
         v={{
-          allowed: entitlementsFor(ws?.tier).whiteLabel,
-          canEdit,
+          allowed: access.allowed,
+          canEdit: canEdit && access.allowed,
           publicId: row.publicId,
           domain: row.domain,
           txt: row.domain && row.domainToken ? { name: txtName(row.domain), value: txtValue(row.domainToken) } : null,

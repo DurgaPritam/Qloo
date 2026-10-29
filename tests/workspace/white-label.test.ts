@@ -30,7 +30,7 @@ vi.mock("next/server", async (original) => ({ ...(await original<typeof import("
 let db: DB;
 let template: Plan;
 
-async function workspace(email: string, tier: "free" | "pro" = "pro") {
+async function workspace(email: string, tier: "free" | "enterprise" = "enterprise") {
   const user = await addUser(db, email, email.split("@")[0]);
   const workspaceId = await unscopedEnsurePersonalWorkspace(db, user);
   await db.update(workspaces).set({ tier }).where(eq(workspaces.id, workspaceId));
@@ -153,7 +153,7 @@ describe("widget isolation", () => {
     expect((await voteWidget(new Request(`http://localhost/embed/vote/${planB}?w=${wa.publicId}`), ctx(planB))).status).toBe(404);
     const { html, csp } = await widget(await voteWidget(new Request(`http://localhost/embed/vote/${planA}?w=${wa.publicId}`), ctx(planA)));
     expect(csp).toContain("frame-ancestors https://www.a-company.test");
-    expect(html).toContain("--bg:#ffffff"); // Pro tier: the workspace's colours
+    expect(html).toContain("--bg:#ffffff"); // Enterprise tier: the workspace's colours
     expect((await brandByPublicId(wa.publicId))?.workspaceId).toBe(a.workspaceId);
 
     // On the free tier the widget keeps Takeover's look, but still only frames on the allowed sites.

@@ -1,4 +1,7 @@
+import { upgradeForLimit } from "@/lib/entitlements";
 import { toolRequest, text } from "@/lib/server/tool-route";
+import { visitorLimits } from "@/lib/workspace/gate";
+import { currentWorkspace } from "@/lib/workspace/session";
 import { DISTANCE_WEIGHT, optimizeFanTour, REGIONS, saveTourDraft } from "@/lib/tools/tour";
 
 export const maxDuration = 30;
@@ -16,6 +19,12 @@ export async function POST(req: Request): Promise<Response> {
   const fanbase = text(r.body.fanbase);
   if (!fanbase) return Response.json({ error: "Type a fanbase (1–100 characters).", mock: r.mock }, { status: 400 });
   const stops = Number(r.body.stops);
+  // Stops follow the visitor's plan (lib/entitlements.ts): Free when signed out.
+  const plan = await visitorLimits(await currentWorkspace().catch(() => null));
+  if (Number.isInteger(stops) && stops > plan.limits.tourStops) {
+    const upgrade = upgradeForLimit(plan.tier, "tourStops", `Your plan routes tours of up to ${plan.limits.tourStops} stops.`);
+    return Response.json({ error: `${upgrade?.reason ?? ""} ${upgrade ? `${upgrade.label} raises it.` : ""}`.trim(), code: "upgrade_required", upgrade, mock: r.mock }, { status: 402 });
+  }
   const maxLeg = Number(r.body.maxLegKm);
   const region = text(r.body.region, 20);
   const weight = Number(r.body.distanceWeight);

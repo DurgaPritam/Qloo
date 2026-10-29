@@ -1,3 +1,4 @@
+import { needFeature, withinLimit } from "@/lib/workspace/gate";
 import { workspaceUsage } from "@/lib/qloo/allowance";
 import { getQlooSource } from "@/lib/qloo/source";
 import { MAX_IMPORT_ROWS, type CsvAct } from "@/lib/roster/csv";
@@ -29,6 +30,9 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
     .filter((r: CsvAct) => r.name);
   if (!rows.length) return Response.json({ error: "No act names to import." }, { status: 400 });
   return inRoster(id, async ({ repo, ctx }) => {
+    const plan = await needFeature(repo, "rosters");
+    const have = (await repo.rosters.acts(id)).length;
+    withinLimit(plan, "rosterActs", have + rows.length - 1, `This plan's rosters hold up to ${plan.limits.rosterActs} acts; this one has ${have}, and the file has ${rows.length}.`);
     if (!can(ctx.role, "roster.edit")) throw new ForbiddenError("roster.edit");
     const source = getQlooSource();
     if (!qlooReady(source)) return Response.json({ error: "Qloo data is unavailable right now." }, { status: 503 });
