@@ -326,7 +326,7 @@ function Bell({ unread, onRead }: { unread: number; onRead: () => void }) {
   );
 }
 
-/** Settings sub-tabs, as in the design: General, Members, Branded decks, Inbox. */
+/** Settings sub-tabs, as in the design: General, Members, Branded decks, Plans & billing, Inbox. */
 export function SettingsTabs() {
   const path = usePathname();
   const tabs = [
@@ -335,6 +335,8 @@ export function SettingsTabs() {
     { href: "/workspace/settings/branding", label: "Branded decks" },
     { href: "/workspace/settings/api", label: "API" },
     { href: "/workspace/settings/white-label", label: "White-label" },
+    { href: "/workspace/settings/billing", label: "Plans & billing" },
+    { href: "/workspace/settings/usage", label: "Usage" },
     { href: "/workspace/inbox", label: "Inbox" },
   ];
   return (

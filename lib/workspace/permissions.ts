@@ -3,7 +3,7 @@ import type { Role } from "@/lib/db/schema";
 /**
  * What each role may do in a workspace. Every check in lib/db/scoped.ts goes through can().
  * viewer: read. member: also plan, comment, resolve, edit and refresh rosters, upload, attach and delete their data, add watches, run and shortlist sponsorship matches, log event results, and add and move outreach in the pipeline. admin: also manage people, any plan's
- * sharing, deck branding and the workspace's time zone, currency and Outcomes sample size. owner: also rename the workspace and manage admins and owners.
+ * sharing, deck branding and the workspace's time zone, currency and Outcomes sample size. owner: also rename the workspace, manage admins and owners, and buy or change the plan (admins see billing).
  */
 export type Action =
   | "plan.read"
@@ -34,6 +34,8 @@ export type Action =
   | "api.read"
   | "api.manage"
   | "whitelabel.edit"
+  | "billing.read"
+  | "billing.manage"
   | "workspace.rename";
 
 const RANK: Record<Role, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
@@ -67,6 +69,8 @@ const MIN_ROLE: Record<Action, Role> = {
   "workspace.settings": "admin",
   "api.manage": "admin",
   "whitelabel.edit": "admin",
+  "billing.read": "admin",
+  "billing.manage": "owner",
   "workspace.rename": "owner",
 };
 

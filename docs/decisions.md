@@ -1085,3 +1085,35 @@ limit). On Free, or past the limit, a signed-in run is kept like a signed-out on
 browser, and the run screen says why with a link to the plans. Single plans stay free, as the tier
 table says. The free tools stay free; the tour optimizer's stops and the lineup optimizer's pool are
 limited per tier (4 on Free), because both scale the Qloo calls of one request.
+
+**D151. Stripe without the SDK, test mode only** (Prompt 12, part 2). Billing calls Stripe's REST API
+with `fetch` (no new dependency) and verifies webhook signatures with `node:crypto` (HMAC-SHA256 of
+`t.payload`, five-minute tolerance, constant-time compare, several `v1` accepted while a secret
+rolls). Only `sk_test_`/`rk_test_` keys are accepted; a live key is refused until that is decided.
+Without keys the billing page says billing isn't set up and nothing can be bought. Prices are shown
+only as Stripe has them (price objects, cached ten minutes); with no price set the card says "Price
+to confirm", never a made-up figure. Free shows "Free" and Enterprise "Custom".
+
+**D152. How a subscription sets the tier.** Checkout carries the workspace id as
+`client_reference_id` and in the subscription's metadata, so every subscription event names its
+workspace (the Stripe customer is the fallback). The tier is the one the price id buys while the
+subscription is active, trialing or past_due (Stripe is retrying the card; the page shows a
+failed-payment banner from `invoice.payment_failed`, cleared by `invoice.paid`); unpaid, canceled
+or incomplete means Free, which keeps data read-only (D148). Each event id is recorded in the same
+transaction as its change, so a redelivery changes nothing and a failure records nothing (500, Stripe
+retries); an event older than the last one applied to the same subscription is ignored. A tier set
+by hand (Enterprise) is never changed by a webhook. Team is per seat: the subscription's quantity is
+the seat limit, and Checkout never sells fewer seats than the workspace already uses. A workspace
+that already pays is sent to the Customer Portal (change plan or seats, card, invoices, cancel)
+rather than a second Checkout. Only owners buy or change the plan; admins see billing.
+
+**D153. Enterprise, usage and legal pages** (Prompt 12, parts 2 to 5). "Contact us" emails
+`CONTACT_EMAIL` (the dev outbox locally) only when the user presses Send, with their address as
+Reply-To; Enterprise is then assigned by hand. Settings → Usage lists this month's plans saved,
+Qloo calls against the tier's allowance, seats, the largest roster, watched items and API calls,
+each against its limit with the tier that raises it; the billing page shows the same panel, as in
+the design. The design's payment-card row is replaced by "Manage billing" (Stripe's portal holds the
+card), and invoices come from Stripe. `/terms` and `/privacy` are placeholders flagged for a lawyer,
+written from what the code does today; there are no analytics or advertising cookies, so there is no
+cookie notice, and the privacy page says one will come with analytics. A test renders the campaign
+brief's printed page (its PDF) and fails on any number not from the engine, Qloo's names or the user.

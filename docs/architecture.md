@@ -130,7 +130,8 @@ starts with it.
 | `white_label` (*Built*) | custom domain, its TXT token and when it was verified, the public widget id, and the sites allowed to embed the widgets; logo and colours come from `deck_settings` | workspace |
 | `tours` (*Built*) | a Tour optimizer result saved from its server-side draft (the engine's route, scores and requests), with the user's window and per-stop dates and venue sizes (user data) | workspace |
 | `exports` | Blob path, kind (deck, PDF, CSV, poster), created by | workspace |
-| `subscriptions` | Stripe subscription id, price, status, current period end | workspace |
+| `subscriptions` (*Built*) | Stripe customer and subscription ids, the tier its price buys, interval, status, seats, period end, cancel at period end, when a payment failed, and the last event applied (so an older event never overwrites a newer one) | workspace |
+| `billing_events` (*Built*) | Stripe event ids already applied (idempotency), with the workspace they changed | workspace (nullable: an event for no known workspace is still recorded) |
 | `audit_log` | who did what (invite, role change, send, export, billing) | workspace |
 
 `datasets`, `dataset_rows` and `user_facts` stay separate from anything Qloo produced, so the "Your data" label is a property

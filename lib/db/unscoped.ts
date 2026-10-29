@@ -3,9 +3,11 @@ import "server-only";
 import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, type SQL } from "drizzle-orm";
 
 import type { Plan } from "@/lib/agent/types";
+import type { BillingChange } from "@/lib/billing/stripe";
+import { billingManaged, perSeat, tierForSubscription } from "@/lib/entitlements";
 
 import type { DB } from "./index";
-import { activityLog, apiKeys, deckSettings, digestSubscriptions, invitations, memberships, outreach, plans, users, watchItems, whiteLabel, workspaces, type Role, type Visibility } from "./schema";
+import { activityLog, apiKeys, billingEvents, deckSettings, digestSubscriptions, invitations, memberships, outreach, plans, subscriptions, users, watchItems, whiteLabel, workspaces, type Role, type Visibility } from "./schema";
 import { hashToken, normaliseEmail } from "./scoped";
 
 /**
@@ -248,4 +250,75 @@ export const unscopedBrandByWorkspace = (db: DB, workspaceId: string) => publicB
 /** For the Qloo client's counters: a workspace's tier (its allowance comes from lib/entitlements.ts). */
 export async function unscopedWorkspaceTier(db: DB, workspaceId: string): Promise<{ tier: string } | null> {
   return (await db.select({ tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0] ?? null;
+}
+
+export type BillingOutcome = { status: "applied" | "duplicate" | "ignored"; workspaceId: string | null; tier?: string };
+
+/**
+ * Applies one Stripe event, once: the event id is recorded in the same transaction as its change,
+ * so a redelivery changes nothing and a failure leaves nothing recorded (Stripe retries). The
+ * workspace comes from the subscription's metadata or its Stripe customer. A workspace assigned
+ * a tier by hand (Enterprise) keeps it.
+ */
+export async function unscopedApplyBilling(db: DB, event: { id: string; type: string }, change: BillingChange): Promise<BillingOutcome> {
+  return db.transaction(async (tx) => {
+    const fresh = await tx.insert(billingEvents).values({ id: event.id, type: event.type }).onConflictDoNothing().returning({ id: billingEvents.id });
+    if (!fresh.length) return { status: "duplicate", workspaceId: null };
+    if (change.kind === "ignore") return { status: "ignored", workspaceId: null };
+
+    const byCustomer = (await tx.select().from(subscriptions).where(eq(subscriptions.stripeCustomerId, change.customerId)).limit(1))[0] ?? null;
+    const named = "workspaceId" in change && change.workspaceId ? change.workspaceId : null;
+    const workspace = named ? ((await tx.select({ id: workspaces.id, tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, named)).limit(1))[0] ?? null) : null;
+    const workspaceId = workspace?.id ?? byCustomer?.workspaceId ?? null;
+    if (!workspaceId) return { status: "ignored", workspaceId: null };
+    await tx.update(billingEvents).set({ workspaceId }).where(eq(billingEvents.id, event.id));
+    const now = new Date();
+
+    if (change.kind === "link") {
+      await tx
+        .insert(subscriptions)
+        .values({ workspaceId, stripeCustomerId: change.customerId })
+        .onConflictDoUpdate({ target: subscriptions.workspaceId, set: { stripeCustomerId: change.customerId, updatedAt: now } });
+      return { status: "applied", workspaceId };
+    }
+    if (change.kind === "payment_failed" || change.kind === "payment_ok") {
+      await tx
+        .update(subscriptions)
+        .set({ paymentFailedAt: change.kind === "payment_failed" ? change.at : null, updatedAt: now })
+        .where(and(eq(subscriptions.workspaceId, workspaceId), eq(subscriptions.stripeCustomerId, change.customerId)));
+      return { status: "applied", workspaceId };
+    }
+
+    const existing = (await tx.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1))[0] ?? null;
+    // Stripe doesn't promise order: an older event about the same subscription never overwrites a newer one.
+    if (existing?.lastEventAt && existing.stripeSubscriptionId === change.subscriptionId && existing.lastEventAt > change.eventAt) return { status: "ignored", workspaceId };
+    // Another subscription ending (e.g. replaced by a new one) doesn't touch the current one.
+    if (existing?.stripeSubscriptionId && existing.stripeSubscriptionId !== change.subscriptionId && change.status === "canceled") return { status: "ignored", workspaceId };
+    const row = {
+      stripeCustomerId: change.customerId,
+      stripeSubscriptionId: change.subscriptionId,
+      tier: change.tier,
+      interval: change.interval,
+      status: change.status,
+      seats: change.seats,
+      currentPeriodEnd: change.currentPeriodEnd,
+      cancelAtPeriodEnd: change.cancelAtPeriodEnd,
+      lastEventAt: change.eventAt,
+      updatedAt: now,
+    };
+    await tx
+      .insert(subscriptions)
+      .values({ workspaceId, ...row })
+      .onConflictDoUpdate({ target: subscriptions.workspaceId, set: row });
+
+    const current = workspace ?? (await tx.select({ id: workspaces.id, tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0];
+    if (!current || !billingManaged(current.tier)) return { status: "applied", workspaceId, tier: current?.tier };
+    const tier = tierForSubscription({ tier: change.tier, status: change.status });
+    await tx
+      .update(workspaces)
+      .set({ tier, seats: perSeat(tier) ? change.seats : null })
+      .where(eq(workspaces.id, workspaceId));
+    if (tier !== current.tier) await tx.insert(activityLog).values({ workspaceId, actorId: null, action: "billing.tier", targetType: "workspace", targetId: workspaceId, detail: { from: current.tier, to: tier, status: change.status } });
+    return { status: "applied", workspaceId, tier };
+  });
 }

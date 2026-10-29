@@ -23,6 +23,11 @@ export const NAV = [
 /** The footer lists the tools under the nav. */
 export const FOOTER_EXTRA = TOOLS.map(({ href, label }) => ({ href, label }));
 
+export const LEGAL = [
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
+];
+
 /** City pages linked from /city and the footer: big markets first, then music and comedy towns. */
 export const FEATURED_CITIES = [
   "New York City", "Los Angeles", "Chicago", "Austin", "Nashville", "Atlanta", "Seattle", "Portland",

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 
-import { FOOTER_EXTRA, NAV, TOOLS } from "@/lib/site";
+import { FOOTER_EXTRA, LEGAL, NAV, TOOLS } from "@/lib/site";
 
 import { AccountBar } from "./account/account-bar";
 import { AppearanceControls } from "./appearance";
@@ -734,6 +734,13 @@ function SiteFooter({ max }: { max: string }) {
           <MonoLabel>Data</MonoLabel>
           <span>Taste data from Qloo. Cities from GeoNames (CC BY 4.0). Map outlines from Natural Earth.</span>
           <span>Capacity, dates and prices are always to confirm with the promoter.</span>
+          <span className="flex gap-3">
+            {LEGAL.map((item) => (
+              <Link key={item.href} href={item.href} className="text-mute hover:text-ink">
+                {item.label}
+              </Link>
+            ))}
+          </span>
         </div>
       </div>
     </footer>

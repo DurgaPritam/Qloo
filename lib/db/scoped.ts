@@ -51,6 +51,7 @@ import {
   rosters,
   snapshots,
   sponsorMatches,
+  subscriptions,
   tours,
   users,
   watchItems,
@@ -124,6 +125,14 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
   const repo = {
     context: ctx,
 
+    billing: {
+      /** The workspace's Stripe subscription, if it ever had one. */
+      async get() {
+        need("billing.read");
+        return (await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, ws)).limit(1))[0] ?? null;
+      },
+    },
+
     workspace: {
       async get() {
         return (await db.select().from(workspaces).where(eq(workspaces.id, ws)).limit(1))[0] ?? null;
@@ -135,7 +144,7 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         await db.update(workspaces).set({ name: clean }).where(eq(workspaces.id, ws));
         await log("workspace.renamed", { type: "workspace", id: ws }, { name: clean });
       },
-      /** The plan tier. Billing will set it; until then only the local, e2e-only dev route does. */
+      /** The plan tier, by hand: the local, e2e-only dev route. Stripe webhooks set it through lib/db/unscoped.ts. */
       async setTier(tier: TierName) {
         need("workspace.rename");
         await db.update(workspaces).set({ tier }).where(eq(workspaces.id, ws));

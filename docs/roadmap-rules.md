@@ -63,7 +63,10 @@ venues over 500", "not before March").
     `forWorkspace` as the key's creator, who must still be a member);
   - for white-label pages and widgets, a workspace's public brand (name, tier, colours, logo,
     allowed embed sites) by its verified custom domain, its widget id, or a public plan's
-    workspace; never any of its data.
+    workspace; never any of its data;
+  - a workspace's tier, for its monthly Qloo allowance (`lib/workspace/tier.ts`, cached briefly);
+  - applying a signature-verified Stripe webhook event to the workspace named in its metadata or
+    owning its Stripe customer: the subscription row and the tier, once per event id.
   Admin scripts, when they exist, follow the same naming.
 
 ## 4. Background jobs respect the Qloo budget

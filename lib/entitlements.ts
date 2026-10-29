@@ -27,6 +27,9 @@ export const FEATURES = {
 } as const;
 export type Feature = keyof typeof FEATURES;
 
+/** What every tier has, Free included. */
+export const FREE_INCLUDES = ["Today's tools", "The Daily game", "Single plans, signed out or in"];
+
 export interface Limits {
   /** Plans saved to the workspace per calendar month (UTC); null: unlimited. */
   plansPerMonth: number | null;
@@ -34,7 +37,7 @@ export interface Limits {
   rosterActs: number;
   /** Fanbases and cities watched. */
   watchItems: number;
-  /** Members (Team: per seat bought, at least this many). */
+  /** Members (Team: the seats bought; this many when none were bought, e.g. set by hand). */
   seats: number | null;
   /** Qloo calls per workspace per month. */
   qlooMonthly: number;
@@ -99,12 +102,40 @@ export function featuresOf(tier: string | null | undefined): Feature[] {
 
 export const has = (tier: string | null | undefined, feature: Feature): boolean => featuresOf(tier).includes(feature);
 
-/** The tier's limits; Team seats follow the seats bought (never fewer than the tier's floor). */
+/** The tier's limits; Team is priced per seat, so its seats are the seats bought. */
 export function limitsOf(tier: string | null | undefined, opts: { seatsBought?: number | null } = {}): Limits {
   const t = tierOrFree(tier);
   const l = TIERS[t].limits;
-  return t === "team" && opts.seatsBought ? { ...l, seats: Math.max(l.seats ?? 0, opts.seatsBought) } : l;
+  return perSeat(t) && opts.seatsBought ? { ...l, seats: opts.seatsBought } : l;
 }
+
+/** Tiers whose Stripe price is per seat (the subscription's quantity is its seats). */
+export const perSeat = (tier: string | null | undefined): boolean => tierOrFree(tier) === "team";
+
+/** How a tier is had: included for everyone, bought through Stripe Checkout, or set up after "Contact us". */
+export const howToGet = (tier: TierName): "included" | "checkout" | "contact" => (TIERS[tier].checkout ? "checkout" : rank(tier) === 0 ? "included" : "contact");
+
+/** Tiers bought through Stripe Checkout. */
+export const SELF_SERVE: TierName[] = TIER_NAMES.filter((t) => TIERS[t].checkout);
+
+/**
+ * The tier a Stripe subscription gives a workspace. A paid tier holds while the subscription is
+ * active, trialing, or past_due (Stripe is retrying the card); unpaid, canceled or incomplete
+ * falls back to Free, which keeps the workspace's data read-only.
+ */
+export function tierForSubscription(sub: { tier: string | null; status: string | null } | null): TierName {
+  if (!sub || !isTier(sub.tier) || !TIERS[sub.tier].checkout) return "free";
+  return liveSubscription(sub.status) ? sub.tier : "free";
+}
+
+/** Stripe statuses under which a subscription still holds its tier (past_due: Stripe is retrying the card). */
+export const liveSubscription = (status: string | null | undefined): boolean => status === "active" || status === "trialing" || status === "past_due";
+
+/** Whether billing may change a workspace's tier: not when it was assigned by hand (Enterprise). */
+export const billingManaged = (current: string | null | undefined): boolean => {
+  const t = tierOrFree(current);
+  return t === "free" || TIERS[t].checkout;
+};
 
 /** The lowest tier that includes a feature. */
 export function tierFor(feature: Feature): TierName {

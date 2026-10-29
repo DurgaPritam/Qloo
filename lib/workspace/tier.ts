@@ -1,7 +1,8 @@
 import "server-only";
 
 import { getDb } from "@/lib/db";
-import { unscopedWorkspaceTier } from "@/lib/db/unscoped";
+import type { BillingChange } from "@/lib/billing/stripe";
+import { unscopedApplyBilling, unscopedWorkspaceTier } from "@/lib/db/unscoped";
 import { limitsOf } from "@/lib/entitlements";
 
 /**
@@ -29,4 +30,11 @@ export async function tierAllowance(workspaceId: string): Promise<number | null>
 /** After a billing change, so the new allowance applies at once. */
 export function forgetTier(workspaceId: string) {
   cache.delete(workspaceId);
+}
+
+/** A verified Stripe event's change to a workspace's subscription and tier (once per event id). */
+export async function applyBillingEvent(event: { id: string; type: string }, change: BillingChange) {
+  const outcome = await unscopedApplyBilling(await getDb(), event, change);
+  if (outcome.workspaceId) forgetTier(outcome.workspaceId);
+  return outcome;
 }

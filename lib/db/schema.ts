@@ -829,6 +829,47 @@ export const whiteLabel = pgTable(
   (t) => [uniqueIndex("white_label_public_idx").on(t.publicId), uniqueIndex("white_label_domain_idx").on(t.domain)],
 );
 
+/* ---------- Billing ---------- */
+
+/**
+ * A workspace's Stripe subscription, kept in step by signature-verified webhooks. The workspace's
+ * tier is derived from it (lib/entitlements.ts tierForSubscription); Enterprise is set by hand.
+ */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    workspaceId: text("workspace_id")
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    stripeCustomerId: text("stripe_customer_id").notNull(),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    /** The paid tier the subscription's price buys; null for a price Takeover doesn't know. */
+    tier: text("tier"),
+    /** month | year */
+    interval: text("interval"),
+    /** Stripe's subscription status (active, trialing, past_due, unpaid, canceled, …). */
+    status: text("status"),
+    /** The subscription's quantity: Team seats bought. */
+    seats: integer("seats"),
+    currentPeriodEnd: timestamp("current_period_end", { mode: "date", withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    /** Set by invoice.payment_failed, cleared by invoice.paid. */
+    paymentFailedAt: timestamp("payment_failed_at", { mode: "date", withTimezone: true }),
+    /** When Stripe created the last subscription event applied, so an older event never overwrites a newer one. */
+    lastEventAt: timestamp("last_event_at", { mode: "date", withTimezone: true }),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("subscriptions_customer_idx").on(t.stripeCustomerId)],
+);
+
+/** Stripe events already handled, by Stripe's event id: a redelivered event changes nothing. */
+export const billingEvents = pgTable("billing_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  workspaceId: text("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+  receivedAt: createdAt(),
+});
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -859,4 +900,6 @@ export const TENANT_TABLES = [
   "api_keys",
   "api_usage",
   "white_label",
+  "subscriptions",
+  "billing_events",
 ] as const;

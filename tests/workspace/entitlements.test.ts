@@ -20,7 +20,12 @@ import { featureAccess, planSaving } from "@/lib/workspace/gate";
 import { addUser } from "../support/db";
 
 /** The workspace the mocked session acts in; set per test. */
-let current: { user: { id: string; email: string | null; name: string | null }; ctx: { userId: string; workspaceId: string; role: "owner" }; repo: WorkspaceRepo; memberships: { workspaceId: string; name: string }[] } | null = null;
+let current: {
+  user: { id: string; email: string | null; name: string | null };
+  ctx: { userId: string; workspaceId: string; role: "owner" };
+  repo: WorkspaceRepo;
+  memberships: { workspaceId: string; name: string }[];
+} | null = null;
 vi.mock("@/lib/workspace/session", async (original) => ({ ...(await original<typeof import("@/lib/workspace/session")>()), currentWorkspace: async () => current }));
 vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), connection: async () => {} }));
 
@@ -51,7 +56,11 @@ afterEach(() => {
 
 describe("the tier map", () => {
   it("gives every feature to exactly one tier, and each tier everything below it", () => {
-    for (const f of Object.keys(FEATURES) as Feature[]) expect(TIER_NAMES.filter((t) => TIERS[t].adds.includes(f)), f).toHaveLength(1);
+    for (const f of Object.keys(FEATURES) as Feature[])
+      expect(
+        TIER_NAMES.filter((t) => TIERS[t].adds.includes(f)),
+        f,
+      ).toHaveLength(1);
     for (let i = 1; i < TIER_NAMES.length; i++) for (const f of featuresOf(TIER_NAMES[i - 1])) expect(has(TIER_NAMES[i], f)).toBe(true);
     expect(featuresOf("free")).toEqual([]);
     expect(featuresOf("nonsense")).toEqual([]); // an unknown tier is Free
@@ -61,12 +70,13 @@ describe("the tier map", () => {
     expect(upgradeFor("api")).toMatchObject({ tier: "enterprise", selfServe: false });
   });
 
-  it("raises limits tier by tier; Team seats follow the seats bought", () => {
+  it("raises limits tier by tier; Team seats are the seats bought", () => {
     expect(nextTierFor("free", "plansPerMonth")).toBe("pro");
     expect(nextTierFor("pro", "rosterActs")).toBe("team");
     expect(nextTierFor("enterprise", "qlooMonthly")).toBeNull();
     expect(limitsOf("team", { seatsBought: 8 }).seats).toBe(8);
-    expect(limitsOf("team", { seatsBought: 1 }).seats).toBe(TIERS.team.limits.seats);
+    expect(limitsOf("team", { seatsBought: 2 }).seats).toBe(2);
+    expect(limitsOf("team").seats).toBe(TIERS.team.limits.seats);
     expect(limitsOf("pro", { seatsBought: 8 }).seats).toBe(TIERS.pro.limits.seats);
   });
 });
@@ -83,7 +93,11 @@ const DELEGATED: Record<string, string> = {
   "app/api/jobs/watch-tick/route.ts": "lib/watch/jobs.ts",
 };
 const UNGATED: Record<string, string> = {
-  "app/api/account/route.ts": "the user's own account (export, delete), on every tier",
+  "app/api/account/route.ts": "who is signed in and switching workspace, on every tier",
+  "app/api/billing/webhook/route.ts": "Stripe webhooks: signature-verified, they set the tier",
+  "app/api/workspace/billing/checkout/route.ts": "buying a plan is open to every tier (owners only)",
+  "app/api/workspace/billing/contact/route.ts": "the Enterprise contact form, on every tier",
+  "app/api/workspace/billing/portal/route.ts": "managing or cancelling a plan is always allowed (owners only)",
   "app/api/auth/[...nextauth]/route.ts": "sign-in",
   "app/api/daily/route.ts": "Daily game: Free",
   "app/api/dev/tier/route.ts": "e2e only; refuses outside tests",
@@ -136,7 +150,9 @@ describe("every feature route checks an entitlement", () => {
 
   it("keeps tier logic in lib/entitlements: nothing else compares tier names", () => {
     const files = [...routes("app"), ...readdirSync("lib", { recursive: true }).map((f) => join("lib", String(f)))].filter((f) => /\.tsx?$/.test(f));
-    const offenders = files.filter((f) => !f.startsWith("lib/entitlements") && !f.startsWith("lib/billing") && /tier\s*[!=]==\s*"(free|pro|team|enterprise)"|"(free|pro|team|enterprise)"\s*[!=]==\s*\w*tier/i.test(readFileSync(f, "utf8")));
+    const offenders = files.filter(
+      (f) => !f.startsWith("lib/entitlements") && /tier\s*[!=]==\s*"(free|pro|team|enterprise)"|"(free|pro|team|enterprise)"\s*[!=]==\s*\w*tier/i.test(readFileSync(f, "utf8")),
+    );
     expect(offenders).toEqual([]);
   });
 });
