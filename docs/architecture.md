@@ -127,6 +127,7 @@ starts with it.
 | `campaign_briefs` (*Built*) | a targeting brief from a plan (or a fanbase alone, no plan): Qloo demographics, interests by category, the engine's cities, keyword groups, numbered facts and three angles the model wrote from them; the user's flight | workspace |
 | `api_keys` (*Built*) | public API keys: name, short prefix, SHA-256 hash (the key is shown once), creator, last used, revoked | workspace |
 | `api_usage` (*Built*) | requests per key, month and endpoint; endpoint `*` is the monthly total the quota checks atomically | workspace |
+| `white_label` (*Built*) | custom domain, its TXT token and when it was verified, the public widget id, and the sites allowed to embed the widgets; logo and colours come from `deck_settings` | workspace |
 | `tours` (*Built*) | a Tour optimizer result saved from its server-side draft (the engine's route, scores and requests), with the user's window and per-stop dates and venue sizes (user data) | workspace |
 | `exports` | Blob path, kind (deck, PDF, CSV, poster), created by | workspace |
 | `subscriptions` | Stripe subscription id, price, status, current period end | workspace |

@@ -148,6 +148,13 @@
       "when": 1793249101068,
       "tag": "0020_public_api",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793249605413,
+      "tag": "0021_white_label",
+      "breakpoints": true
     }
   ]
 }

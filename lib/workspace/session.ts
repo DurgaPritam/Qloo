@@ -11,6 +11,9 @@ import { loadPlan } from "@/lib/server/plan-store";
 import {
   unscopedAcceptInvitation,
   unscopedApiKeyByHash,
+  unscopedBrandByDomain,
+  unscopedBrandByPublicId,
+  unscopedBrandByWorkspace,
   unscopedInvitationByToken,
   unscopedReminderWorkspaces,
   unscopedUnsubscribeDigest,
@@ -119,6 +122,29 @@ export async function apiKeyContext(key: string) {
   if (!found?.createdBy) return null;
   const ws = await jobContext(db, found.workspaceId, found.createdBy);
   return ws ? { ...ws, keyId: found.id, tier: found.tier } : null;
+}
+
+export type { PublicBrand } from "@/lib/db/unscoped";
+
+/** White-label: the public branding behind a verified custom domain, a widget id, or a plan's workspace. */
+export async function brandByDomain(host: string) {
+  return unscopedBrandByDomain(await getDb(), host.toLowerCase());
+}
+export async function brandByPublicId(publicId: string) {
+  return /^w_[A-Za-z0-9_-]{8,}$/.test(publicId) ? unscopedBrandByPublicId(await getDb(), publicId) : null;
+}
+export async function brandForWorkspace(workspaceId: string) {
+  return unscopedBrandByWorkspace(await getDb(), workspaceId);
+}
+
+/**
+ * A plan as anyone may see it, ignoring who is signed in: a signed-out run, or a workspace plan
+ * shared publicly. Widgets and white-label pages use only this, so they never show a private plan.
+ */
+export async function publicPlanOnly(id: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  const access = await planForViewer(getDb, id, null, loadPlan);
+  return access && access.kind !== "member" ? access : null;
 }
 
 /** For the hourly tick: workspaces with an overdue pipeline card not yet reminded, each with an owner to act as. */

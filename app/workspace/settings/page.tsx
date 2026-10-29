@@ -48,6 +48,8 @@ const ACTIONS: Record<string, string> = {
   "brief.created": "made a campaign brief",
   "api.key_created": "created an API key",
   "api.key_revoked": "revoked an API key",
+  "whitelabel.domain": "changed the custom domain",
+  "whitelabel.verified": "verified the custom domain",
   "outreach.assigned": "reassigned outreach",
 };
 

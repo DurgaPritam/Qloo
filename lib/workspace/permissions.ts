@@ -33,6 +33,7 @@ export type Action =
   | "workspace.settings"
   | "api.read"
   | "api.manage"
+  | "whitelabel.edit"
   | "workspace.rename";
 
 const RANK: Record<Role, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
@@ -65,6 +66,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "branding.edit": "admin",
   "workspace.settings": "admin",
   "api.manage": "admin",
+  "whitelabel.edit": "admin",
   "workspace.rename": "owner",
 };
 

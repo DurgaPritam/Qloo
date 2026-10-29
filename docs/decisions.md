@@ -1035,3 +1035,24 @@ endpoint. The OpenAPI 3.1 description is built from the same constants (/api/v1/
 /developers renders it. **The API is off in production until `TAKEOVER_PUBLIC_API=1`**: serving
 Qloo-derived data to third parties depends on the commercial Qloo agreement, and the attribution
 wording is to confirm with Qloo.
+
+**D147. White-label and widgets** (Prompt "public API and white-label", part 2). A workspace's logo
+and colours are its branded deck settings (one brand everywhere); its three colours become the
+page's colour variables (`brandVars`), with accent text falling back to the text colour when the
+accent is too faint to read. `/p/{planId}` shows a publicly shared plan under that brand, without
+Takeover's chrome, always with Qloo's attribution and "to confirm with the promoter". A custom
+domain is verified by a TXT record at `_takeover.<domain>` (`takeover-verify=<token>`; a changed
+domain starts unverified with a new token); `proxy.ts` lets a custom domain serve only `/p/…`,
+`/embed/…` and static files (everything else 404s there), and `/p` on a custom domain shows only
+that workspace's public plans. The domain must also be added to the Vercel project and pointed at
+it, which is a manual step for now. Widgets (`/embed/overlap`, `/embed/vote/{planId}`) are
+self-contained HTML with a strict CSP: `default-src 'none'`, the one inline style and the one
+inline script allowed by SHA-256 hash (no style attributes; bars are `<progress>`), `connect-src
+'self'` only for the vote, `form-action` and `base-uri` none, and `frame-ancestors` from the
+workspace's allowed sites (any site when it lists none). They read no session (plans come from
+`publicPlanOnly`, so a private plan is never shown, even to a signed-in member) and set no cookies;
+they are addressed by a random widget id, never the workspace id, and a widget id brands only its
+own workspace's plans. Branding and custom domains need a tier with white-label (Pro, Enterprise);
+the allowed-sites setting applies on every tier. Until billing exists, the tier is set only by an
+e2e-only dev route. Considered: reusing /plan/{id} on custom domains (it carries the app's
+navigation and member features, which a white-label domain must not expose).

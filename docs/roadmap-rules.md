@@ -60,7 +60,10 @@ venues over 500", "not before March").
     owner to act as (the job then works through `forWorkspace` only);
   - turning off one person's pipeline reminder emails from their signed (reminders-only) link;
   - for the public API, the workspace of a key, by the key's hash (the request then works through
-    `forWorkspace` as the key's creator, who must still be a member).
+    `forWorkspace` as the key's creator, who must still be a member);
+  - for white-label pages and widgets, a workspace's public brand (name, tier, colours, logo,
+    allowed embed sites) by its verified custom domain, its widget id, or a public plan's
+    workspace; never any of its data.
   Admin scripts, when they exist, follow the same naming.
 
 ## 4. Background jobs respect the Qloo budget

@@ -801,6 +801,32 @@ export const apiUsage = pgTable(
   (t) => [primaryKey({ columns: [t.keyId, t.month, t.endpoint] }), index("api_usage_workspace_idx").on(t.workspaceId, t.month)],
 );
 
+/* ---------- White-label ---------- */
+
+/**
+ * A workspace's white-label settings: a custom domain for its shared plans and widgets (verified
+ * by a DNS TXT record), a public id for its widgets (never the workspace id), and the sites allowed
+ * to embed those widgets. Logo and colours are the branded deck settings.
+ */
+export const whiteLabel = pgTable(
+  "white_label",
+  {
+    workspaceId: text("workspace_id")
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    publicId: text("public_id").notNull(),
+    /** Lower-case host, e.g. plans.northstar.live. */
+    domain: text("domain"),
+    /** The TXT value proving the domain: takeover-verify=<token>. */
+    domainToken: text("domain_token"),
+    domainVerifiedAt: timestamp("domain_verified_at", { mode: "date", withTimezone: true }),
+    /** Origins allowed to frame the widgets (CSP frame-ancestors); empty means any site. */
+    embedOrigins: jsonb("embed_origins").$type<string[]>().notNull().default([]),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("white_label_public_idx").on(t.publicId), uniqueIndex("white_label_domain_idx").on(t.domain)],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -830,4 +856,5 @@ export const TENANT_TABLES = [
   "campaign_briefs",
   "api_keys",
   "api_usage",
+  "white_label",
 ] as const;

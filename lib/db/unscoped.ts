@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, asc, eq, inArray, isNull, lt, lte, ne, notInArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, type SQL } from "drizzle-orm";
 
 import type { Plan } from "@/lib/agent/types";
 
 import type { DB } from "./index";
-import { activityLog, apiKeys, digestSubscriptions, invitations, memberships, outreach, plans, users, watchItems, workspaces, type Role, type Visibility } from "./schema";
+import { activityLog, apiKeys, deckSettings, digestSubscriptions, invitations, memberships, outreach, plans, users, watchItems, whiteLabel, workspaces, type Role, type Visibility } from "./schema";
 import { hashToken, normaliseEmail } from "./scoped";
 
 /**
@@ -202,3 +202,45 @@ export async function unscopedApiKeyByHash(db: DB, hash: string): Promise<{ id: 
   )[0];
   return row ?? null;
 }
+
+export interface PublicBrand {
+  workspaceId: string;
+  name: string;
+  tier: string;
+  /** Null until white-label settings are opened (no widget id yet). */
+  publicId: string | null;
+  domain: string | null;
+  verified: boolean;
+  embedOrigins: string[];
+  branding: { bg: string; text: string; accent: string; font: string; logoData: string | null } | null;
+}
+
+async function publicBrand(db: DB, where: SQL): Promise<PublicBrand | null> {
+  const row = (
+    await db
+      .select({ id: workspaces.id, name: workspaces.name, tier: workspaces.tier, wl: whiteLabel, deck: deckSettings })
+      .from(workspaces)
+      .leftJoin(whiteLabel, eq(whiteLabel.workspaceId, workspaces.id))
+      .leftJoin(deckSettings, eq(deckSettings.workspaceId, workspaces.id))
+      .where(where)
+      .limit(1)
+  )[0];
+  if (!row) return null;
+  return {
+    workspaceId: row.id,
+    name: row.name,
+    tier: row.tier,
+    publicId: row.wl?.publicId ?? null,
+    domain: row.wl?.domain ?? null,
+    verified: Boolean(row.wl?.domainVerifiedAt),
+    embedOrigins: row.wl?.embedOrigins ?? [],
+    branding: row.deck ? { bg: row.deck.bg, text: row.deck.text, accent: row.deck.accent, font: row.deck.font, logoData: row.deck.logoData } : null,
+  };
+}
+
+/** For a request on a custom domain: the workspace whose verified domain it is, and its public branding only. */
+export const unscopedBrandByDomain = (db: DB, host: string) => publicBrand(db, and(eq(whiteLabel.domain, host), isNotNull(whiteLabel.domainVerifiedAt))!);
+/** For a widget: the workspace behind a public widget id, and its public branding only. */
+export const unscopedBrandByPublicId = (db: DB, publicId: string) => publicBrand(db, eq(whiteLabel.publicId, publicId));
+/** For a shared plan: the plan's workspace's public branding, when it has white-label settings. */
+export const unscopedBrandByWorkspace = (db: DB, workspaceId: string) => publicBrand(db, eq(workspaces.id, workspaceId));

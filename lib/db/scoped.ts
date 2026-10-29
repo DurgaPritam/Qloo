@@ -13,7 +13,7 @@ import type { PitchInput } from "@/lib/export/sponsor";
 import type { DeckFont } from "@/lib/export/branding";
 import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
 import { predictionsFromPlan } from "@/lib/outcomes/predict";
-import { entitlementsFor } from "@/lib/entitlements";
+import { entitlementsFor, type TierName } from "@/lib/entitlements";
 import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
 import type { OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
@@ -55,6 +55,7 @@ import {
   users,
   watchItems,
   watchRuns,
+  whiteLabel,
   workspaces,
   type CommentTarget,
   type JobStatus,
@@ -137,6 +138,12 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
         if (!clean) throw new InputError("Give the workspace a name.");
         await db.update(workspaces).set({ name: clean }).where(eq(workspaces.id, ws));
         await log("workspace.renamed", { type: "workspace", id: ws }, { name: clean });
+      },
+      /** The plan tier. Billing will set it; until then only the local, e2e-only dev route does. */
+      async setTier(tier: TierName) {
+        need("workspace.rename");
+        await db.update(workspaces).set({ tier }).where(eq(workspaces.id, ws));
+        await log("workspace.tier", { type: "workspace", id: ws }, { tier });
       },
       /** Time zone (weekly watch run), currency (logged gross) and the Outcomes sample size. */
       async saveSettings(input: { timeZone: string | null; currency: string | null; outcomeMinSample: number | null }) {
@@ -1098,6 +1105,38 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           .select({ keyId: apiUsage.keyId, endpoint: apiUsage.endpoint, count: apiUsage.count })
           .from(apiUsage)
           .where(and(eq(apiUsage.workspaceId, ws), eq(apiUsage.month, month)));
+      },
+    },
+
+    /** White-label: custom domain, widget id and the sites allowed to embed the widgets. */
+    whiteLabel: {
+      async get() {
+        return (await db.select().from(whiteLabel).where(eq(whiteLabel.workspaceId, ws)).limit(1))[0] ?? null;
+      },
+      /** Creates the row (with a public widget id) on first use. */
+      async ensure() {
+        need("whitelabel.edit");
+        await db.insert(whiteLabel).values({ workspaceId: ws, publicId: `w_${newToken().slice(0, 16)}` }).onConflictDoNothing();
+        return (await db.select().from(whiteLabel).where(eq(whiteLabel.workspaceId, ws)).limit(1))[0]!;
+      },
+      /** A new or changed domain starts unverified, with a new TXT token. */
+      async setDomain(domain: string | null) {
+        need("whitelabel.edit");
+        const row = await repo.whiteLabel.ensure();
+        if (row.domain === domain) return row;
+        await db.update(whiteLabel).set({ domain, domainToken: domain ? newToken().slice(0, 24) : null, domainVerifiedAt: null, updatedAt: new Date() }).where(eq(whiteLabel.workspaceId, ws));
+        await log("whitelabel.domain", { type: "workspace", id: ws }, { domain });
+        return (await repo.whiteLabel.get())!;
+      },
+      async markVerified(at: Date) {
+        need("whitelabel.edit");
+        await db.update(whiteLabel).set({ domainVerifiedAt: at, updatedAt: at }).where(eq(whiteLabel.workspaceId, ws));
+        await log("whitelabel.verified", { type: "workspace", id: ws });
+      },
+      async setEmbedOrigins(origins: string[]) {
+        need("whitelabel.edit");
+        await repo.whiteLabel.ensure();
+        await db.update(whiteLabel).set({ embedOrigins: origins, updatedAt: new Date() }).where(eq(whiteLabel.workspaceId, ws));
       },
     },
 

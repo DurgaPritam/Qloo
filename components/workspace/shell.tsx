@@ -334,6 +334,7 @@ export function SettingsTabs() {
     { href: "/workspace/members", label: "Members" },
     { href: "/workspace/settings/branding", label: "Branded decks" },
     { href: "/workspace/settings/api", label: "API" },
+    { href: "/workspace/settings/white-label", label: "White-label" },
     { href: "/workspace/inbox", label: "Inbox" },
   ];
   return (
