@@ -31,6 +31,8 @@ export type Action =
   | "pipeline.edit"
   | "branding.edit"
   | "workspace.settings"
+  | "api.read"
+  | "api.manage"
   | "workspace.rename";
 
 const RANK: Record<Role, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
@@ -46,6 +48,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "sponsor.read": "viewer",
   "outcome.read": "viewer",
   "pipeline.read": "viewer",
+  "api.read": "member",
   "plan.create": "member",
   "plan.share.own": "member",
   "comment.create": "member",
@@ -61,6 +64,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "member.manage": "admin",
   "branding.edit": "admin",
   "workspace.settings": "admin",
+  "api.manage": "admin",
   "workspace.rename": "owner",
 };
 

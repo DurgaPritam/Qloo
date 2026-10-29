@@ -1016,3 +1016,22 @@ without it. Near misses are the next bills in the same order, with the swap and 
 a fuller or better bill that is over budget is shown with how much over. The poster export is the
 existing one: the server re-scores the bill from the draft's own matrix (headliner = top tier, then
 best connected). No fee is ever suggested.
+
+**D146. Public API v1** (Prompt "public API and white-label", part 1). `/api/v1` serves overlap,
+fanbase cities, venue recommendations, brand matches, and plans (POST answers 202 with a job id; the
+agent runs through the job queue on the workspace's Qloo allowance and saves the plan to the
+workspace, private; GET /plans/{id} gives the job's status or the finished plan). Every answer is
+`{data, evidence, attribution, meta}`: evidence lists the Qloo requests and how each figure is
+computed; attribution (Qloo, "Taste data from Qloo", qloo.com, one constant) is on errors too; meta
+carries the quota. An ambiguous name answers `status: "choose"` with entity ids to send back.
+Keys: `tk_` + 32 random bytes, stored as SHA-256 (fine for a high-entropy secret; a slow hash is for
+passwords) with a 9-character prefix for telling keys apart, shown once, revocable, created by admins,
+capped per tier; a key acts as its creator and stops working if they leave. Limits per key come from
+the workspace's tier (`lib/entitlements.ts`; every workspace is "free" until billing exists, and the
+numbers are placeholders): a per-minute limit (Upstash sliding window, memory locally) and a
+monthly quota counted in Postgres with one conditional UPDATE, so concurrent requests can never pass
+it; a refused request runs nothing. Settings → API shows the keys and this month's usage per key and
+endpoint. The OpenAPI 3.1 description is built from the same constants (/api/v1/openapi.json) and
+/developers renders it. **The API is off in production until `TAKEOVER_PUBLIC_API=1`**: serving
+Qloo-derived data to third parties depends on the commercial Qloo agreement, and the attribution
+wording is to confirm with Qloo.

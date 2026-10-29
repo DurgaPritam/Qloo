@@ -125,6 +125,8 @@ starts with it.
 | `roster_acts` (*Built*) | roster, Qloo entity id, name, type, resolver snapshot, home city (user data), added by, Qloo affinities to the other acts and when | workspace |
 | `entity_profiles` (*Built*) | per Qloo entity: best city, partner, sponsor and per-city heat, refreshed at; keyed live or sample | Shared: Qloo data about a public entity, not customer data |
 | `campaign_briefs` (*Built*) | a targeting brief from a plan (or a fanbase alone, no plan): Qloo demographics, interests by category, the engine's cities, keyword groups, numbered facts and three angles the model wrote from them; the user's flight | workspace |
+| `api_keys` (*Built*) | public API keys: name, short prefix, SHA-256 hash (the key is shown once), creator, last used, revoked | workspace |
+| `api_usage` (*Built*) | requests per key, month and endpoint; endpoint `*` is the monthly total the quota checks atomically | workspace |
 | `tours` (*Built*) | a Tour optimizer result saved from its server-side draft (the engine's route, scores and requests), with the user's window and per-stop dates and venue sizes (user data) | workspace |
 | `exports` | Blob path, kind (deck, PDF, CSV, poster), created by | workspace |
 | `subscriptions` | Stripe subscription id, price, status, current period end | workspace |

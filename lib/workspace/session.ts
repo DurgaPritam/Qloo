@@ -10,12 +10,14 @@ import { loadPlan } from "@/lib/server/plan-store";
 
 import {
   unscopedAcceptInvitation,
+  unscopedApiKeyByHash,
   unscopedInvitationByToken,
   unscopedReminderWorkspaces,
   unscopedUnsubscribeDigest,
   unscopedUnsubscribeReminders,
   unscopedWatchWorkspacesDue,
 } from "@/lib/db/unscoped";
+import { hashToken } from "@/lib/db/scoped";
 import { readUnsubscribeToken } from "@/lib/watch/token";
 
 import { contextFor, jobContext, planForViewer } from "./context";
@@ -104,6 +106,19 @@ export async function jobWorkspace(workspaceId: string, userId: string) {
 /** For the weekly market watch tick: workspaces with a watch due, each with an owner to act as. */
 export async function watchWorkspacesDue(now: Date) {
   return unscopedWatchWorkspacesDue(await getDb(), now);
+}
+
+/**
+ * The workspace an API key belongs to, acting as the member who created it (a key stops working
+ * when its creator leaves the workspace, or when it is revoked). Null for an unknown key.
+ */
+export async function apiKeyContext(key: string) {
+  if (!/^tk_[A-Za-z0-9_-]{20,}$/.test(key)) return null;
+  const db = await getDb();
+  const found = await unscopedApiKeyByHash(db, hashToken(key));
+  if (!found?.createdBy) return null;
+  const ws = await jobContext(db, found.workspaceId, found.createdBy);
+  return ws ? { ...ws, keyId: found.id, tier: found.tier } : null;
 }
 
 /** For the hourly tick: workspaces with an overdue pipeline card not yet reminded, each with an owner to act as. */

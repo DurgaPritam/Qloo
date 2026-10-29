@@ -114,14 +114,14 @@ class UpstashLimiter implements RateLimiter {
   }
 }
 
-function build(name: string, limit: number, window: "1 h" | "1 d" = "1 h"): RateLimiter {
-  const memory = new MemoryLimiter(limit, window === "1 h" ? HOUR_MS : DAY_MS);
+function build(name: string, limit: number, window: "1 m" | "1 h" | "1 d" = "1 h"): RateLimiter {
+  const memory = new MemoryLimiter(limit, window === "1 m" ? 60_000 : window === "1 h" ? HOUR_MS : DAY_MS);
   // Sample-data runs (local, tests) never count against the shared limits in Redis (decisions D48).
   const redis = isMockMode() ? null : getRedis();
   if (!redis) return memory;
   const ratelimit = new Ratelimit({
     redis,
-    limiter: window === "1 h" ? Ratelimit.slidingWindow(limit, window) : Ratelimit.fixedWindow(limit, window),
+    limiter: window === "1 d" ? Ratelimit.fixedWindow(limit, window) : Ratelimit.slidingWindow(limit, window),
     prefix: `takeover:rl:${name}`,
     timeout: 1500,
   });
@@ -140,6 +140,15 @@ export function getLimiters(): Limiters {
   limiters.emails ??= build("emails", LIMITS.emailsPerHour);
   limiters.daily ??= build("daily", LIMITS.dailyRuns, "1 d");
   return limiters as Limiters;
+}
+
+const apiLimiters = new Map<string, RateLimiter>();
+
+/** Public API: requests per minute per key, one limiter per tier's limit. */
+export function apiLimiter(perMinute: number): RateLimiter {
+  const key = String(perMinute);
+  if (!apiLimiters.has(key)) apiLimiters.set(key, build(`api:${key}`, perMinute, "1 m"));
+  return apiLimiters.get(key)!;
 }
 
 /** The daily ceiling is one shared bucket for every visitor. */

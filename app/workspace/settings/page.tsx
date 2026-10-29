@@ -46,6 +46,8 @@ const ACTIONS: Record<string, string> = {
   "outreach.sent": "marked outreach sent",
   "tour.saved": "saved a tour",
   "brief.created": "made a campaign brief",
+  "api.key_created": "created an API key",
+  "api.key_revoked": "revoked an API key",
   "outreach.assigned": "reassigned outreach",
 };
 

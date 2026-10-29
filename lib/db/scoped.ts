@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lt, lte, ne, notInArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
 
 import type { ActProfile, CallRecord, RosterEntity } from "@/lib/roster/types";
 import type { CityOption, MetricDef } from "@/lib/data/types";
@@ -13,6 +13,7 @@ import type { PitchInput } from "@/lib/export/sponsor";
 import type { DeckFont } from "@/lib/export/branding";
 import { sellThrough, type Prediction } from "@/lib/engine/outcomes";
 import { predictionsFromPlan } from "@/lib/outcomes/predict";
+import { entitlementsFor } from "@/lib/entitlements";
 import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
 import type { OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
@@ -26,6 +27,8 @@ import { isPlanTarget } from "@/lib/workspace/targets";
 import type { DB } from "./index";
 import {
   activityLog,
+  apiKeys,
+  apiUsage,
   campaignBriefs,
   comments,
   alerts,
@@ -472,8 +475,8 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
     },
 
     jobs: {
-      async create(input: { kind: "roster.refresh" | "watch.refresh" | "pipeline.reminders"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
-        need(input.kind === "roster.refresh" ? "roster.edit" : input.kind === "pipeline.reminders" ? "pipeline.read" : "watch.read");
+      async create(input: { kind: "roster.refresh" | "watch.refresh" | "pipeline.reminders" | "plan.create"; targetId: string; status: JobStatus; payload?: Record<string, unknown>; note?: string }) {
+        need(input.kind === "roster.refresh" ? "roster.edit" : input.kind === "pipeline.reminders" ? "pipeline.read" : input.kind === "plan.create" ? "plan.create" : "watch.read");
         const id = crypto.randomUUID();
         await db.insert(jobRuns).values({ id, workspaceId: ws, createdBy: ctx.userId, ...input });
         return id;
@@ -1035,6 +1038,66 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
           await db.update(outreach).set({ remindedFor: d.dueDate }).where(and(eq(outreach.workspaceId, ws), eq(outreach.id, d.id)));
         }
         return owned;
+      },
+    },
+
+    /** Public API keys and their usage. Keys are stored as a hash; the key is returned once, on creation. */
+    api: {
+      async keys() {
+        need("api.read");
+        return db
+          .select({ id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.prefix, createdAt: apiKeys.createdAt, lastUsedAt: apiKeys.lastUsedAt, revokedAt: apiKeys.revokedAt, author: users.name, authorEmail: users.email })
+          .from(apiKeys)
+          .leftJoin(users, eq(users.id, apiKeys.createdBy))
+          .where(eq(apiKeys.workspaceId, ws))
+          .orderBy(desc(apiKeys.createdAt));
+      },
+      async createKey(name: string) {
+        need("api.manage");
+        const clean = name.trim().slice(0, MAX_NAME);
+        if (!clean) throw new InputError("Name the key, e.g. Website or Zapier.");
+        const workspace = (await db.select({ tier: workspaces.tier }).from(workspaces).where(eq(workspaces.id, ws)).limit(1))[0];
+        const live = await db.select({ n: count() }).from(apiKeys).where(and(eq(apiKeys.workspaceId, ws), isNull(apiKeys.revokedAt)));
+        const max = entitlementsFor(workspace?.tier).api.keys;
+        if ((live[0]?.n ?? 0) >= max) throw new InputError(`This plan allows ${max} active keys. Revoke one first.`);
+        const key = `tk_${newToken()}`;
+        const id = crypto.randomUUID();
+        await db.insert(apiKeys).values({ id, workspaceId: ws, name: clean, prefix: key.slice(0, 9), hash: hashToken(key), createdBy: ctx.userId });
+        await log("api.key_created", { type: "api_key", id }, { name: clean });
+        // The only time the key leaves the server.
+        return { id, key, prefix: key.slice(0, 9) };
+      },
+      async revokeKey(id: string) {
+        need("api.manage");
+        await db.update(apiKeys).set({ revokedAt: new Date() }).where(and(eq(apiKeys.workspaceId, ws), eq(apiKeys.id, id), isNull(apiKeys.revokedAt)));
+        await log("api.key_revoked", { type: "api_key", id });
+      },
+      /**
+       * Counts one request against the key's monthly quota, atomically: the total only goes up while
+       * it is below the quota. False when the quota is used up (nothing is counted, nothing runs).
+       */
+      async count(keyId: string, endpoint: string, month: string, quota: number, now: Date) {
+        await db.insert(apiUsage).values({ workspaceId: ws, keyId, month, endpoint: "*", count: 0 }).onConflictDoNothing();
+        const [total] = await db
+          .update(apiUsage)
+          .set({ count: sql`${apiUsage.count} + 1` })
+          .where(and(eq(apiUsage.workspaceId, ws), eq(apiUsage.keyId, keyId), eq(apiUsage.month, month), eq(apiUsage.endpoint, "*"), lt(apiUsage.count, quota)))
+          .returning({ count: apiUsage.count });
+        if (!total) return { ok: false as const, used: quota };
+        await db
+          .insert(apiUsage)
+          .values({ workspaceId: ws, keyId, month, endpoint, count: 1 })
+          .onConflictDoUpdate({ target: [apiUsage.keyId, apiUsage.month, apiUsage.endpoint], set: { count: sql`${apiUsage.count} + 1` } });
+        await db.update(apiKeys).set({ lastUsedAt: now }).where(and(eq(apiKeys.workspaceId, ws), eq(apiKeys.id, keyId)));
+        return { ok: true as const, used: total.count };
+      },
+      /** This month's requests per key and endpoint, for the usage dashboard. */
+      async usage(month: string) {
+        need("api.read");
+        return db
+          .select({ keyId: apiUsage.keyId, endpoint: apiUsage.endpoint, count: apiUsage.count })
+          .from(apiUsage)
+          .where(and(eq(apiUsage.workspaceId, ws), eq(apiUsage.month, month)));
       },
     },
 

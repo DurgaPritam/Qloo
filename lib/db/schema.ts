@@ -99,6 +99,8 @@ export const workspaces = pgTable("workspaces", {
   currency: text("currency"),
   /** Events needed before Outcomes compares cities and partners; null means the engine default. */
   outcomeMinSample: integer("outcome_min_sample"),
+  /** Plan tier (lib/entitlements.ts); "free" until billing exists. */
+  tier: text("tier").notNull().default("free"),
 });
 
 export const memberships = pgTable(
@@ -310,7 +312,7 @@ export const jobRuns = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<"roster.refresh" | "watch.refresh" | "pipeline.reminders">().notNull(),
+    kind: text("kind").$type<"roster.refresh" | "watch.refresh" | "pipeline.reminders" | "plan.create">().notNull(),
     /** What the job is about, e.g. the roster id. */
     targetId: text("target_id"),
     status: text("status").$type<JobStatus>().notNull(),
@@ -758,6 +760,47 @@ export const campaignBriefs = pgTable(
   (t) => [index("campaign_briefs_workspace_idx").on(t.workspaceId, t.createdAt)],
 );
 
+/* ---------- Public API ---------- */
+
+/** API keys: only a hash and a short prefix are kept; the key itself is shown once. */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** The key's first characters, so people can tell keys apart ("tk_9fQ2…"). */
+    prefix: text("prefix").notNull(),
+    /** SHA-256 of the key, hex. */
+    hash: text("hash").notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp("last_used_at", { mode: "date", withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { mode: "date", withTimezone: true }),
+  },
+  (t) => [uniqueIndex("api_keys_hash_idx").on(t.hash), index("api_keys_workspace_idx").on(t.workspaceId)],
+);
+
+/** Requests per key, month and endpoint; endpoint "*" is the key's monthly total (the quota). */
+export const apiUsage = pgTable(
+  "api_usage",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    keyId: text("key_id")
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: "cascade" }),
+    /** YYYY-MM, UTC. */
+    month: text("month").notNull(),
+    endpoint: text("endpoint").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.keyId, t.month, t.endpoint] }), index("api_usage_workspace_idx").on(t.workspaceId, t.month)],
+);
+
 /** Tables that must be scoped by workspace_id in every query (tests/support/scoped-queries.ts). */
 export const TENANT_TABLES = [
   "memberships",
@@ -785,4 +828,6 @@ export const TENANT_TABLES = [
   "tours",
   "watch_runs",
   "campaign_briefs",
+  "api_keys",
+  "api_usage",
 ] as const;

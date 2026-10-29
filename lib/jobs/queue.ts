@@ -34,7 +34,18 @@ export interface PipelineRemindersMessage {
   asOf?: string;
 }
 
-export type JobMessage = RosterRefreshMessage | WatchRefreshMessage | PipelineRemindersMessage;
+/** A plan asked for through the public API: the agent runs here and saves to the workspace. */
+export interface PlanCreateMessage {
+  kind: "plan.create";
+  workspaceId: string;
+  userId: string;
+  jobId: string;
+  planId: string;
+  query: string;
+  entityId?: string;
+}
+
+export type JobMessage = RosterRefreshMessage | WatchRefreshMessage | PipelineRemindersMessage | PlanCreateMessage;
 
 type Env = Record<string, string | undefined>;
 
@@ -42,6 +53,7 @@ export const JOB_PATHS: Record<JobMessage["kind"], string> = {
   "roster.refresh": "/api/jobs/roster-refresh",
   "watch.refresh": "/api/jobs/watch-refresh",
   "pipeline.reminders": "/api/jobs/pipeline-reminders",
+  "plan.create": "/api/jobs/plan-create",
 };
 
 /**
@@ -79,7 +91,9 @@ export async function enqueue(message: JobMessage, delaySeconds: number, env: En
         ? import("@/lib/roster/jobs").then(({ runRosterJob }) => runRosterJob(message))
         : message.kind === "watch.refresh"
           ? import("@/lib/watch/jobs").then(({ runWatchJob }) => runWatchJob(message))
-          : import("@/lib/pipeline/reminders").then(({ runRemindersJob }) => runRemindersJob(message));
+          : message.kind === "pipeline.reminders"
+            ? import("@/lib/pipeline/reminders").then(({ runRemindersJob }) => runRemindersJob(message))
+            : import("@/lib/api/plan-job").then(({ runPlanJob }) => runPlanJob(message));
     void run.catch((err: unknown) => {
       console.error("[jobs] local job failed:", err instanceof Error ? err.message : "unknown");
     });

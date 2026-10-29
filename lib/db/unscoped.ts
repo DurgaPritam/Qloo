@@ -5,7 +5,7 @@ import { and, asc, eq, inArray, isNull, lt, lte, ne, notInArray, or } from "driz
 import type { Plan } from "@/lib/agent/types";
 
 import type { DB } from "./index";
-import { activityLog, digestSubscriptions, invitations, memberships, outreach, plans, users, watchItems, workspaces, type Role, type Visibility } from "./schema";
+import { activityLog, apiKeys, digestSubscriptions, invitations, memberships, outreach, plans, users, watchItems, workspaces, type Role, type Visibility } from "./schema";
 import { hashToken, normaliseEmail } from "./scoped";
 
 /**
@@ -185,4 +185,20 @@ export async function unscopedUnsubscribeReminders(db: DB, workspaceId: string, 
     .where(and(eq(digestSubscriptions.workspaceId, workspaceId), eq(digestSubscriptions.userId, userId)))
     .returning({ userId: digestSubscriptions.userId });
   return done.length > 0;
+}
+
+/**
+ * For the public API: the key with this hash, its workspace and tier, when it has not been revoked.
+ * The request then works through `forWorkspace` as the key's creator.
+ */
+export async function unscopedApiKeyByHash(db: DB, hash: string): Promise<{ id: string; workspaceId: string; createdBy: string | null; tier: string } | null> {
+  const row = (
+    await db
+      .select({ id: apiKeys.id, workspaceId: apiKeys.workspaceId, createdBy: apiKeys.createdBy, tier: workspaces.tier })
+      .from(apiKeys)
+      .innerJoin(workspaces, eq(workspaces.id, apiKeys.workspaceId))
+      .where(and(eq(apiKeys.hash, hash), isNull(apiKeys.revokedAt)))
+      .limit(1)
+  )[0];
+  return row ?? null;
 }
