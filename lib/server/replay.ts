@@ -42,15 +42,36 @@ export async function saveRecording(rec: Recording): Promise<void> {
   await getRedis()?.set(recordingKey(rec.query), rec);
 }
 
+/** Reads in flight, so the showcase and the Daily puzzle share one read of each recording. */
+const pending = new Map<string, Promise<Recording | null>>();
+
+/**
+ * A recording never changes once saved, so a read from Redis is kept in memory: a warm server
+ * reads each one once instead of on every landing page (28 GETs, about 2.4 MB, per load before).
+ */
 export async function loadRecording(query: string): Promise<Recording | null> {
   const key = recordingKey(query);
   const local = memory.get(key);
   if (local) return local;
-  try {
-    return (await getRedis()?.get<Recording>(key)) ?? null;
-  } catch {
-    return null;
-  }
+  const inFlight = pending.get(key);
+  if (inFlight) return inFlight;
+  const read = (async () => {
+    try {
+      const found = (await getRedis()?.get<Recording>(key)) ?? null;
+      if (found) {
+        memory.set(key, found);
+        // At most 100 (about 8.5 MB); the showcase's 14 are read first and most often.
+        if (memory.size > 100) memory.delete(memory.keys().next().value!);
+      }
+      return found;
+    } catch {
+      return null;
+    } finally {
+      pending.delete(key);
+    }
+  })();
+  pending.set(key, read);
+  return read;
 }
 
 /** Waits between events like the original run did, clamped, and labels every event as cached. */
