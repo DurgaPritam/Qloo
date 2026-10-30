@@ -1,6 +1,6 @@
 # Upstash timeouts: what main does, and the smallest fix
 
-Branch `investigate/redis-calls`, cut from `main` (b5bbc0c) on 28 Oct 2026. **Not merged anywhere.**
+Branch `investigate/redis-calls`, cut from `main` (b5bbc0c) on 28 Oct 2026. **Merged into `main` on 30 Oct 2026** (the proposed change below).
 Measured on a local production build of main in live mode, with a preload that logs every request
 the server sends to Upstash (command, key prefix, sizes, time; never the token or values). Redis
 timeout is main's default, 4 s. Measured from a laptop: a Vercel function in Upstash's region will
