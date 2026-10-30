@@ -12,6 +12,15 @@ export const BRIEF_TEMPLATES = {
   sponsorReason: "{sponsors} already resonate with this shared audience.",
 } as const;
 
+/** The same fields for a solo takeover: no partner, so no {partner} placeholder. */
+export const SOLO_BRIEF_TEMPLATES = {
+  headline: "A {format} for {fanbase} fans in {city}.",
+  partnerReason: "",
+  cityReason: "{city} is where {fanbase} fans over-index most, not just where the most people live.",
+  venueReason: "{venue} suits the {fanbase} audience in {city}.",
+  sponsorReason: "{sponsors} already resonate with {fanbase} fans here.",
+} as const;
+
 export const OUTREACH_TEMPLATES = {
   partnerSubject: "{fanbase} × {partner}: a {format} in {city}",
   partnerBody:
@@ -22,6 +31,14 @@ export const OUTREACH_TEMPLATES = {
   venueBody:
     "Hello,\n\nWe're planning a {format} pairing {fanbase} with {partner} in {city}, and {venue} fits " +
     "the shared audience well. Capacity, dates and pricing are to confirm with the promoter.\n\n" +
+    "Could you tell us who handles bookings?",
+} as const;
+
+export const SOLO_OUTREACH_TEMPLATES = {
+  venueSubject: "Hold enquiry: {fanbase} {format} in {city}",
+  venueBody:
+    "Hello,\n\nWe're planning a {format} for {fanbase} in {city}, and {venue} fits their audience " +
+    "well. Capacity, dates and pricing are to confirm with the promoter.\n\n" +
     "Could you tell us who handles bookings?",
 } as const;
 
@@ -49,7 +66,7 @@ function nextCalls(state: RunState): ScriptedCall[] {
   if (state.partners.fallback && !state.partnersWidened && !state.city) {
     return [{ name: "find_partners", input: { widen: true } }];
   }
-  if (!state.partner) return [];
+  if (!state.partner && !state.overrides.solo) return [];
   if (!state.city) return [{ name: "pick_city", input: {} }];
   if (state.city.fallback && !state.cityWidened && !state.room) {
     return [{ name: "pick_city", input: { level: "region" } }];

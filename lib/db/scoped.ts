@@ -17,6 +17,7 @@ import type { TierName } from "@/lib/entitlements";
 import { cardFromMatch, cardsFromPlan, contentHash, type NewCard } from "@/lib/pipeline/drafts";
 import type { OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
+import type { Itinerary } from "@/lib/itinerary/types";
 import type { CampaignBriefData } from "@/lib/campaign/brief";
 
 import type { Plan } from "@/lib/agent/types";
@@ -36,6 +37,7 @@ import {
   datasetRows,
   datasets,
   deckSettings,
+  itineraries,
   digestSubscriptions,
   entityProfiles,
   invitations,
@@ -1180,6 +1182,46 @@ export function forWorkspace(db: DB, ctx: WorkspaceContext) {
       async remove(id: string) {
         need("plan.create");
         await db.delete(campaignBriefs).where(and(eq(campaignBriefs.workspaceId, ws), eq(campaignBriefs.id, id)));
+      },
+    },
+
+    /** Editable tours from the Tour planner; the data is checked by parseItinerary before it gets here. */
+    itineraries: {
+      async list() {
+        need("plan.read");
+        return db
+          .select({ id: itineraries.id, name: itineraries.name, updatedAt: itineraries.updatedAt, author: users.name, authorEmail: users.email })
+          .from(itineraries)
+          .leftJoin(users, eq(users.id, itineraries.createdBy))
+          .where(eq(itineraries.workspaceId, ws))
+          .orderBy(desc(itineraries.updatedAt))
+          .limit(50);
+      },
+      async get(id: string) {
+        need("plan.read");
+        return (await db.select().from(itineraries).where(and(eq(itineraries.workspaceId, ws), eq(itineraries.id, id))).limit(1))[0] ?? null;
+      },
+      async create(data: Itinerary) {
+        need("plan.create");
+        const id = crypto.randomUUID();
+        await db.insert(itineraries).values({ id, workspaceId: ws, name: data.name.slice(0, 120), data, createdBy: ctx.userId });
+        await log("itinerary.created", { type: "itinerary", id }, { name: data.name.slice(0, 120) });
+        return id;
+      },
+      /** False when it is not in this workspace. */
+      async update(id: string, data: Itinerary) {
+        need("plan.create");
+        const rows = await db
+          .update(itineraries)
+          .set({ name: data.name.slice(0, 120), data, updatedAt: new Date() })
+          .where(and(eq(itineraries.workspaceId, ws), eq(itineraries.id, id)))
+          .returning({ id: itineraries.id });
+        if (rows.length) await log("itinerary.updated", { type: "itinerary", id }, { name: data.name.slice(0, 120) });
+        return rows.length > 0;
+      },
+      async remove(id: string) {
+        need("plan.create");
+        await db.delete(itineraries).where(and(eq(itineraries.workspaceId, ws), eq(itineraries.id, id)));
       },
     },
 

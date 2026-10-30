@@ -28,6 +28,7 @@ Rules:
 - In write_brief and draft_outreach, write prose only and use the placeholders {fanbase}, {partner}, {city}, {venue}, {format} and {sponsors} instead of names. Never mention capacity, dates, prices or availability; the app shows them as "to confirm with the promoter".
 - Outreach emails are drafts a person will review and send. Make them warm, brief and specific about why the two audiences overlap.
 - Sponsors are suggestions from taste data, not confirmed. Never say a sponsor is on board, signed or involved; say they could be a fit.
+- If find_partners reports a solo takeover, the user chose no partner: continue with pick_city, never use {partner}, leave partnerReason, partnerSubject and partnerBody empty, and write about the fanbase's own audience.
 - Write as the promoter planning the event. Do not name Takeover.
 - Keep any text outside tool calls to one sentence.`;
 
@@ -57,6 +58,7 @@ Rules:
 - Explain why the two audiences overlap, using what the descriptions say about each. Be specific, not generic.
 - Outreach emails are drafts a person will review and send. Make them warm and brief.
 - Sponsors are suggestions from taste data, not confirmed. Never say a sponsor is on board, signed or involved; say they could be a fit.
+- When the plan says "solo": true, there is no partner. Never use {partner}; leave partnerReason, partnerSubject and partnerBody empty; explain why the city and venue suit the fanbase's own audience.
 - Write as the promoter planning the event. Do not name Takeover.`;
 
 const PROSE_TOOLS = ["write_brief", "draft_outreach"];
@@ -67,8 +69,9 @@ export function writerContext(state: RunState): string {
   const short = (text: string | undefined) => (text ? text.slice(0, 300) : undefined);
   return JSON.stringify({
     format: state.format?.label,
+    ...(state.partner ? {} : { solo: true }),
     fanbase: { name: state.fanbase?.name, kind: state.fanbase?.category, about: short(state.fanbase?.description) },
-    partner: { name: state.partner?.name, kind: state.partner?.category, about: short(state.partner?.description) },
+    partner: state.partner ? { name: state.partner.name, kind: state.partner.category, about: short(state.partner.description) } : null,
     city: room?.cityName,
     venue: room?.venue ? { name: room.venue.pick.place.name, about: short(room.venue.pick.place.description) } : null,
     opener: room?.opener?.pick.entity.name ?? null,
@@ -98,7 +101,8 @@ export class WriterPlanner implements Planner {
       tools: toolSpecs().filter((t) => PROSE_TOOLS.includes(t.name)),
       maxOutputTokens: MAX_OUTPUT_TOKENS.planner,
     });
-    const written = await chat.send(`Write the brief and the two emails for this plan: ${writerContext(state)}`);
+    const ask = state.partner ? "Write the brief and the two emails for this plan" : "Write the brief and the venue email for this solo plan (no partner)";
+    const written = await chat.send(`${ask}: ${writerContext(state)}`);
     // Both tools, brief first; one the model skipped runs with template prose.
     const calls = PROSE_TOOLS.map(
       (name, i) => written.calls.find((c) => c.name === name) ?? { id: `writer_${i}`, name, input: {} },

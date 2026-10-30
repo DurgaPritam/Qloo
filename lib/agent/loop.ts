@@ -241,6 +241,7 @@ function buildPlan(runId: string, planner: Planner["kind"], ctx: Ctx, turns: num
     planner,
     ...(model ? { model } : {}),
     status,
+    ...(state.overrides.solo ? { solo: true } : {}),
     fanbase: state.fanbase,
     needsInput: state.fanbase ? null : state.needsInput,
     format: state.format,

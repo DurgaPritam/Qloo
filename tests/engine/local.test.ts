@@ -25,4 +25,13 @@ describe("findCity", () => {
     expect(findCity("Nowhereville", CITIES)).toBeNull();
     expect(findCity("", CITIES)).toBeNull();
   });
+
+  it("forgives a typo or two, picking the largest of the nearest spellings", () => {
+    expect(findCity("Ne york", CITIES)).toMatchObject({ name: "New York City", country: "US" });
+    expect(findCity("Seatle", CITIES)).toMatchObject({ name: "Seattle" });
+    expect(findCity("Machester, UK", CITIES)).toMatchObject({ name: "Manchester", country: "GB" });
+    expect(findCity("Nashvile", CITIES)).toMatchObject({ name: "Nashville" });
+    // Short names get no slack: "Rme" is not Rome.
+    expect(findCity("Rme", CITIES)).toBeNull();
+  });
 });

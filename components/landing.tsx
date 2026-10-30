@@ -6,7 +6,7 @@ import { useState, useTransition, type ReactNode } from "react";
 
 import { EXAMPLES, SHOWCASE } from "@/lib/examples";
 
-import { AppHeader, Chip, InputBar, Page, SourceBadge } from "./ui";
+import { AppHeader, Chip, InputBar, Page, Segmented, SourceBadge } from "./ui";
 
 const STEPS = [
   { n: "01", title: "Crossover partner", body: "Whose fans over-index on yours." },
@@ -43,10 +43,12 @@ export function Landing({ hero, showcase, roles }: { hero?: ReactNode; showcase?
   // Busy only while the navigation is in flight. A flag set by hand would survive a Back
   // navigation (Next keeps the previous page's state) and leave the button disabled.
   const [busy, startNavigation] = useTransition();
+  // Big names may not need a crossover: the user chooses whether to look for a partner at all.
+  const [mode, setMode] = useState<"crossover" | "solo">("crossover");
   const plan = (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) return;
-    startNavigation(() => router.push(`/run?q=${encodeURIComponent(trimmed)}`));
+    startNavigation(() => router.push(`/run?q=${encodeURIComponent(trimmed)}${mode === "solo" ? "&solo=1" : ""}`));
   };
 
   return (
@@ -69,6 +71,18 @@ export function Landing({ hero, showcase, roles }: { hero?: ReactNode; showcase?
           </p>
           <div className="rise" style={{ ["--d" as string]: "340ms" }}>
             <InputBar value={query} onChange={setQuery} onSubmit={() => plan(query)} onPick={plan} placeholder="Plan a takeover for…" busy={busy} />
+          </div>
+          <div className="rise flex flex-wrap items-center gap-2 text-chip text-mute" style={{ ["--d" as string]: "380ms" }}>
+            <Segmented<"crossover" | "solo">
+              label="Plan type"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "crossover", label: "With a crossover partner" },
+                { value: "solo", label: "Solo, no partner" },
+              ]}
+            />
+            <span>{mode === "solo" ? "City, venue and sponsors for the fanbase alone." : "Qloo finds the partner whose fans overlap most."}</span>
           </div>
           <div className="rise flex flex-wrap items-center gap-2" style={{ ["--d" as string]: "420ms" }}>
             {EXAMPLES.map((e) => (

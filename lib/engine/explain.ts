@@ -14,8 +14,11 @@ export const CATEGORY_LABEL: Record<Category, string> = {
 
 const n = (x: number) => x.toFixed(2);
 
-/** One plain sentence built only from fields on the pick. Never adds numbers of its own. */
-export function explain(pick: Pick): string {
+/**
+ * One plain sentence built only from fields on the pick. Never adds numbers of its own.
+ * `fanbaseOnly`: cities ranked by the fanbase's heat alone (a solo takeover, or no partner heat).
+ */
+export function explain(pick: Pick, opts: { fanbaseOnly?: boolean } = {}): string {
   switch (pick.kind) {
     case "partner": {
       const { entity, evidence } = pick;
@@ -26,6 +29,12 @@ export function explain(pick: Pick): string {
       );
     }
     case "city":
+      if (opts.fanbaseOnly) {
+        return (
+          `${pick.city.name}, ${pick.city.country} ranks #${pick.rank} with a score of ${n(pick.sA)} ` +
+          `from the fanbase's heat alone and #${pick.populationRank} by population, ${pick.confidence} confidence.`
+        );
+      }
       return (
         `${pick.city.name}, ${pick.city.country} ranks #${pick.rank} with a combined score of ` +
         `${n(pick.combined)} (${n(pick.sA)} for the seed fanbase, ${n(pick.sB)} for the partner ` +

@@ -63,6 +63,8 @@ export interface Overrides {
    * type, so its affinity can be fetched and it is kept even if it would not be shortlisted.
    */
   partnerCategory?: Category;
+  /** A solo takeover: the user chose no crossover partner, so the plan is for the fanbase alone. */
+  solo?: boolean;
 }
 
 export interface Choice {
@@ -175,6 +177,8 @@ export interface Plan {
   /** The model that planned this run; absent for the scripted planner. */
   model?: string;
   status: "complete" | "needs_input" | "incomplete";
+  /** True for a solo takeover: no partner, cities by the fanbase alone, one email (to the venue). */
+  solo?: boolean;
   fanbase: Entity | null;
   needsInput: NeedsInput | null;
   format: FormatChoice | null;

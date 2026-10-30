@@ -21,7 +21,7 @@ const MAX_QUERY = 100;
 const MAX_ID = 200;
 
 /**
- * POST {query, overrides?} → SSE stream of agent events, ending with a "final" event that holds
+ * POST {query, overrides?} (overrides.solo = true for a solo takeover, no partner) → SSE stream of agent events, ending with a "final" event that holds
  * the plan. Overrides re-run the plan with the user's pick; upstream Qloo calls hit the cache.
  */
 export async function POST(req: Request): Promise<Response> {
@@ -38,10 +38,12 @@ export async function POST(req: Request): Promise<Response> {
 
   const source = getQlooSource();
   const mock = source.mock;
-  const replan = Object.keys(overrides).length > 0;
+  // Choosing solo is a fresh run, not a replan; a pick (fanbase, partner or city) is a replan.
+  const replan = Boolean(overrides.entityId || overrides.partnerId || overrides.cityId);
 
   // Preloaded examples replay a stored run: instant, free, and not counted against any limit.
-  const recording = !mock && !replan ? await loadRecording(query) : null;
+  // They are crossover plans, so a solo takeover always runs live.
+  const recording = !mock && !replan && !overrides.solo ? await loadRecording(query) : null;
   if (recording) {
     const stream = sseStream((send) => replay(recording, send, { signal: req.signal }));
     return new Response(stream, { headers: { ...SSE_HEADERS, "X-Run-Id": recording.plan.runId } });
@@ -203,5 +205,7 @@ function parseBody(body: unknown): { query: string; overrides: Overrides } {
   if (overrides.partnerId && typeof pc === "string" && (PARTNER_CATEGORIES as readonly string[]).includes(pc)) {
     overrides.partnerCategory = pc as Category;
   }
+  // A partner pick means a crossover; otherwise the user may ask for a solo takeover.
+  if (o.solo === true && !overrides.partnerId) overrides.solo = true;
   return { query, overrides };
 }

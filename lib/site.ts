@@ -7,18 +7,19 @@ export const TOOLS = [
   { href: "/venue", label: "Venue booker", who: "Venues", body: "The artists, comedians, podcasts and brands your city loves.", example: "/venue?city=Austin" },
   { href: "/cities", label: "City explorer", who: "Tour planners & fan clubs", body: "A fanbase's strongest cities at home and in three more countries.", example: "/cities?q=Taylor%20Swift" },
   { href: "/tour", label: "Tour optimizer", who: "Artists & agents", body: "The best route through a fanbase's strongest cities inside your constraints, with every leg's distance and why strong cities were left off.", example: "/tour?q=Phoebe%20Bridgers" },
+  { href: "/tour/planner", label: "Tour planner", who: "Agents & tour planners", body: "An editable itinerary from that route: draft dates from your start date, venue, support act, sponsor and contacts per stop, edits typed in plain words, and CSV, calendar and PDF exports.", example: "/tour/planner" },
   { href: "/city", label: "City pages", who: "Everyone", body: "What every big city is into, one page each.", example: "/city/austin" },
 ] as const;
 
 /** Top navigation, in order. Every page gets it through AppHeader. */
 export const NAV = [
   { href: "/", label: "Plan a takeover" },
-  { href: "/daily", label: "Daily" },
   { href: "/tools", label: "Tools" },
   { href: "/explore", label: "Explore" },
   { href: "/plans", label: "My plans" },
   { href: "/guide", label: "Guide" },
   { href: "/method", label: "How it works" },
+  { href: "/daily", label: "Daily" },
 ] as const;
 
 /** The workspace sidebar (components/workspace/shell.tsx): sections, then its Tools menu. */
@@ -34,6 +35,7 @@ export const WORKSPACE_NAV = [
 export const WORKSPACE_TOOLS = [
   { href: "/workspace/outcomes", label: "Outcomes" },
   { href: "/tour", label: "Tour optimizer" },
+  { href: "/tour/planner", label: "Tour planner" },
   { href: "/lineup", label: "Lineup optimizer" },
   { href: "/workspace/campaign", label: "Campaign brief" },
 ] as const;

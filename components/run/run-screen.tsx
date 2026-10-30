@@ -9,7 +9,7 @@ import { summarise } from "@/lib/plan-summary";
 import { savePlanLocally } from "@/lib/saved-plans";
 import { STEPS } from "@/lib/agent/types";
 
-import { AppHeader, Banner, Button, InputBar, MonoLabel, OutlineChip, Page, Sk, StepCard, cx, type StepData } from "../ui";
+import { AppHeader, Banner, Button, InputBar, MonoLabel, OutlineChip, Page, Segmented, Sk, StepCard, cx, type StepData } from "../ui";
 import { AudiencePanel } from "../audience";
 import { TourOverlay, useRunTour } from "../onboarding/tour";
 import { categoryLabel } from "./format";
@@ -52,6 +52,8 @@ export function RunScreen() {
   const entityParam = params.get("entity") ?? "";
   const partnerParam = params.get("partner") ?? "";
   const partnerCategoryParam = params.get("pc") ?? "";
+  // A solo takeover (?solo=1): the user chose no crossover partner.
+  const solo = params.get("solo") === "1";
   const { view, start, savedTo, upgrade } = usePlanStream();
   const overrides = useRef<Overrides>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -65,10 +67,11 @@ export function RunScreen() {
 
   const run = useCallback(
     (o: Overrides = {}, from: StepId | null = null) => {
-      overrides.current = o;
-      void start(query, Object.keys(o).length ? o : undefined, from);
+      const withMode: Overrides = solo && !o.partnerId ? { ...o, solo: true } : o;
+      overrides.current = withMode;
+      void start(query, Object.keys(withMode).length ? withMode : undefined, from);
     },
-    [query, start],
+    [query, start, solo],
   );
 
   useEffect(() => {
@@ -94,7 +97,17 @@ export function RunScreen() {
     setSaved(plan.runId);
   }, [view.plan, savedTo]);
 
-  const goTo = (q: string) => router.push(`/run?q=${encodeURIComponent(q)}`);
+  const goTo = (q: string) => router.push(`/run?q=${encodeURIComponent(q)}${solo ? "&solo=1" : ""}`);
+  /** Switches between a crossover and a solo takeover by re-running from the URL. */
+  const setMode = (mode: "crossover" | "solo") => {
+    const next = new URLSearchParams(params.toString());
+    if (mode === "solo") {
+      next.set("solo", "1");
+      next.delete("partner");
+      next.delete("pc");
+    } else next.delete("solo");
+    router.push(`/run?${next.toString()}`);
+  };
 
   // The guided tour: once per browser after a complete run, or when asked (?tour=1, the help panel).
   const tour = useRunTour({
@@ -220,6 +233,15 @@ export function RunScreen() {
               <MonoLabel>Results</MonoLabel>
               <h1 className="t-display m-0 text-[clamp(30px,4.5vw,44px)] leading-[0.92] [text-wrap:balance]">{fanbase?.name ?? query} takeover</h1>
               <div className="flex min-h-[22px] flex-wrap items-center gap-2">
+                <Segmented<"crossover" | "solo">
+                  label="Plan type"
+                  value={solo ? "solo" : "crossover"}
+                  onChange={setMode}
+                  options={[
+                    { value: "crossover", label: "With a partner" },
+                    { value: "solo", label: "Solo" },
+                  ]}
+                />
                 {fanbase && <OutlineChip>{categoryLabel(fanbase.category)}</OutlineChip>}
                 {view.format ? <OutlineChip>Format · {view.format.label.toLowerCase()}</OutlineChip> : !finished && <Sk.chip />}
                 {view.plan?.planner === "scripted" && <OutlineChip>Planner · scripted (no model key)</OutlineChip>}
@@ -281,7 +303,7 @@ export function RunScreen() {
                   </div>
                 )}
                 <div data-tour="swap">
-                  <CrossoverSection view={view} llm={llm} onToggle={toggleLlm} onUsePartner={usePartner} />
+                  <CrossoverSection view={view} llm={llm} onToggle={toggleLlm} onUsePartner={usePartner} onCrossover={() => setMode("crossover")} />
                 </div>
                 {finished && fanbase && view.plan?.status === "complete" && (
                   <div className="print:hidden">

@@ -1,11 +1,15 @@
 Takeover — rules for every change
 Product: market-entry agent. Input: any fanbase name. Output: crossover partner, city, venue,
-sponsors, one-page brief, two outreach drafts.
+sponsors, one-page brief, two outreach drafts. The partner is the user's choice: a solo takeover
+(overrides.solo) skips it, ranks cities by the fanbase alone and drafts only the venue email.
 
 Scores, rankings and numbers come ONLY from lib/engine using Qloo results. The LLM chooses tools
 and writes prose; it never produces a number.
 
 Never invent capacity, dates, prices or availability. Render them as "to confirm with the promoter".
+One exception: the Tour planner's draft dates (lib/itinerary/schedule.ts) are code arithmetic from
+the user's own start date, shows, rest days and pace; never from the model, always labelled
+"Draft · to confirm with the promoter", and never a claim of venue availability.
 Qloo, Gemini (and Anthropic) keys and the Upstash token stay server-side. Never send them to the
 browser or log them.
 The model is called only through lib/llm (provider chosen by LLM_PROVIDER, default Gemini), which

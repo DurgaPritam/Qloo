@@ -6,13 +6,13 @@ import { AnthropicProvider, ANTHROPIC_MODEL } from "@/lib/llm/anthropic";
 import { runAgent, MAX_TURNS } from "@/lib/agent/loop";
 import { LlmPlanner, ScriptedPlanner, type Planner } from "@/lib/agent/planner";
 import { TO_CONFIRM_SENTENCE } from "@/lib/agent/sanitize";
-import type { AgentEvent } from "@/lib/agent/types";
+import type { AgentEvent, Overrides } from "@/lib/agent/types";
 import { MockQlooSource } from "@/lib/qloo/mock";
 import type { QlooSource } from "@/lib/qloo/source";
 
 async function run(
   query: string,
-  opts: { source?: QlooSource; planner?: Planner; overrides?: Record<string, string>; budget?: number } = {},
+  opts: { source?: QlooSource; planner?: Planner; overrides?: Overrides; budget?: number } = {},
 ) {
   const events: AgentEvent[] = [];
   const plan = await runAgent(
@@ -52,6 +52,26 @@ describe("runAgent", () => {
       expect(settled.find((e) => e.step === step)?.qlooCall).toMatchObject({ endpoint: expect.any(String) });
     }
     expect(settled.at(-1)?.data).toEqual(plan);
+  });
+
+  it("plans a solo takeover without a partner when the user chooses it", async () => {
+    const { plan, settled } = await run("John Mulaney", { overrides: { solo: true } });
+
+    expect(plan.status).toBe("complete");
+    expect(plan.solo).toBe(true);
+    expect(plan.partners).toMatchObject({ picks: [], chosenId: null, fallback: false });
+    const partners = settled.find((e) => e.step === "partners")!;
+    expect(partners.status).toBe("done");
+    expect(partners.qlooCall).toBeNull();
+    // One heatmap (the fanbase's), and cities explained by its heat alone.
+    const city = settled.find((e) => e.step === "city")!;
+    expect(city.qlooCalls).toHaveLength(1);
+    expect(plan.city?.basis).toBe("fanbase");
+    expect(plan.city?.chosen?.explanation).toContain("from the fanbase's heat alone");
+    expect(plan.brief?.title).not.toContain("×");
+    expect(plan.brief?.items.map((i) => i.label)).not.toContain("Partner");
+    expect(JSON.stringify(plan.brief)).not.toMatch(/\{partner\}|the partner/);
+    expect(plan.outreach?.map((e) => e.to)).toEqual(["venue"]);
   });
 
   it("emits running before every settled step event", async () => {

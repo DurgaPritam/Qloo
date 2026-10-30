@@ -113,7 +113,8 @@ export function mergeSamePerson(results: readonly Entity[]): Entity[] {
   return results.filter((e) => !drop.has(e.id)).map((e) => enrich.get(e.id) ?? e);
 }
 
-function levenshtein(a: string, b: string): number {
+/** Edits (insert, delete, substitute) to turn one string into the other. */
+export function levenshtein(a: string, b: string): number {
   const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
     let diag = prev[0];

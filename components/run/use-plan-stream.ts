@@ -54,6 +54,8 @@ export interface RunView {
   mock: boolean;
   /** Set while a "Use this…" replan runs: sections from this step on are dimmed. */
   replanFrom: StepId | null;
+  /** A solo takeover (no partner), known from the request before any step reports. */
+  solo: boolean;
 }
 
 const ORDER = STEPS.map((s) => s.id);
@@ -75,10 +77,11 @@ const INITIAL: RunView = {
   error: null,
   mock: false,
   replanFrom: null,
+  solo: false,
 };
 
 type Action =
-  | { type: "start"; replanFrom: StepId | null }
+  | { type: "start"; replanFrom: StepId | null; solo: boolean }
   | { type: "event"; event: AgentEvent; at: number }
   | { type: "error"; error: RunError }
   | { type: "end" };
@@ -95,7 +98,7 @@ const DATA_KEY: Partial<Record<StepId, keyof RunView>> = {
 export function reduce(view: RunView, action: Action): RunView {
   switch (action.type) {
     case "start": {
-      if (!action.replanFrom) return { ...INITIAL, phase: "running", steps: blankSteps() };
+      if (!action.replanFrom) return { ...INITIAL, phase: "running", steps: blankSteps(), solo: action.solo };
       const from = ORDER.indexOf(action.replanFrom);
       const steps = { ...view.steps };
       for (const id of ORDER.slice(from)) steps[id] = { status: "waiting", calls: [] };
@@ -191,7 +194,7 @@ export function usePlanStream() {
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
-    dispatch({ type: "start", replanFrom });
+    dispatch({ type: "start", replanFrom, solo: Boolean(overrides?.solo) });
     setSavedTo(null);
     setUpgrade(null);
 
@@ -250,6 +253,7 @@ export function viewFromPlan(plan: Plan): RunView {
     phase: "done",
     steps,
     mock: plan.mock,
+    solo: Boolean(plan.solo),
     plan,
     fanbase: plan.fanbase,
     format: plan.format,

@@ -11,19 +11,20 @@ import { metroCities, nearestCities } from "@/lib/engine/metro";
 import { scoreNamedPartner, scorePartners } from "@/lib/engine/partners";
 import { rankBrands, rankPlaces } from "@/lib/engine/places";
 import { planTour } from "@/lib/engine/tour";
-import type { Candidate, Category, City, Entity, Pick } from "@/lib/engine/types";
+import type { Candidate, Category, City, CityScore, Entity, Pick } from "@/lib/engine/types";
 import type { QlooCallOptions } from "@/lib/qloo/client";
 import type { JsonSchemaObject, ToolSpec } from "@/lib/llm/types";
 import { BudgetExceededError } from "@/lib/qloo/errors";
 import type { QlooSource, SourceMeta } from "@/lib/qloo/source";
 
 import { safeProse, sanitizeProse, type Slots } from "./sanitize";
-import { BRIEF_TEMPLATES, OUTREACH_TEMPLATES } from "./script";
+import { BRIEF_TEMPLATES, OUTREACH_TEMPLATES, SOLO_BRIEF_TEMPLATES, SOLO_OUTREACH_TEMPLATES } from "./script";
 import type { RunState } from "./state";
 import {
   TO_CONFIRM,
   type Brief,
   type BriefItem,
+  type Email,
   type RoomResult,
   type Choice,
   type Explained,
@@ -93,7 +94,8 @@ export function cityQuery(city: City): string {
   return [city.name, region].filter(Boolean).join(", ");
 }
 
-function cityReason(basis: "both" | "fanbase", thin: boolean, fanbase: string, partner: string, market: string): string {
+function cityReason(basis: "both" | "fanbase", thin: boolean, fanbase: string, partner: string | null, market: string): string {
+  if (partner === null) return `Solo takeover: cities in ${market} are ranked by where ${fanbase} fans over-index.${thin ? " City-level heat is thin." : ""}`;
   if (basis === "fanbase") return `${partner} has no city-level data in ${market}, so cities are ranked by ${fanbase} fans alone.`;
   return thin ? "City-level heat is thin for at least one audience." : "Both audiences have city-level heat.";
 }
@@ -272,10 +274,17 @@ const findPartners: ToolDef = {
     },
     additionalProperties: false,
   },
-  running: (s) => (s.partners ? "Widening the partner search…" : "Looking for crossover partners…"),
+  running: (s) => (s.overrides.solo ? "Solo takeover: no partner needed…" : s.partners ? "Widening the partner search…" : "Looking for crossover partners…"),
   requires: (s) => (s.fanbase ? null : "resolve_fanbase first"),
   async run(input, { state, source, opts }) {
     const fanbase = state.fanbase!;
+    // The user chose a solo takeover: no partner is searched for, and no Qloo call is made.
+    if (state.overrides.solo) {
+      const reason = `Solo takeover: you chose to plan for ${fanbase.name} alone, so no crossover partner was searched for.`;
+      state.partner = null;
+      state.partners = { picks: [], chosenId: null, fallback: false, reason, categoriesTried: [], droppedCount: 0 };
+      return { status: "done", summary: "Solo takeover: no crossover partner, as you chose.", data: state.partners, calls: [], forModel: { solo: true, next: "Call pick_city." } };
+    }
     const pool = PARTNER_CATEGORIES.filter((c) => c !== fanbase.category);
     const asked = Array.isArray(input.categories)
       ? pool.filter((c) => (input.categories as unknown[]).includes(c))
@@ -420,23 +429,31 @@ const pickCity: ToolDef = {
     additionalProperties: false,
   },
   running: (s) => (s.city ? "Widening to regional overlap…" : "Comparing where both audiences are strongest…"),
-  requires: (s) => (!s.partner ? "find_partners must pick a partner first" : !s.format ? "choose_format first" : null),
+  requires: (s) => (!s.partner && !s.overrides.solo ? "find_partners must pick a partner first" : !s.format ? "choose_format first" : null),
   async run(input, { state, source, opts }) {
     const fanbase = state.fanbase!;
-    const partner = state.partner!;
+    // Null for a solo takeover: the fanbase's own heat is used for both sides of the score.
+    const partner = state.partner;
     const format = state.format!;
     const calls: SourceMeta[] = [];
 
     // Qloo heatmaps need a location, so cities are ranked inside one market (decisions D7).
     const market =
       marketFor(str(input.country)) ?? marketFor(fanbase.homeCountry) ?? marketFor(DEFAULT_MARKET)!;
-    if (state.heat?.partnerId !== partner.id || state.heat.market !== market.code) {
-      const [a, b] = await Promise.all([
-        source.heatmap([fanbase.id], market.name, opts),
-        source.heatmap([partner.id], market.name, opts),
-      ]);
-      calls.push(a.meta, b.meta);
-      state.heat = { partnerId: partner.id, market: market.code, a: a.data, b: b.data };
+    const heatId = partner?.id ?? fanbase.id;
+    if (state.heat?.partnerId !== heatId || state.heat.market !== market.code) {
+      if (partner) {
+        const [a, b] = await Promise.all([
+          source.heatmap([fanbase.id], market.name, opts),
+          source.heatmap([partner.id], market.name, opts),
+        ]);
+        calls.push(a.meta, b.meta);
+        state.heat = { partnerId: heatId, market: market.code, a: a.data, b: b.data };
+      } else {
+        const a = await source.heatmap([fanbase.id], market.name, opts);
+        calls.push(a.meta);
+        state.heat = { partnerId: heatId, market: market.code, a: a.data, b: a.data };
+      }
     }
 
     const level = input.level === "region" ? "region" : "city";
@@ -452,8 +469,8 @@ const pickCity: ToolDef = {
     const overlap = score(pool).filter((s) => s.combined > 0).map((s) => s.city);
     let scores = overlap.length ? score(overlap) : score(pool);
     // Fallback: the partner has no city-level heat in this market, so rank by the fanbase alone.
-    let basis: "both" | "fanbase" = "both";
-    if (!scores[0] || scores[0].combined === 0) {
+    let basis: "both" | "fanbase" = partner ? "both" : "fanbase";
+    if (partner && (!scores[0] || scores[0].combined === 0)) {
       const alone = (cities: readonly City[]) =>
         scoreCities(state.heat!.a, state.heat!.a, cities, format.minPopulation, { radiusKm });
       const heated = alone(pool).filter((s) => s.combined > 0).map((s) => s.city);
@@ -475,9 +492,10 @@ const pickCity: ToolDef = {
     }
 
     state.chosenCity = chosen?.city ?? null;
+    const explainCity = (s: CityScore): Explained<CityScore> => ({ pick: s, explanation: explain(s, { fanbaseOnly: basis === "fanbase" }) });
     state.city = {
-      table: scores.slice(0, cfg.tableSize).map(explained),
-      chosen: chosen ? explained(chosen) : null,
+      table: scores.slice(0, cfg.tableSize).map(explainCity),
+      chosen: chosen ? explainCity(chosen) : null,
       populationPick: scores.find((s) => s.populationRank === 1) ?? null,
       tour: planTour(scores, { anchorId: chosen?.city.id }),
       map: scores.slice(0, 10).map((s) => ({
@@ -496,8 +514,8 @@ const pickCity: ToolDef = {
       level,
       market,
       basis,
-      fallback: thin || basis === "fanbase",
-      reason: cityReason(basis, thin, fanbase.name, partner.name, market.name),
+      fallback: thin || (basis === "fanbase" && partner !== null),
+      reason: cityReason(basis, thin, fanbase.name, partner?.name ?? null, market.name),
     };
 
     const forModel = {
@@ -527,6 +545,16 @@ const pickCity: ToolDef = {
       };
     }
     const c = chosen;
+    if (!partner) {
+      return {
+        status: thin ? "fallback" : "done",
+        summary: `Picked ${c.city.name}: ${fanbase.name} fans are strongest here (${two(c.sA)}); #${c.populationRank} by population.`,
+        fallbackNote: thin ? "City-level data was thin, so this is based on regional heat." : undefined,
+        data: state.city,
+        calls,
+        forModel,
+      };
+    }
     if (basis === "fanbase") {
       return {
         status: "fallback",
@@ -571,7 +599,8 @@ const planRoom: ToolDef = {
   requires: (s) => (s.chosenCity ? null : "pick_city must choose a city first"),
   async run(input, { state, source, opts }) {
     const format = state.format!;
-    const ids = [state.fanbase!.id, state.partner!.id];
+    // A solo takeover signals with the fanbase alone.
+    const ids = state.partner ? [state.fanbase!.id, state.partner.id] : [state.fanbase!.id];
     const asked = str(input.cityId);
     let city = (asked && metroPool().find((c) => c.id === asked)) || state.chosenCity!;
     const calls: SourceMeta[] = [];
@@ -678,27 +707,33 @@ const writeBrief: ToolDef = {
   requires: (s) => (s.room ? null : "plan_room first"),
   async run(input, { state }) {
     const slots = slotsFor(state);
+    const solo = !state.partner;
+    const templates = solo ? SOLO_BRIEF_TEMPLATES : BRIEF_TEMPLATES;
     let replaced = 0;
     let templated = true;
     const prose = (key: keyof typeof BRIEF_TEMPLATES) => {
-      if (str(input[key])) templated = false;
-      const out = safeProse(input[key], slots, BRIEF_TEMPLATES[key]);
+      const given = soloSafe(input[key], solo);
+      if (given) templated = false;
+      const out = safeProse(given, slots, templates[key]);
       replaced += out.replaced;
       return out.text;
     };
 
     const room = state.room!;
-    const partner = state.partners!.picks.find((p) => p.pick.entity.id === state.partner!.id)!;
+    const partner = solo ? null : state.partners!.picks.find((p) => p.pick.entity.id === state.partner!.id)!;
     const city = state.city!.chosen!;
-    const items: BriefItem[] = [
-      {
+    const items: BriefItem[] = [];
+    if (partner) {
+      items.push({
         label: "Partner",
         name: partner.pick.entity.name,
         reason: prose("partnerReason"),
         evidence: partner.explanation,
         source: `Qloo /v2/insights, filter.type=urn:entity:${partner.pick.entity.category}`,
         confidence: partner.pick.confidence,
-      },
+      });
+    }
+    items.push(
       {
         label: "City",
         name: `${city.pick.city.name}, ${city.pick.city.country}`,
@@ -707,7 +742,7 @@ const writeBrief: ToolDef = {
         source: "Qloo /v2/insights, filter.type=urn:heatmap; cities from GeoNames",
         confidence: city.pick.confidence,
       },
-    ];
+    );
     if (room.venue) {
       items.push({
         label: "Venue",
@@ -740,7 +775,7 @@ const writeBrief: ToolDef = {
     }
 
     const brief: Brief = {
-      title: `${state.format!.label}: ${slots.fanbase} × ${slots.partner} in ${room.cityName}`,
+      title: solo ? `${state.format!.label}: ${slots.fanbase} in ${room.cityName}` : `${state.format!.label}: ${slots.fanbase} × ${slots.partner} in ${room.cityName}`,
       headline: prose("headline"),
       format: state.format!.label,
       items,
@@ -762,7 +797,7 @@ const writeBrief: ToolDef = {
 const draftOutreach: ToolDef = {
   name: "draft_outreach",
   step: "outreach",
-  description: `Draft two emails: to the partner's team and to the venue. Drafts only; nothing is sent. ${PROSE_RULE}`,
+  description: `Draft two emails: to the partner's team and to the venue (for a solo takeover, only the venue email). Drafts only; nothing is sent. ${PROSE_RULE}`,
   input_schema: {
     type: "object",
     properties: {
@@ -777,36 +812,40 @@ const draftOutreach: ToolDef = {
   requires: (s) => (s.brief ? null : "write_brief first"),
   async run(input, { state }) {
     const slots = slotsFor(state);
+    const solo = !state.partner;
     let replaced = 0;
     const prose = (key: keyof typeof OUTREACH_TEMPLATES) => {
-      const out = safeProse(input[key], slots, OUTREACH_TEMPLATES[key]);
+      const template = solo && key in SOLO_OUTREACH_TEMPLATES ? SOLO_OUTREACH_TEMPLATES[key as keyof typeof SOLO_OUTREACH_TEMPLATES] : OUTREACH_TEMPLATES[key];
+      const out = safeProse(soloSafe(input[key], solo), slots, template);
       replaced += out.replaced;
       return out.text;
     };
-    state.outreach = [
-      {
-        to: "partner",
-        recipient: `${slots.partner}'s team`,
-        subject: prose("partnerSubject"),
-        body: prose("partnerBody"),
-      },
-      {
-        to: "venue",
-        recipient: state.room!.venue ? `${slots.venue} bookings` : "Venue bookings",
-        subject: prose("venueSubject"),
-        body: prose("venueBody"),
-      },
-    ];
+    const venue: Email = {
+      to: "venue",
+      recipient: state.room!.venue ? `${slots.venue} bookings` : "Venue bookings",
+      subject: prose("venueSubject"),
+      body: prose("venueBody"),
+    };
+    // A solo takeover has no partner to write to: the venue is the only draft.
+    state.outreach = solo
+      ? [venue]
+      : [{ to: "partner", recipient: `${slots.partner}'s team`, subject: prose("partnerSubject"), body: prose("partnerBody") }, venue];
     if (replaced) state.notes.push(`Replaced ${replaced} unconfirmed detail(s) in the emails with “${TO_CONFIRM}”.`);
+    const drafted = state.outreach.length;
     return {
       status: "done",
-      summary: "Two drafts ready. Takeover never sends email.",
+      summary: `${drafted === 1 ? "One draft" : "Two drafts"} ready. Takeover never sends email.`,
       data: state.outreach,
       calls: [],
-      forModel: { drafted: 2, replacedUnconfirmedDetails: replaced },
+      forModel: { drafted, replacedUnconfirmedDetails: replaced },
     };
   },
 };
+
+/** Model prose for a solo takeover that still names a partner is dropped, so the template is used. */
+function soloSafe(value: unknown, solo: boolean): unknown {
+  return solo && typeof value === "string" && value.includes("{partner}") ? "" : value;
+}
 
 /** "A", "A and B", "A, B and C". */
 function naturalList(items: readonly string[]): string {

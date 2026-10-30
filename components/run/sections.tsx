@@ -53,13 +53,35 @@ export function CrossoverSection({
   llm,
   onToggle,
   onUsePartner,
+  onCrossover,
 }: {
   view: RunView;
   llm?: LlmOnly & { on: boolean };
   onToggle?: (on: boolean) => void;
   onUsePartner?: (partnerId: string) => void;
+  /** Solo takeovers: re-plan with a crossover partner. */
+  onCrossover?: () => void;
 }) {
   const { partners, fanbase, format } = view;
+  if (view.solo) {
+    return (
+      <Panel className="print:hidden">
+        <MonoLabel>01 · Crossover partner</MonoLabel>
+        <h2 className="t-display m-0 text-[clamp(28px,4vw,40px)] leading-[0.92]">Solo takeover</h2>
+        <p className="m-0 text-body text-mute [text-wrap:pretty]">
+          You chose to plan for {fanbase?.name ?? "this fanbase"} alone, so no crossover partner was searched for. The city, venue, opener and
+          sponsors below are scored on {fanbase?.name ?? "the fanbase"}&apos;s fans only.
+        </p>
+        {onCrossover && (
+          <div>
+            <Button onClick={onCrossover} disabled={view.phase === "running"}>
+              Find a crossover partner instead
+            </Button>
+          </div>
+        )}
+      </Panel>
+    );
+  }
   const replanning = view.replanFrom === "partners";
   const chosen = partners?.picks.find((p) => p.pick.entity.id === partners.chosenId) ?? partners?.picks[0];
   const others = partners?.picks.filter((p) => p !== chosen) ?? [];
@@ -290,14 +312,16 @@ export function CitySection({ view, onUseCity, extra }: { view: RunView; onUseCi
               <ConfirmPill>Fallback · wider region</ConfirmPill>
             </div>
           )}
-          {city.basis === "fanbase" && (
+          {city.basis === "fanbase" && !view.solo && (
             <div className="flex flex-wrap items-center gap-2">
               <Banner tone="warn">{city.reason}</Banner>
               <ConfirmPill>Fallback · fanbase only</ConfirmPill>
             </div>
           )}
           {!chosen ? (
-            <Banner tone="warn">{city.reason} No city has heat for both audiences, so the plan stops here.</Banner>
+            <Banner tone="warn">
+              {city.reason} {view.solo ? "No city has heat for this fanbase" : "No city has heat for both audiences"}, so the plan stops here.
+            </Banner>
           ) : (
             <>
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -340,11 +364,18 @@ export function CitySection({ view, onUseCity, extra }: { view: RunView; onUseCi
                           ]
                     }
                   />
-                  <p className="m-0 text-chip text-mute [text-wrap:pretty]">
-                    Combined score, 0–100: how strongly {fanbase?.name} fans and {partnerName} fans show up together in a city. Each
-                    audience is scaled so its strongest city is 100, then the two are combined, so a city only scores high when both
-                    are strong. Dot size follows the score.
-                  </p>
+                  {view.solo ? (
+                    <p className="m-0 text-chip text-mute [text-wrap:pretty]">
+                      Score, 0–100: how strongly {fanbase?.name} fans show up in a city, scaled so their strongest city is 100. Dot size
+                      follows the score.
+                    </p>
+                  ) : (
+                    <p className="m-0 text-chip text-mute [text-wrap:pretty]">
+                      Combined score, 0–100: how strongly {fanbase?.name} fans and {partnerName} fans show up together in a city. Each
+                      audience is scaled so its strongest city is 100, then the two are combined, so a city only scores high when both
+                      are strong. Dot size follows the score.
+                    </p>
+                  )}
                 </div>
                 {showTour ? (
                   <div className="flex flex-col gap-2">

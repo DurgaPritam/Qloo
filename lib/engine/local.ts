@@ -1,5 +1,5 @@
 import { ENGINE_CONFIG } from "./config";
-import { foldName } from "./match";
+import { foldName, levenshtein } from "./match";
 import type { Candidate, City } from "./types";
 
 export interface LocalPick {
@@ -29,7 +29,8 @@ export function rankLocal(
 
 /**
  * A typed city name ("Seattle", "Portland, Maine", "london uk") to a city in the list: exact name
- * first, narrowed by the text after a comma (region or country), largest population wins.
+ * first, then a name it starts, then the nearest spelling; narrowed by the text after a comma
+ * (region or country), largest population wins.
  */
 export function findCity(text: string, cities: readonly City[]): City | null {
   const [name, ...rest] = text.split(",");
@@ -40,9 +41,28 @@ export function findCity(text: string, cities: readonly City[]): City | null {
     cities.filter((c) => (exact ? foldName(c.name) === want : foldName(c.name).startsWith(want)));
   let pool = matches(true);
   if (pool.length === 0) pool = matches(false);
+  if (pool.length === 0) pool = nearMisses(want, cities);
   if (hint) {
     const narrowed = pool.filter((c) => foldName(c.admin1).includes(hint) || foldName(c.country) === hint || (hint === "uk" && c.country === "GB"));
     if (narrowed.length) pool = narrowed;
   }
   return pool.reduce<City | null>((best, c) => (!best || c.population > best.population ? c : best), null);
+}
+
+/**
+ * Typos ("Ne york", "Seatle"): the cities fewest edits away, with or without a trailing "City".
+ * One edit allowed from 4 letters, two from 8; shorter names must match exactly.
+ */
+function nearMisses(want: string, cities: readonly City[]): City[] {
+  const allowed = want.length >= 8 ? 2 : want.length >= 4 ? 1 : 0;
+  if (!allowed) return [];
+  let best = allowed + 1;
+  let pool: City[] = [];
+  for (const c of cities) {
+    const name = foldName(c.name);
+    const d = Math.min(levenshtein(want, name), levenshtein(want, name.replace(/ city$/, "")));
+    if (d < best) [best, pool] = [d, [c]];
+    else if (d === best) pool.push(c);
+  }
+  return pool;
 }

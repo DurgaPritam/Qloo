@@ -12,6 +12,7 @@ import type { Prediction } from "@/lib/engine/outcomes";
 import type { DeckFont } from "@/lib/export/branding";
 import type { OutreachKind, OutreachStage } from "@/lib/pipeline/stages";
 import type { SavedTourResult } from "@/lib/tools/tour";
+import type { Itinerary } from "@/lib/itinerary/types";
 import type { CampaignBriefData } from "@/lib/campaign/brief";
 
 /**
@@ -745,6 +746,29 @@ export const tours = pgTable(
   (t) => [index("tours_workspace_idx").on(t.workspaceId, t.createdAt)],
 );
 
+/* ---------- Tour planner itineraries ---------- */
+
+/**
+ * An editable tour from the Tour planner: stops, the user's dates, venues, support acts, sponsors
+ * and contacts, with each stop's Qloo heat as the route gave it. Checked and size-capped by
+ * lib/itinerary/types.ts parseItinerary before it is stored.
+ */
+export const itineraries = pgTable(
+  "itineraries",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    data: jsonb("data").$type<Itinerary>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("itineraries_workspace_idx").on(t.workspaceId, t.updatedAt)],
+);
+
 /* ---------- Campaign briefs ---------- */
 
 /** A one-page campaign brief built from a saved plan; its figures are the plan's and Qloo's. */
@@ -897,6 +921,7 @@ export const TENANT_TABLES = [
   "outreach",
   "outreach_events",
   "tours",
+  "itineraries",
   "watch_runs",
   "campaign_briefs",
   "api_keys",

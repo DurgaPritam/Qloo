@@ -17,7 +17,7 @@ import { CallsUsed, ChoicePicker, SampleBanner, ToolError, ToolForm, ToolIntro, 
 const EXAMPLES = [{ label: "Phoebe Bridgers" }, { label: "John Mulaney" }, { label: "Call Her Daddy" }, { label: "Black Country, New Road" }];
 
 /** Same keys as lib/tools/tour.ts REGIONS, plus single countries. */
-const REGION_OPTIONS = [
+export const REGION_OPTIONS = [
   { value: "", label: "The fanbase's home country" },
   { value: "US", label: "United States" },
   { value: "us-west", label: "US West" },
@@ -346,6 +346,11 @@ export function TourPlanner({
                 <Link href={planHref(r.fanbase.name)} className="rounded-btn bg-acc px-3.5 py-2 text-chip font-medium text-on-acc no-underline">
                   Plan the opening takeover →
                 </Link>
+                {r.draftId && !viewingSaved && (
+                  <Link href={`/tour/planner?draft=${r.draftId}${dates.from ? `&start=${dates.from}` : ""}`} className="rounded-btn border-th border-line px-3.5 py-2 text-chip text-ink no-underline hover:bg-acc-soft" data-open-planner>
+                    Open in tour planner →
+                  </Link>
+                )}
                 {workspace && r.draftId && !viewingSaved && workspace.canSave && (
                   <Button onClick={() => void save(r.draftId!)} loading={saving.busy}>
                     Save to workspace
