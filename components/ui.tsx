@@ -720,32 +720,51 @@ export const Page = ({ children, max = "max-w-[880px]" }: { children: ReactNode;
 function SiteFooter({ max }: { max: string }) {
   return (
     <footer className="border-t border-line print:hidden">
-      <div className={cx("mx-auto box-border flex flex-wrap items-start gap-x-10 gap-y-4 px-panel py-6 text-chip text-mute", max)}>
-        <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">
-          <Wordmark />
-          <span className="[text-wrap:pretty]">Event plans for anyone with a fanbase, backed by Qloo taste data.</span>
+      <div className={cx("mx-auto box-border flex flex-col gap-5 px-panel py-6 text-chip text-mute", max)}>
+        <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4">
+          <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">
+            <Wordmark />
+            <span className="[text-wrap:pretty]">Event plans for anyone with a fanbase, backed by Qloo taste data.</span>
+          </div>
+          <FooterData />
         </div>
-        <nav aria-label="Footer" className="flex flex-col gap-1">
-          {[...NAV, ...FOOTER_EXTRA].map((item) => (
-            <Link key={item.href} href={item.href} className="text-mute no-underline hover:text-ink">
-              {item.label}
-            </Link>
+        {/* Links run in rows that wrap, so the footer stays short at any width. */}
+        <nav aria-label="Footer" className="flex flex-col gap-2.5 border-t border-line pt-4">
+          {[
+            { label: "Takeover", items: NAV },
+            { label: "Tools", items: FOOTER_EXTRA },
+          ].map((group) => (
+            <div key={group.label} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+              <MonoLabel className="shrink-0 sm:w-[72px]">{group.label}</MonoLabel>
+              <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+                {group.items.map((item) => (
+                  <Link key={item.href} href={item.href} className="text-mute no-underline hover:text-ink">
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
-        <div className="flex max-w-[320px] flex-col gap-1 [text-wrap:pretty]">
-          <MonoLabel>Data</MonoLabel>
-          <span>Taste data from Qloo. Cities from GeoNames (CC BY 4.0). Map outlines from Natural Earth.</span>
-          <span>Capacity, dates and prices are always to confirm with the promoter.</span>
-          <span className="flex gap-3">
-            {LEGAL.map((item) => (
-              <Link key={item.href} href={item.href} className="text-mute hover:text-ink">
-                {item.label}
-              </Link>
-            ))}
-          </span>
-        </div>
       </div>
     </footer>
+  );
+}
+
+function FooterData() {
+  return (
+    <div className="flex max-w-[360px] flex-col gap-1 [text-wrap:pretty]">
+      <MonoLabel>Data</MonoLabel>
+      <span>Taste data from Qloo. Cities from GeoNames (CC BY 4.0). Map outlines from Natural Earth.</span>
+      <span>Capacity, dates and prices are always to confirm with the promoter.</span>
+      <span className="flex gap-3">
+        {LEGAL.map((item) => (
+          <Link key={item.href} href={item.href} className="text-mute hover:text-ink">
+            {item.label}
+          </Link>
+        ))}
+      </span>
+    </div>
   );
 }
 
