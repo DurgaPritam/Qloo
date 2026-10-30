@@ -108,7 +108,7 @@ itinerary you can actually work from:
 | **City pages** (`/city/<name>`) | – | What each big city over-indexes on, one page each |
 | **Takeover Daily** (`/daily`) | – | A daily puzzle: guess Qloo's partner, city and sponsor; keep a streak, share your grid |
 
-**For teams** (sign in with an email link)
+**For teams** (sign in with Google or an email link)
 
 | Feature | What it does |
 | --- | --- |
@@ -181,7 +181,7 @@ flowchart TB
 - **Upstash Redis** for the Qloo cache, rate limits, the token budget and replayed examples.
 - **Postgres with Drizzle** for teams: Neon in production, an in-process PGlite locally, the same
   migrations for both. A test fails if any query touches a team's table without its workspace id.
-- **Auth.js** email magic links, **Resend** for email, **Stripe** (test mode) for plans.
+- **Auth.js** with Google sign-in and email magic links, **Resend** for email, **Stripe** (test mode) for plans.
 
 ## Built to be checked
 
@@ -232,7 +232,8 @@ You also need an `AUTH_SECRET` for sign-in; generate one with `openssl rand -bas
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Qloo cache, rate limits, token budget, examples |
 | `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct, for migrations) | Accounts, workspaces, saved plans and tours; required on Vercel |
 | `AUTH_SECRET` | Sign-in sessions |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Sign-in links and invites (the dev outbox is off on Vercel) |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | "Continue with Google" sign-in; redirect URI `https://<your-domain>/api/auth/callback/google` |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Email-link sign-in and invites (the dev outbox is off on Vercel); optional when Google sign-in is set |
 | `APP_URL` | Links in emails and Stripe returns |
 | `STRIPE_*`, `QSTASH_*`, `BLOB_READ_WRITE_TOKEN`, `CONTACT_EMAIL` | Optional: billing (test mode), background jobs, uploads, contact form |
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 
 import { getDb } from "@/lib/db";
@@ -9,8 +10,13 @@ import { accounts, sessions, users, verificationTokens } from "@/lib/db/schema";
 import { unscopedEnsurePersonalWorkspace } from "@/lib/db/unscoped";
 import { linkEmail, sendEmail } from "@/lib/email/mailer";
 
+type Env = Record<string, string | undefined>;
+
+/** Google sign-in is offered when its OAuth client is set (AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET). */
+export const googleConfigured = (env: Env = process.env) => Boolean(env.AUTH_GOOGLE_ID?.trim() && env.AUTH_GOOGLE_SECRET?.trim());
+
 /**
- * Auth.js: email magic links, database sessions (revocable), and a personal workspace on first
+ * Auth.js: Google sign-in and email magic links, database sessions (revocable), and a personal workspace on first
  * sign-in. Links are sent through lib/email/mailer.ts (Resend, or the local outbox).
  * The sign-in link is built from the request host: Vercel sets it, and local runs are trusted.
  * Hosting anywhere else needs AUTH_URL, so a forged Host header cannot redirect the link.
@@ -24,6 +30,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
     // No newUser page: a first sign-in from an invitation must return to that invitation.
     pages: { signIn: "/signin", verifyRequest: "/signin/check", error: "/signin" },
     providers: [
+      ...(googleConfigured()
+        ? [
+            Google({
+              clientId: process.env.AUTH_GOOGLE_ID,
+              clientSecret: process.env.AUTH_GOOGLE_SECRET,
+              // Google verifies the address, so an account first made with an email link is the same person.
+              allowDangerousEmailAccountLinking: true,
+            }),
+          ]
+        : []),
       Resend({
         // The key is read by lib/email/mailer.ts; the provider only needs a value to load.
         apiKey: "unused",

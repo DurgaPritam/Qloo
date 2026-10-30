@@ -30,6 +30,11 @@ export async function requestSignInLink(form: FormData) {
   await signIn("resend", { email, redirectTo: next });
 }
 
+/** Sends the visitor to Google; Auth.js brings them back to `next`, signed in. */
+export async function signInWithGoogle(form: FormData) {
+  await signIn("google", { redirectTo: await safePath(form.get("next")) });
+}
+
 export async function signOutAction() {
   await signOut({ redirectTo: "/" });
 }
