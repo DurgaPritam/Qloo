@@ -2,6 +2,9 @@
 
 **Type any fanbase. Get the event.**
 
+**Live: [takeover-fawn.vercel.app](https://takeover-fawn.vercel.app)**. Try *Phoebe Bridgers*, or
+pick *Solo* and try *Taylor Swift*. The preloaded examples open instantly.
+
 A comedian, a band, a film, a podcast, a football club: Takeover finds the crossover partner whose
 fans overlap most, the city where both audiences over-index, the room, the opener and the sponsors.
 Then it writes the one-page brief and the outreach. Or it routes the whole tour, day by day.

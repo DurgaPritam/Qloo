@@ -1,0 +1,9 @@
+# Uploaded by `vercel deploy` from a local folder: keep secrets, local data and build output out.
+.env
+.env.*
+!.env.example
+.data/
+.next/
+node_modules/
+test-results/
+playwright-report/
