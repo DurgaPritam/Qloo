@@ -1,6 +1,6 @@
 /**
  * Offline tuning on raw probe fixtures (no Qloo calls): runs the partner engine for each seed and
- * prints the picks and the most popular candidates. Used for docs/tuning.md.
+ * prints the picks and the most popular candidates.
  *
  *   npx tsx scripts/tune.mts
  */

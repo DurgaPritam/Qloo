@@ -24,7 +24,7 @@ interface Scored {
  * Picks crossover partners. Affinity is compared within each category (Qloo's levels differ by
  * category), then score = relativeAffinity * (1 - popularity)^0.15. A popularity band drops
  * mega-stars and the barely known. Top `count`, spanning at least `minCategories` categories when
- * possible. Values and reasons: docs/tuning.md.
+ * possible.
  *
  * Fallbacks, always labelled: if nothing passes the affinity floor, the best candidates that only
  * failed the floor are used. The popularity band is never relaxed.

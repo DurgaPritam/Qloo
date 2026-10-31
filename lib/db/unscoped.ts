@@ -12,7 +12,7 @@ import { hashToken, normaliseEmail } from "./scoped";
 
 /**
  * The only reads that cannot be scoped to a workspace in advance, because they are how a
- * workspace is found (docs/roadmap-rules.md, rule 3). Each is named unscoped* and returns no
+ * workspace is found. Each is named unscoped* and returns no
  * more than its caller needs. Writes here still carry workspace_id.
  */
 

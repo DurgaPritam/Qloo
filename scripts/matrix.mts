@@ -1,6 +1,6 @@
 /**
- * The playbook's Step 7 test matrix against a running app (default http://localhost:3400).
- * API rows only; UI rows are in e2e/matrix.spec.ts. Results feed docs/test-results.md.
+ * The test matrix against a running app (default http://localhost:3400).
+ * API rows only; UI rows are in e2e/matrix.spec.ts.
  *
  *   MATRIX_URL=http://localhost:3400 MATRIX_TOKEN=… npx tsx scripts/matrix.mts
  */

@@ -41,18 +41,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# design hand-off archives (the unpacked folder is committed)
-/design/*.zip
+# Design hand-off, working notes and assistant instructions: kept local, not in the repo
+/design/
+/docs/
+/CLAUDE.md
+/AGENTS.md
 
 # playwright
 /test-results/
 /playwright-report/
 
-# Personal planning notes: keep local, never commit
-/docs/Takeover build playbook for Claude Code and Claude Design.md
-/docs/playbook.md
-
-# Raw Qloo probe output stays local (docs/decisions.md D6); the trimmed set is committed.
+# Raw Qloo probe output stays local; the trimmed set is committed.
 /tests/fixtures/*
 !/tests/fixtures/qloo/
 

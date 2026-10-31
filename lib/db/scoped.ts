@@ -70,7 +70,7 @@ import {
 } from "./schema";
 
 /**
- * The scoped repository (docs/roadmap-rules.md, rule 3). Every query adds
+ * The scoped repository. Every query adds
  * workspace_id = ctx.workspaceId, and every write checks the caller's role first.
  * A context comes only from lib/workspace/context.ts, which checks the membership.
  */

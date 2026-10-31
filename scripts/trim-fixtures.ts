@@ -1,6 +1,6 @@
 /**
  * Writes tests/fixtures/qloo/ from the raw probe output in tests/fixtures/ (gitignored):
- * only the fields lib/qloo/api.ts reads, and every third heatmap cell. See docs/decisions.md D6.
+ * only the fields lib/qloo/api.ts reads, and every third heatmap cell.
  *
  *   npx tsx scripts/trim-fixtures.ts
  */

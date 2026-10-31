@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Takeover design tokens · accent set 1b (Lime / Anton), from design/design_handoff_takeover/tokens.css.
+/* Takeover design tokens · accent set 1b (Lime / Anton), from the Claude Design handoff.
    Theme: <html data-theme="dark | light | genz">. No attribute = dark. Fonts come from next/font in app/layout.tsx. */
 
 :root,

@@ -75,7 +75,7 @@ export class QlooApiSource implements QlooSource {
   }
 
   async heatmap(entityIds: readonly string[], location: string | undefined, opts: { runId: string }) {
-    // Qloo requires a location for heatmaps (docs/qloo-shapes.md); callers pass the market.
+    // Qloo requires a location for heatmaps; callers pass the market.
     if (!location) throw new Error("A heatmap needs a location (a country name).");
     const res = await this.client.get<RawList>(
       "/v2/insights",

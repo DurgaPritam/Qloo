@@ -56,7 +56,7 @@ function dropReason(item: Scorable, rules: ScreenRules): DropReason | null {
 
 /**
  * Affinity relative to the item's group: 0 at the group's median, 1 at its best, negative below the
- * median. Qloo affinity differs in level by category (docs/tuning.md), so ranking is done on this.
+ * median. Qloo affinity differs in level by category, so ranking is done on this.
  */
 export function relativeAffinity<T extends Scorable>(items: readonly T[], groupOf: (item: T) => string): Map<string, number> {
   const groups = new Map<string, number[]>();

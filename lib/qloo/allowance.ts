@@ -7,7 +7,7 @@ import { getRedis } from "@/lib/server/redis";
 import { tierAllowance as defaultTierAllowance } from "@/lib/workspace/tier";
 
 /**
- * The two Qloo limits on top of the per-run cap (docs/roadmap-rules.md, rule 4):
+ * The two Qloo limits on top of the per-run cap:
  * - a global daily cap on uncached calls across the whole deployment (QLOO_DAILY_CALL_CAP);
  * - a monthly allowance per workspace, from its plan tier (lib/entitlements.ts), lowered by
  *   QLOO_WORKSPACE_MONTHLY_CALLS when an operator sets that ceiling.

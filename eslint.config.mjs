@@ -15,7 +15,7 @@ const eslintConfig = defineConfig([
     // Claude Design hand-off: reference only, not app code.
     "design/**",
   ]),
-  // Rule 3 (docs/roadmap-rules.md): customer data is read through forWorkspace(). Only the
+  // Rule 3: customer data is read through forWorkspace(). Only the
   // files below may touch the raw client or the named unscoped lookups.
   {
     files: ["**/*.ts", "**/*.tsx"],

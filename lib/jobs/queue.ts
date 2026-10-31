@@ -4,7 +4,7 @@ import type { RefreshUnit } from "@/lib/roster/plan";
 
 import { publishQstash } from "./qstash";
 
-/** One staggered slice of a roster refresh, for one workspace (docs/roadmap-rules.md, rule 3). */
+/** One staggered slice of a roster refresh, for one workspace. */
 export interface RosterRefreshMessage {
   kind: "roster.refresh";
   jobId: string;

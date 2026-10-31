@@ -13,7 +13,7 @@ Every pick is measured on the [Qloo Taste AI API](https://docs.qloo.com/) and sc
 read in [`lib/engine/`](lib/engine). The language model writes the words, and it is never allowed to
 produce a number.
 
-![Takeover landing page](docs/screenshots/landing.png)
+![Takeover landing page](.github/screenshots/landing.png)
 
 ---
 
@@ -27,7 +27,7 @@ Takeover answers **PEN15 in Seattle**, and shows why. Seattle ranks **#1 for the
 the two audiences and **#18 by population**. That gap is the product: it finds the city a
 population table would never pick.
 
-![LLM-only comparison](docs/screenshots/llm-only.png)
+![LLM-only comparison](.github/screenshots/llm-only.png)
 
 The "LLM only" tab sits on every plan. It asks the same model the same question with no taste data,
 so the difference Qloo makes is visible in one click.
@@ -48,13 +48,13 @@ so the difference Qloo makes is visible in one click.
 Each step in the agent log shows the Qloo call behind it. The results show the score, the evidence
 and the shortlist, with **Use this partner** and **Use this city** to re-plan from that step.
 
-![Run screen: agent log and crossover partner](docs/screenshots/plan.png)
+![Run screen: agent log and crossover partner](.github/screenshots/plan.png)
 
-![City step: map and ranking](docs/screenshots/city.png)
+![City step: map and ranking](.github/screenshots/city.png)
 
 The brief downloads as a PDF or a deck, copies as text, or shares as a link with a preview card.
 
-![One-page brief](docs/screenshots/brief.png)
+![One-page brief](.github/screenshots/brief.png)
 
 ## Solo or crossover: your call
 
@@ -63,7 +63,7 @@ box (or flip the switch on any plan) and Takeover skips the partner. It ranks ci
 fanbase's own heat, finds the room, opener and sponsors for that audience alone, and drafts one
 email, to the venue. A solo run makes about 4 Qloo calls instead of about 10.
 
-![Solo takeover for Taylor Swift](docs/screenshots/solo.png)
+![Solo takeover for Taylor Swift](.github/screenshots/solo.png)
 
 ## Tour planner: from route to run sheet
 
@@ -86,9 +86,9 @@ itinerary you can actually work from:
 - **Export** to CSV, a calendar file (.ics) for Google, Apple or Outlook, or a printable PDF.
   Save it to your team's workspace or keep it in the browser.
 
-![Tour planner: the tour, its totals, exports and the plain-words edit box](docs/screenshots/tour-planner.png)
+![Tour planner: the tour, its totals, exports and the plain-words edit box](.github/screenshots/tour-planner.png)
 
-![A stop with suggest buttons and contacts, next to the draft day-by-day schedule](docs/screenshots/tour-planner-schedule.png)
+![A stop with suggest buttons and contacts, next to the draft day-by-day schedule](.github/screenshots/tour-planner-schedule.png)
 
 ## Everything in the box
 
@@ -174,7 +174,7 @@ flowchart TB
 ```
 
 - **Next.js (App Router), React 19, TypeScript, Tailwind CSS 4**, built from a Claude Design
-  handoff in [`design/`](design).
+  handoff.
 - **Qloo Taste AI API** for every partner, city, venue, opener, sponsor and audience.
 - **Gemini** through the official Google Gen AI SDK, with automatic fallback across models when one
   is overloaded or out of quota. `LLM_PROVIDER=anthropic` uses Claude.
@@ -190,10 +190,6 @@ flowchart TB
 - **CI on every push and pull request** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
   lint, typecheck, tests, production build, a check that a mock-data build is refused in
   production, a secret scan of the bundles, and the end-to-end suites.
-- **Tested on real Qloo data**, fallbacks included: [docs/test-results.md](docs/test-results.md).
-- **Every design decision written down**, with the reasoning: [docs/decisions.md](docs/decisions.md).
-  Tuning notes, Qloo response shapes and a measured Redis investigation sit alongside it in
-  [`docs/`](docs).
 
 ## Run it locally
 
@@ -278,7 +274,6 @@ token use and the run limits, with no secrets.
 | [`lib/tools/`](lib/tools), [`lib/itinerary/`](lib/itinerary) | The standalone tools, and the tour planner's schedule, edits and AI parsing |
 | [`lib/db/`](lib/db), [`lib/workspace/`](lib/workspace) | Schema, the workspace-scoped repository, sessions and permissions |
 | `app/`, `components/` | Pages, API routes and UI |
-| [`docs/`](docs) | Decisions, architecture, roadmap rules, tuning, test results |
 
 ## Data credits
 

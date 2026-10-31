@@ -1,6 +1,6 @@
 /**
  * The landing page's one-click examples: one per format, chosen on real Qloo runs for the most
- * specific results (docs/decisions.md D32). They are preloaded by scripts/warm-cache.ts.
+ * specific results. They are preloaded by scripts/warm-cache.ts.
  */
 export const EXAMPLES = [
   { kind: "Comedian", name: "John Mulaney" },
@@ -9,7 +9,7 @@ export const EXAMPLES = [
   { kind: "Sports team", name: "Arsenal" },
 ] as const;
 
-/** Likely judge inputs beyond the four chips (playbook Step 6), also preloaded. */
+/** Likely judge inputs beyond the four chips, also preloaded. */
 export const JUDGE_INPUTS = [
   "Kevin Hart",
   "Ali Wong",

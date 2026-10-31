@@ -1,5 +1,5 @@
 /**
- * Exercises each fallback on the real API and prints what fired (step 5, docs/test-results.md).
+ * Exercises each fallback on the real API and prints what fired.
  *
  *   npx tsx --conditions=react-server scripts/fallbacks.mts
  */

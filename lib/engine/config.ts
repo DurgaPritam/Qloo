@@ -2,14 +2,14 @@ import type { Category } from "./types";
 
 /**
  * Every engine threshold lives here. Values are first guesses until the probe shows Qloo's
- * real affinity and popularity distributions (see docs/after-key.md).
+ * real affinity and popularity distributions.
  */
 export const ENGINE_CONFIG = {
   partners: {
     count: 3,
     minCategories: 2,
     /**
-     * Popularity band (Qloo popularity is a percentile bunched near 1; docs/tuning.md).
+     * Popularity band (Qloo popularity is a percentile bunched near 1).
      * Above maxPopularity is a mega-star or generic platform (YouTube, Netflix, Rihanna);
      * below minPopularity is too obscure to draw a crowd (many of these have popularity 0).
      */
@@ -88,8 +88,8 @@ export const ENGINE_CONFIG = {
   },
   /**
    * Overlap checker: Qloo affinity of one entity among the other's fans. Among the top 20
-   * partner candidates of real fanbases, affinity ran 0.81–0.99 with a median of 0.92
-   * (docs/tuning.md), so 0.92+ is as strong as a typical top crossover.
+   * partner candidates of real fanbases, affinity ran 0.81–0.99 with a median of 0.92,
+   * so 0.92+ is as strong as a typical top crossover.
    */
   overlap: { strong: 0.92, clear: 0.85 },
   /**
@@ -182,7 +182,7 @@ export const FORMAT_LABEL: Record<FormatId, string> = {
 };
 
 /**
- * Readable place tags, as Qloo names them (docs/qloo-shapes.md); lib/qloo/tags.ts maps them to ids.
+ * Readable place tags, as Qloo names them; lib/qloo/tags.ts maps them to ids.
  * Sports teams are Qloo brands, so brands get the fan fest.
  */
 export const FORMAT_BY_CATEGORY: Record<Category, FormatRule> = {

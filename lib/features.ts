@@ -4,7 +4,7 @@ import { EXAMPLES } from "@/lib/examples";
 /**
  * Every feature Takeover has, in one place: the landing role picker, /guide, the help panel and
  * the getting-started checklist all read from here. The tier comes from lib/entitlements.ts, never
- * from this file. Copy rules (CLAUDE.md, onboarding prompt): describe only what exists, say which
+ * from this file. Copy rules: describe only what exists, say which
  * numbers come from Qloo and which from Your data, and make no claims about results, reach or revenue.
  */
 export const ROLE_KEYS = ["promoter", "venue", "brand", "manager", "fan"] as const;

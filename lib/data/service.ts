@@ -25,7 +25,7 @@ import { parseNumber, readTable, TableError } from "./table";
 import { METRIC_LABEL, type CityOption, type ColumnRole, type DatasetSummary, type DatasetView, type MetricDef, type QlooTrace, type ReviewItem, type UploadTrace } from "./types";
 
 /**
- * The user's own data (docs/roadmap-rules.md, rule 2). It is read only by these functions and
+ * The user's own data. It is read only by these functions and
  * the workspace routes; nothing in lib/agent or lib/llm imports it, so it never reaches a prompt.
  */
 

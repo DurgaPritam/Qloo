@@ -1,10 +1,10 @@
 /**
- * Fails a test when SQL touches a workspace table without a workspace_id condition
- * (docs/roadmap-rules.md, rule 3). It reads the SQL Drizzle emits for Postgres, so it works from
- * a query logger and needs no database: tenant tables are those with a workspace_id column.
+ * Fails a test when SQL touches a workspace table without a workspace_id condition.
+ * It reads the SQL Drizzle emits for Postgres, so it works from a query logger
+ * and needs no database: tenant tables are those with a workspace_id column.
  *
  * It proves the condition is there, not that its value is the signed-in user's workspace; the
- * scoped repository (docs/architecture.md) is what passes that value.
+ * scoped repository is what passes that value.
  */
 
 export interface LoggedQuery {

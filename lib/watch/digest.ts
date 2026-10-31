@@ -10,7 +10,7 @@ import { unsubscribeToken } from "./token";
 import { safeRephrase, tagFor } from "./wording";
 
 /**
- * The weekly digest (docs/roadmap-rules.md, rule 5): email to the person themselves, only after
+ * The weekly digest: email to the person themselves, only after
  * they turned it on, with an unsubscribe link that works without signing in. The link carries a
  * signed token for that person and workspace, so nothing secret is stored.
  */

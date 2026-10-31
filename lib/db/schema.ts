@@ -16,7 +16,7 @@ import type { Itinerary } from "@/lib/itinerary/types";
 import type { CampaignBriefData } from "@/lib/campaign/brief";
 
 /**
- * Every table that holds customer data has workspace_id (docs/roadmap-rules.md, rule 3).
+ * Every table that holds customer data has workspace_id.
  * Identity tables (users, accounts, sessions, verification tokens) belong to a person and have
  * the shapes @auth/drizzle-adapter expects.
  */
@@ -309,7 +309,7 @@ export const entityProfiles = pgTable("entity_profiles", {
 export const JOB_STATUSES = ["queued", "running", "done", "failed", "skipped_budget"] as const;
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
-/** Background work for one workspace, recorded whatever happens (docs/architecture.md). */
+/** Background work for one workspace, recorded whatever happens. */
 export const jobRuns = pgTable(
   "job_runs",
   {
@@ -336,7 +336,7 @@ export const jobRuns = pgTable(
   ],
 );
 
-/* ---------- Your data (docs/roadmap-rules.md, rule 2) ---------- */
+/* ---------- Your data ---------- */
 
 /** An uploaded file of the user's own numbers by city. Never sent to the model, never shown outside the workspace. */
 export const datasets = pgTable(
@@ -606,7 +606,7 @@ export const outcomes = pgTable(
 
 /**
  * For calibration later: each plan's predicted score next to what happened. Stored, never used to
- * change scoring (docs/decisions.md describes how it could be).
+ * change scoring.
  */
 export const calibrationPairs = pgTable(
   "calibration_pairs",
@@ -653,7 +653,7 @@ export const deckSettings = pgTable("deck_settings", {
 
 /**
  * One draft to one recipient, tracked through the stages. Takeover never sends it: the user sends it
- * from their own email and moves the card (docs/roadmap-rules.md, rule 5).
+ * from their own email and moves the card.
  */
 export const outreach = pgTable(
   "outreach",

@@ -5,7 +5,7 @@ import { scorePartners } from "@/lib/engine/partners";
 import { candidate } from "./builders";
 
 /**
- * Rules tuned on real Qloo data (docs/tuning.md): popularity band 0.5–0.999, affinity compared
+ * Rules tuned on real Qloo data: popularity band 0.5–0.999, affinity compared
  * within each category (0 = category median, 1 = category best), score = relative affinity ×
  * (1 − popularity)^0.15.
  */

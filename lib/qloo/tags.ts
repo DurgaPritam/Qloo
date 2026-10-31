@@ -1,4 +1,4 @@
-/** Readable place tags (lib/engine/config.ts) to Qloo tag ids, from /v2/tags (docs/qloo-shapes.md). */
+/** Readable place tags (lib/engine/config.ts) to Qloo tag ids, from /v2/tags. */
 export const PLACE_TAG_IDS: Readonly<Record<string, string>> = {
   "comedy club": "urn:tag:category:place:comedy_club",
   "live music venue": "urn:tag:category:place:live_music_venue",

@@ -1,5 +1,5 @@
 /**
- * The one place that knows what each plan tier includes (Prompt 12). Every gated route and screen
+ * The one place that knows what each plan tier includes. Every gated route and screen
  * asks this module; no other code compares tiers. Change pricing here and nothing else moves.
  * Limit numbers are placeholders until pricing is confirmed.
  *

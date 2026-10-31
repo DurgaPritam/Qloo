@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Ported from design/design_handoff_takeover/src/components/ui.tsx. Same props, states, classes
+ * Ported from the Claude Design handoff. Same props, states, classes
  * and copy. Changes: React 19 / Tailwind v4 fixes, the Qloo-call row is hidden when a step made no
  * Qloo call, and buttons take a `loading` state.
  */
@@ -335,7 +335,7 @@ export const SourceBadge = ({ children = "Qloo signal" }: { children?: ReactNode
   </span>
 );
 
-/** The user's own data (docs/roadmap-rules.md, rule 2); never on a Qloo number. From the design's Roster and Your data screens. */
+/** The user's own data; never on a Qloo number. From the design's Roster and Your data screens. */
 export const YourDataBadge = () => (
   <span className="whitespace-nowrap rounded-badge border border-line bg-track px-1.5 py-px font-mono text-label uppercase tracking-[0.06em] text-ink">
     ■ Your data

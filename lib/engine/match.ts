@@ -92,7 +92,7 @@ export function isComedian(entity: Entity): boolean {
 }
 
 /**
- * Qloo lists famous people twice under one name: a person and an artist (docs/qloo-shapes.md).
+ * Qloo lists famous people twice under one name: a person and an artist.
  * Keep one: the person for comedians (comedy rooms, comedy partners), the artist otherwise
  * (music). Order and other results are unchanged.
  */

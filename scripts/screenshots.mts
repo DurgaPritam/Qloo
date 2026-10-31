@@ -7,7 +7,7 @@
 import { chromium, type Page } from "playwright";
 
 const BASE = process.env.MATRIX_URL ?? "http://localhost:3400";
-const OUT = "docs/screenshots";
+const OUT = ".github/screenshots";
 const headers = { "x-takeover-e2e": process.env.MATRIX_TOKEN ?? "" };
 
 const browser = await chromium.launch();

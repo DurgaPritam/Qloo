@@ -3,9 +3,9 @@ import countries from "./data/countries.json";
 import { foldName } from "./match";
 
 /**
- * Markets are countries. Qloo heatmaps need a location (docs/qloo-shapes.md), so cities are
+ * Markets are countries. Qloo heatmaps need a location, so cities are
  * ranked inside one market: the fanbase's home country when Qloo's own properties say it, else
- * the default. See docs/decisions.md D7.
+ * the default.
  */
 export interface Market {
   /** ISO 3166-1 alpha-2 */

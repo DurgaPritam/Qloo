@@ -1,6 +1,6 @@
 /**
- * Blends Qloo's city signal with the user's own metric (docs/roadmap-rules.md, rule 2: never one
- * blended number without its parts). Every row keeps the Qloo part, the user part and the weight.
+ * Blends Qloo's city signal with the user's own metric, never as one
+ * blended number without its parts. Every row keeps the Qloo part, the user part and the weight.
  *
  *   yours    = city metric ÷ the best city's metric          (0–1, "scaled against your best city")
  *   combined = (1 − weight) × qloo + weight × yours

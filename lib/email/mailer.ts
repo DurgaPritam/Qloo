@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * The only module that sends email (docs/roadmap-rules.md, rule 5). It sends through Resend when
+ * The only module that sends email. It sends through Resend when
  * RESEND_API_KEY is set. Without it, local runs and e2e put messages in an in-memory outbox
  * (shown at /dev/outbox); on Vercel there is no outbox, and sending fails closed.
  */

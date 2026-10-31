@@ -2,7 +2,7 @@ import { countryCode, countryFromDescription } from "@/lib/engine/markets";
 import type { Brand, Candidate, Category, Entity, HeatCell, Place } from "@/lib/engine/types";
 
 /**
- * Raw Qloo JSON → our engine types. Field paths are documented in docs/qloo-shapes.md; anything
+ * Raw Qloo JSON → our engine types; anything
  * missing or malformed is dropped here rather than guessed.
  */
 

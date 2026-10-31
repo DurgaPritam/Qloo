@@ -45,7 +45,7 @@ export const MOCK_SEARCH: Record<
 };
 
 /**
- * Values mimic real Qloo ranges (docs/qloo-shapes.md): affinity 0.85–0.98, popularity bunched
+ * Values mimic real Qloo ranges: affinity 0.85–0.98, popularity bunched
  * near 1. One mega-star and one barely-known entry exercise the popularity band.
  */
 export const MOCK_CANDIDATES: Partial<Record<Category, MockItem[]>> = {
