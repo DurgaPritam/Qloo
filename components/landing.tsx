@@ -69,7 +69,8 @@ export function Landing({ hero, showcase, roles }: { hero?: ReactNode; showcase?
           <p className="rise m-0 max-w-[46ch] text-[clamp(16px,1.5vw,19px)] leading-[1.45] text-mute [text-wrap:pretty]" style={{ ["--d" as string]: "260ms" }}>
             Any fanbase in. Partner, city, venue and brief out, with every number from Qloo taste data.
           </p>
-          <div className="rise" style={{ ["--d" as string]: "340ms" }}>
+          {/* Above the rows below it: each .rise is its own layer, and the suggestion list must sit on top. */}
+          <div className="rise relative z-10" style={{ ["--d" as string]: "340ms" }}>
             <InputBar value={query} onChange={setQuery} onSubmit={() => plan(query)} onPick={plan} placeholder="Plan a takeover for…" busy={busy} />
           </div>
           <div className="rise flex flex-wrap items-center gap-2 text-chip text-mute" style={{ ["--d" as string]: "380ms" }}>

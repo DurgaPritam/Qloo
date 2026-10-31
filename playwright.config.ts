@@ -40,7 +40,8 @@ export default defineConfig({
     : {
         command: "npm run build && npx next start -p 3200",
         url: `${baseURL}/api/health`,
-        env: { TAKEOVER_MOCK: "1", TAKEOVER_E2E_TOKEN: token ?? "", TAKEOVER_DB: "memory" },
+        // Sign-in needs a session secret; CI has no .env.local, so the local test server gets a throwaway one.
+        env: { TAKEOVER_MOCK: "1", TAKEOVER_E2E_TOKEN: token ?? "", TAKEOVER_DB: "memory", AUTH_SECRET: process.env.AUTH_SECRET ?? "local-e2e-auth-secret-not-a-secret" },
         reuseExistingServer: !process.env.CI,
         timeout: 240_000,
       },
